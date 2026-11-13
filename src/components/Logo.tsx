@@ -8,9 +8,12 @@ export function Logo() {
       {brand.logoImage ? (
         <Image src={brand.logoImage} alt="" width={32} height={32} className="h-8 w-auto" priority />
       ) : (
-        <span aria-hidden className="text-2xl">{brand.logoEmoji}</span>
+        // Caja de mudanza dibujada (se reemplaza al poner logoImage en src/brand.ts)
+        <span aria-hidden className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand">
+          <span className="h-3 w-3.5 rounded-[2px] border-2 border-t-4 border-white" />
+        </span>
       )}
-      <span>{brand.name}</span>
+      <span className="lowercase">{brand.name}</span>
     </span>
   );
 }

@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { hasSupabaseEnv } from "@/lib/env";
 import { brand } from "@/brand";
-import { categoryMap, getCategories } from "@/lib/data";
+import { categoryMap, getCategories, getHomeBanners } from "@/lib/data";
 import { createClient } from "@/lib/supabase/server";
 import { ProductCard } from "@/components/ProductCard";
+import { BannerCard } from "@/components/BannerCard";
+import { Icon } from "@/components/Icon";
 import { SetupNotice } from "@/components/SetupNotice";
 import type { Product } from "@/lib/types";
 
@@ -12,8 +14,9 @@ export default async function Home() {
 
   const supabase = await createClient();
   const nowIso = new Date().toISOString();
-  const [categories, latest, flash] = await Promise.all([
+  const [categories, banners, latest, flash] = await Promise.all([
     getCategories(),
+    getHomeBanners(),
     supabase
       .from("products")
       .select("*")
@@ -33,67 +36,60 @@ export default async function Home() {
   const latestProducts = (latest.data ?? []) as Product[];
   const flashProducts = (flash.data ?? []) as Product[];
 
+  // Si todavía no hay banners en el admin, se muestra el texto de src/brand.ts
+  const slides = banners.length
+    ? banners
+    : [
+        {
+          id: "brand",
+          eyebrow: brand.name,
+          title: brand.hero.title,
+          subtitle: brand.hero.subtitle,
+          cta_label: brand.hero.cta,
+          href: "/bienvenida",
+          image_url: null,
+          style: "suave" as const,
+        },
+      ];
+
   return (
-    <div className="space-y-12">
-      <section className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-2 px-6 py-10 text-white md:px-12 md:py-16">
-        <div className="max-w-xl space-y-4">
-          <p className="text-sm font-bold uppercase tracking-widest text-white/80">{brand.name}</p>
-          <h1 className="text-4xl font-black leading-tight md:text-5xl">
-            {brand.hero.title}
-          </h1>
-          <p className="text-lg text-white/90">
-            {brand.hero.subtitle}
-          </p>
-          <div className="flex flex-wrap gap-3 pt-2">
-            <Link
-              href="/bienvenida"
-              className="rounded-full bg-white px-6 py-3 font-extrabold text-brand shadow-lg hover:scale-105"
-            >
-              {brand.hero.cta}
+    <div className="space-y-10 md:space-y-14">
+      <form action="/catalogo" className="md:hidden">
+        <label className="flex items-center gap-2 rounded-full bg-surface px-4 py-3 text-muted focus-within:ring-2 focus-within:ring-foreground">
+          <Icon name="search" className="h-5 w-5" strokeWidth={2} />
+          <input name="q" placeholder="Buscar sofás, camas, lavadoras…" className="w-full bg-transparent text-foreground outline-none placeholder:text-muted" />
+        </label>
+      </form>
+
+      <section className="space-y-4">
+        <h1 className="text-[28px] font-black leading-tight md:text-4xl">{brand.hero.title}</h1>
+        <div className="scroll-row -mx-4 flex gap-4 overflow-x-auto px-4 pb-1">
+          {categories.map((c) => (
+            <Link key={c.slug} href={`/catalogo?categoria=${c.slug}`} className="group flex w-16 shrink-0 flex-col items-center gap-1.5 text-center md:w-20">
+              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-surface text-3xl transition group-hover:ring-2 group-hover:ring-foreground md:h-20 md:w-20 md:text-4xl" aria-hidden>
+                {c.emoji}
+              </span>
+              <span className="line-clamp-2 text-xs font-semibold leading-tight">{c.name}</span>
             </Link>
-            <Link
-              href="/catalogo"
-              className="rounded-full border-2 border-white/70 px-6 py-3 font-extrabold hover:bg-white/10"
-            >
-              Ver catálogo
-            </Link>
-          </div>
-        </div>
-        <div className="pointer-events-none absolute -right-6 -top-4 hidden rotate-12 text-[180px] opacity-90 md:block" aria-hidden>
-          🛋️
+          ))}
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-3">
-        {[
-          { icon: "✨", title: "Cuéntanos qué buscas", text: "Elige categorías, tu comuna y presupuesto." },
-          { icon: "👆", title: "Desliza", text: "❤️ si te gusta, ✖️ si no. Cada swipe afina tus recomendaciones." },
-          { icon: "🛒", title: "Compra seguro", text: "Paga con Mercado Pago y coordina retiro o despacho." },
-        ].map((s) => (
-          <div key={s.title} className="rounded-2xl border border-border bg-card p-5">
-            <div className="text-3xl">{s.icon}</div>
-            <h2 className="mt-2 font-extrabold">{s.title}</h2>
-            <p className="text-sm text-muted">{s.text}</p>
+      <section
+        className={`scroll-row -mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 md:mx-0 md:scroll-px-0 md:px-0 ${slides.length === 1 ? "" : "pr-10"}`}
+        aria-label="Destacados"
+      >
+        {slides.map((b, i) => (
+          <div key={b.id} className={`shrink-0 snap-start ${slides.length === 1 ? "w-full" : "w-[88%] md:w-[70%]"}`}>
+            <BannerCard banner={b} priority={i === 0} />
           </div>
         ))}
       </section>
 
-      <Link
-        href="/mudanzas"
-        className="flex items-center gap-4 rounded-card border border-border bg-card p-5 transition hover:border-brand"
-      >
-        <span className="text-5xl" aria-hidden>🚚</span>
-        <span className="flex-1">
-          <span className="block text-lg font-black">¿Te cambias de casa?</span>
-          <span className="block text-sm text-muted">Cotiza tu mudanza en un minuto y reserva tu hora en línea.</span>
-        </span>
-        <span className="font-extrabold text-brand">Cotizar →</span>
-      </Link>
-
       {flashProducts.length > 0 && (
         <section className="space-y-4">
-          <h2 className="text-2xl font-black">⚡ Ofertas relámpago</h2>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <SectionTitle title="Ofertas relámpago" href="/catalogo" />
+          <div className="grid grid-cols-2 gap-x-3 gap-y-6 md:grid-cols-4 md:gap-x-5">
             {flashProducts.map((p) => (
               <ProductCard key={p.id} product={p} category={cats[p.category_slug]} />
             ))}
@@ -102,16 +98,11 @@ export default async function Home() {
       )}
 
       <section className="space-y-4">
-        <div className="flex items-end justify-between">
-          <h2 className="text-2xl font-black">Recién llegados</h2>
-          <Link href="/catalogo" className="text-sm font-bold text-brand">
-            Ver todo →
-          </Link>
-        </div>
+        <SectionTitle title="Recién llegados" href="/catalogo" />
         {latestProducts.length === 0 ? (
-          <p className="text-muted">Pronto subiremos los primeros tesoros. {brand.logoEmoji}</p>
+          <p className="text-muted">Pronto subiremos los primeros tesoros.</p>
         ) : (
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <div className="grid grid-cols-2 gap-x-3 gap-y-6 md:grid-cols-4 md:gap-x-5">
             {latestProducts.map((p) => (
               <ProductCard key={p.id} product={p} category={cats[p.category_slug]} />
             ))}
@@ -119,17 +110,46 @@ export default async function Home() {
         )}
       </section>
 
-      <section className="flex flex-wrap gap-2">
-        {categories.map((c) => (
-          <Link
-            key={c.slug}
-            href={`/catalogo?categoria=${c.slug}`}
-            className="rounded-full border border-border bg-card px-4 py-2 text-sm font-bold hover:border-brand"
-          >
-            {c.emoji} {c.name}
-          </Link>
+      <Link
+        href="/mudanzas"
+        className="group flex items-center gap-4 rounded-card bg-surface p-5 md:p-8"
+      >
+        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-background">
+          <Icon name="truck" className="h-7 w-7" />
+        </span>
+        <span className="flex-1">
+          <span className="block text-lg font-black">¿Te cambias de casa?</span>
+          <span className="block text-sm text-muted">Cotiza tu mudanza en un minuto y reserva tu hora en línea.</span>
+        </span>
+        <Icon name="arrow" className="h-6 w-6 transition group-hover:translate-x-1" />
+      </Link>
+
+      <section className="grid gap-6 border-t border-border pt-8 md:grid-cols-3">
+        {[
+          { icon: "sparkle" as const, title: "Cuéntanos qué buscas", text: "Elige categorías, tu comuna y presupuesto." },
+          { icon: "cards" as const, title: "Desliza", text: "Corazón si te gusta, equis si no. Cada swipe afina lo que te mostramos." },
+          { icon: "check" as const, title: "Compra seguro", text: "Paga con Mercado Pago y coordina retiro o despacho." },
+        ].map((s) => (
+          <div key={s.title} className="flex gap-3">
+            <Icon name={s.icon} className="h-6 w-6 shrink-0" />
+            <div>
+              <h2 className="font-extrabold">{s.title}</h2>
+              <p className="text-sm text-muted">{s.text}</p>
+            </div>
+          </div>
         ))}
       </section>
+    </div>
+  );
+}
+
+function SectionTitle({ title, href }: { title: string; href: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-4">
+      <h2 className="text-xl font-black md:text-2xl">{title}</h2>
+      <Link href={href} className="text-sm font-semibold underline underline-offset-4 hover:text-brand">
+        Ver todo
+      </Link>
     </div>
   );
 }

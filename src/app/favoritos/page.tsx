@@ -48,7 +48,7 @@ export default async function FavoritosPage() {
               ⏳ Son piezas únicas: si alguien más lo compra primero, se va.
             </p>
           )}
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <div className="grid grid-cols-2 gap-x-3 gap-y-6 md:grid-cols-4 md:gap-x-5">
             {available.map((p) => (
               <ProductCard key={p.id} product={p} category={cats[p.category_slug]} />
             ))}

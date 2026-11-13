@@ -68,3 +68,20 @@ export type Order = {
   created_at: string;
   paid_at: string | null;
 };
+
+export type BannerStyle = "suave" | "marca" | "oscuro";
+
+export type HomeBanner = {
+  id: string;
+  eyebrow: string | null;
+  title: string;
+  subtitle: string | null;
+  cta_label: string;
+  href: string;
+  image_url: string | null;
+  style: BannerStyle;
+  sort_order: number;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+};

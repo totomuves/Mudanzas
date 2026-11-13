@@ -1,40 +1,49 @@
 /*
- * 🎨 TEMA VISUAL
+ * 🎨 TEMA VISUAL · "Mandarina" (estilo limpio: blanco, fotos grandes, poco adorno)
  * Todos los colores de la app salen de aquí. Cambia un valor y se
- * actualiza en todas las pantallas. Usa códigos hex (#ff6b3d) o cualquier
+ * actualiza en todas las pantallas. Usa códigos hex (#ee5a24) o cualquier
  * color CSS. Herramienta útil para elegir paletas: https://coolors.co
+ *
+ * Otras propuestas que se evaluaron (copia sus valores para cambiar de look):
+ *  - Bosque:  --brand #0e6b50 · --brand-dark #0a5640 · --surface #f3f4f1 · --card-radius 0.375rem
+ *  - Carbón:  --brand #141414 · --brand-dark #000000 · --flash #e5402b · --card-radius 0
  */
 :root {
   /* Marca */
-  --brand: #ff6b3d;        /* color principal: botones, enlaces, destacados */
-  --brand-dark: #e5532a;   /* principal al pasar el mouse */
-  --brand-2: #f43f5e;      /* segundo color de los degradados (portada, barras) */
+  --brand: #ee5a24;        /* color principal: botones, enlaces, destacados */
+  --brand-dark: #d2441a;   /* principal al pasar el mouse */
+  --brand-2: #f7894f;      /* segundo color de los degradados (barra de gustos) */
+  --brand-soft: #fbe4d8;   /* fondo suave de banners y avisos */
 
   /* Fondo y texto */
-  --background: #fff8f1;
-  --foreground: #1f2433;
-  --muted: #6b7280;        /* textos secundarios */
+  --background: #ffffff;
+  --foreground: #121212;
+  --muted: #646464;        /* textos secundarios */
   --card: #ffffff;         /* tarjetas y formularios */
-  --border: #f1e4d6;
+  --surface: #f5f3f1;      /* fondo gris claro detrás de las fotos y del buscador */
+  --border: #ebe8e4;
 
   /* Acciones del swipe */
-  --accent: #2bb673;       /* me gusta ♥ y descuentos */
-  --pass: #ef4444;         /* paso ✕ y errores */
-  --star: #3b82f6;         /* ¡lo quiero! ★ */
-  --flash: #fde047;        /* etiqueta de oferta relámpago */
-  --flash-text: #422006;
+  --accent: #1d7a4e;       /* me gusta ♥ y descuentos */
+  --pass: #e03c31;         /* paso ✕ y errores */
+  --star: #2f6fdb;         /* ¡lo quiero! ★ */
+  --flash: #ee5a24;        /* etiqueta de oferta relámpago */
+  --flash-text: #ffffff;
 
   /* Forma */
-  --card-radius: 1.5rem;   /* esquinas de las tarjetas grandes */
+  --card-radius: 1rem;     /* esquinas de las tarjetas y banners grandes */
+  --image-radius: 0.75rem; /* esquinas de las fotos de producto */
 }
 
 /* Modo oscuro (se activa según la configuración del teléfono) */
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #14161f;
-    --foreground: #f4f1ec;
-    --muted: #9ca3af;
-    --card: #1e2130;
-    --border: #2c3044;
+    --background: #121212;
+    --foreground: #f4f2ef;
+    --muted: #a3a09c;
+    --card: #1c1c1c;
+    --surface: #242322;
+    --border: #2e2d2b;
+    --brand-soft: #3a2219;
   }
 }

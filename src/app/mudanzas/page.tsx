@@ -32,12 +32,12 @@ export default async function MudanzasPage() {
 
   return (
     <div className="space-y-14">
-      <section className="relative overflow-hidden rounded-card bg-gradient-to-br from-foreground to-slate-700 px-6 py-10 text-white md:px-12 md:py-16">
+      <section className="relative overflow-hidden rounded-card bg-foreground px-6 py-10 text-background md:px-12 md:py-16">
         <div className="max-w-xl space-y-4">
-          <p className="text-sm font-bold uppercase tracking-widest text-white/70">Mudanzas {brand.name}</p>
+          <p className="text-sm font-bold uppercase tracking-widest opacity-70">Mudanzas {brand.name}</p>
           <h1 className="text-4xl font-black leading-tight md:text-5xl">Tu mudanza, sin estrés y con precio claro.</h1>
-          <p className="text-lg text-white/85">Cotiza en un minuto, elige tu hora y nosotros nos encargamos del resto.</p>
-          <Link href="/mudanzas/cotizar" className="inline-block rounded-full bg-brand px-6 py-3 font-extrabold text-white shadow-lg hover:scale-105">
+          <p className="text-lg opacity-85">Cotiza en un minuto, elige tu hora y nosotros nos encargamos del resto.</p>
+          <Link href="/mudanzas/cotizar" className="inline-block rounded-full bg-brand px-6 py-3 font-extrabold text-white transition hover:bg-brand-dark">
             Cotizar y reservar
           </Link>
         </div>

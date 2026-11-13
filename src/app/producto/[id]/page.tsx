@@ -28,32 +28,29 @@ export default async function ProductoPage({ params }: PageProps<"/producto/[id]
   const reservedByOther = !sold && available <= 0;
 
   return (
-    <div className="grid gap-8 md:grid-cols-2">
+    <div className="-mt-4 grid gap-6 md:mt-0 md:grid-cols-2 md:gap-10">
       <Gallery product={product} category={category} />
       <div className="space-y-4">
-        <Link href={`/catalogo?categoria=${product.category_slug}`} className="text-sm font-bold text-brand">
-          {category?.emoji} {category?.name}
-        </Link>
-        <h1 className="text-3xl font-black">{product.title}</h1>
+        <div className="space-y-1">
+          <Link href={`/catalogo?categoria=${product.category_slug}`} className="text-sm font-semibold text-muted underline-offset-4 hover:underline">
+            {category?.name}
+          </Link>
+          <h1 className="text-2xl font-black leading-tight md:text-3xl">{product.title}</h1>
+        </div>
         {isFlashActive(product) && product.flash_until && <FlashCountdown until={product.flash_until} />}
         <PriceTag product={product} size="lg" />
-        <div className="flex flex-wrap gap-2 text-sm font-bold">
-          <span className="rounded-full bg-card px-3 py-1 ring-1 ring-border">{CONDITION_LABEL[product.condition]}</span>
-          {product.comuna && <span className="rounded-full bg-card px-3 py-1 ring-1 ring-border">📍 {product.comuna}</span>}
-          <span className="rounded-full bg-card px-3 py-1 ring-1 ring-border">{product.quantity === 1 ? "💎 " : "📦 "}{stockLabel(product)}</span>
-        </div>
         {product.description && <p className="whitespace-pre-line text-muted">{product.description}</p>}
 
         {sold ? (
-          <p className="rounded-2xl bg-border p-4 text-center font-extrabold">Este producto ya se vendió 😢</p>
+          <p className="rounded-full bg-surface p-4 text-center font-extrabold">Este producto ya se vendió</p>
         ) : (
           <div className="space-y-2">
             {reservedByOther ? (
-              <p className="rounded-full bg-border py-4 text-center font-extrabold">Apartado por otra persona</p>
+              <p className="rounded-full bg-surface py-4 text-center font-extrabold">Apartado por otra persona</p>
             ) : (
               <Link
                 href={`/comprar/${product.id}`}
-                className="block rounded-full bg-brand py-4 text-center text-lg font-extrabold text-white shadow-lg hover:bg-brand-dark"
+                className="block rounded-full bg-brand py-4 text-center text-lg font-extrabold text-white transition hover:bg-brand-dark"
               >
                 Comprar
               </Link>
@@ -65,10 +62,23 @@ export default async function ProductoPage({ params }: PageProps<"/producto/[id]
             )}
           </div>
         )}
-        <p className="text-xs text-muted">
-          Pago seguro con Mercado Pago. Retiro en nuestra bodega o despacho coordinado.
-        </p>
+        <dl className="divide-y divide-border border-y border-border text-sm">
+          <Row label="Estado" value={CONDITION_LABEL[product.condition]} />
+          {product.comuna && <Row label="Ubicación" value={product.comuna} />}
+          <Row label="Disponibles" value={stockLabel(product)} />
+          <Row label="Entrega" value="Retiro en bodega o despacho coordinado" />
+          <Row label="Pago" value="Seguro con Mercado Pago" />
+        </dl>
       </div>
+    </div>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-4 py-3">
+      <dt className="text-muted">{label}</dt>
+      <dd className="text-right font-semibold">{value}</dd>
     </div>
   );
 }

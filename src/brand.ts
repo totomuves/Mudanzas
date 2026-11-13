@@ -24,8 +24,8 @@ export const brand = {
   statementDescriptor: "TOTOMUVES",
   /**
    * Colores para la app instalada (barra del celular y pantalla de carga).
-   * Deben coincidir con --brand y --background de src/styles/theme.css.
+   * Deben coincidir con --background de src/styles/theme.css.
    */
-  themeColor: "#ff6b3d",
-  backgroundColor: "#fff8f1",
+  themeColor: "#ffffff",
+  backgroundColor: "#ffffff",
 };

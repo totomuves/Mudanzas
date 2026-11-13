@@ -2,21 +2,11 @@ import Image from "next/image";
 import { brand } from "@/brand";
 import type { Category, Product } from "@/lib/types";
 
-const GRADIENTS = [
-  "from-orange-200 to-rose-200",
-  "from-amber-200 to-lime-200",
-  "from-sky-200 to-indigo-200",
-  "from-emerald-200 to-teal-200",
-  "from-fuchsia-200 to-pink-200",
-];
-
-function hash(s: string) {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
-  return Math.abs(h);
-}
-
-/** Foto del producto o, si no tiene, un fondo con el emoji de su categoría. */
+/**
+ * Foto del producto o, si no tiene, un fondo gris claro con el emoji de su categoría.
+ * fit="contain" muestra el producto completo sobre gris (estilo catálogo); las
+ * fotos con fondo blanco se funden con el gris.
+ */
 export function ProductImage({
   product,
   category,
@@ -24,6 +14,7 @@ export function ProductImage({
   sizes = "(max-width: 768px) 100vw, 400px",
   priority = false,
   className = "",
+  fit = "cover",
 }: {
   product: Pick<Product, "id" | "title" | "images">;
   category?: Pick<Category, "emoji"> | null;
@@ -31,6 +22,7 @@ export function ProductImage({
   sizes?: string;
   priority?: boolean;
   className?: string;
+  fit?: "cover" | "contain";
 }) {
   const src = product.images[index];
   if (src) {
@@ -42,17 +34,15 @@ export function ProductImage({
         sizes={sizes}
         priority={priority}
         draggable={false}
-        className={`select-none object-cover ${className}`}
+        className={`select-none ${fit === "contain" ? "photo-on-surface object-contain p-[6%]" : "object-cover"} ${className}`}
       />
     );
   }
   return (
     <div
-      className={`absolute inset-0 flex items-center justify-center bg-gradient-to-br ${
-        GRADIENTS[hash(product.id) % GRADIENTS.length]
-      } ${className}`}
+      className={`absolute inset-0 flex items-center justify-center bg-surface ${className}`}
     >
-      <span className="text-8xl drop-shadow-sm" aria-hidden>
+      <span className="text-7xl opacity-80" aria-hidden>
         {category?.emoji ?? brand.logoEmoji}
       </span>
     </div>
