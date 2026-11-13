@@ -24,11 +24,11 @@ export default async function AdminPage() {
   const { supabase } = await requireAdmin();
   const [categories, { data }, { data: likes }] = await Promise.all([
     getCategories(),
-    supabase.from("products").select("*").order("created_at", { ascending: false }).limit(200),
+    supabase.from("products").select("*, sellers(name)").order("created_at", { ascending: false }).limit(200),
     supabase.from("swipes").select("product_id").in("action", ["like", "superlike"]),
   ]);
   const cats = categoryMap(categories);
-  const products = (data ?? []) as Product[];
+  const products = (data ?? []) as (Product & { sellers: { name: string } | null })[];
   const likeCount: Record<string, number> = {};
   (likes ?? []).forEach((l: { product_id: string }) => (likeCount[l.product_id] = (likeCount[l.product_id] ?? 0) + 1));
 
@@ -68,6 +68,7 @@ export default async function AdminPage() {
                   <p className="text-xs text-muted">
                     {cats[p.category_slug]?.name} · {formatCLP(currentPrice(p))}
                     {isFlashActive(p) ? " · Relámpago" : ""} · {p.quantity} u. · {likeCount[p.id] ?? 0} me gusta
+                    {p.sellers ? ` · ${p.sellers.name}` : ""}
                   </p>
                 </div>
                 <span className="shrink-0 text-xs font-bold"><StatusDot {...STATUS_LABEL[p.status]} /></span>

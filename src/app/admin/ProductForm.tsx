@@ -23,10 +23,16 @@ export function ProductForm({
   categories,
   product,
   ai,
+  sellerId = null,
+  basePath = "/admin",
 }: {
   categories: Category[];
   product?: Product;
   ai: { bgProvider: BgProvider; suggest: boolean };
+  /** Si lo sube un vendedor: sus fotos van a sellers/<id>/ y el producto queda a su nombre. */
+  sellerId?: string | null;
+  /** A dónde volver al guardar ("/admin" o "/vendedor"). */
+  basePath?: string;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -125,7 +131,7 @@ export function ProductForm({
   }
 
   async function uploadBlob(blob: Blob) {
-    const path = `${crypto.randomUUID()}.webp`;
+    const path = `${sellerId ? `sellers/${sellerId}/` : ""}${crypto.randomUUID()}.webp`;
     const { error } = await supabase.storage.from("products").upload(path, blob, {
       contentType: "image/webp",
       cacheControl: "31536000",
@@ -209,7 +215,7 @@ export function ProductForm({
     setError(null);
     const res = product
       ? await supabase.from("products").update(payload).eq("id", product.id)
-      : await supabase.from("products").insert(payload);
+      : await supabase.from("products").insert(sellerId ? { ...payload, seller_id: sellerId } : payload);
     if (res.error) {
       setSaving(false);
       return setError(res.error.message);
@@ -217,7 +223,7 @@ export function ProductForm({
     // Borra del almacenamiento las fotos que se quitaron del producto
     const paths = removedSaved.map(storagePath).filter((x): x is string => Boolean(x));
     if (paths.length) await supabase.storage.from("products").remove(paths);
-    router.push("/admin");
+    router.push(basePath);
     router.refresh();
   }
 
@@ -237,7 +243,7 @@ export function ProductForm({
       .map(storagePath)
       .filter((x): x is string => Boolean(x));
     if (paths.length) await supabase.storage.from("products").remove([...new Set(paths)]);
-    router.push("/admin");
+    router.push(basePath);
     router.refresh();
   }
 
