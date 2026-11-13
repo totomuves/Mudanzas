@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Icon, type IconName } from "./Icon";
 
 type Props = {
-  account: { email: string; isAdmin: boolean; sellerStatus: string | null } | null;
+  account: { email: string; isAdmin: boolean; sellerStatus: string | null; marketplace: boolean } | null;
 };
 
 /** Botón "Ingresar" o, con sesión iniciada, el menú de la cuenta. */
@@ -50,9 +50,9 @@ export function AccountMenu({ account }: Props) {
     { href: "/bienvenida", label: "Mis gustos", icon: "sparkle" },
     { href: "/favoritos", label: "Favoritos", icon: "heart" },
   ];
-  if (account.sellerStatus) links.push({ href: "/vendedor", label: "Panel vendedor", icon: "store" });
+  if (account.marketplace && account.sellerStatus) links.push({ href: "/vendedor", label: "Panel vendedor", icon: "store" });
   if (account.isAdmin) links.push({ href: "/admin", label: "Admin", icon: "tools" });
-  if (!account.sellerStatus) links.push({ href: "/vender", label: "Vender en Totomuves", icon: "store" });
+  if (account.marketplace && !account.sellerStatus) links.push({ href: "/vender", label: "Vender en Totomuves", icon: "store" });
   links.push({ href: "/cuenta/clave", label: "Crear o cambiar contraseña", icon: "lock" });
 
   return (

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { getUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { COMUNAS } from "@/lib/comunas";
+import { getMarketplaceEnabled } from "@/lib/seller";
 import type { Seller } from "@/lib/types";
 
 export type SellerFormState = { ok?: string; error?: string };
@@ -64,6 +65,7 @@ async function uploadLogo(sellerId: string, formData: FormData) {
 export async function registerSeller(_prev: SellerFormState, formData: FormData): Promise<SellerFormState> {
   const { user } = await getUser();
   if (!user || user.is_anonymous) return { error: "Primero ingresa con tu correo." };
+  if (!(await getMarketplaceEnabled())) return { error: "Por ahora no estamos recibiendo vendedores." };
   if (formData.get("terms") !== "on") return { error: "Debes aceptar las condiciones para vender." };
 
   const parsed = readSellerFields(formData);

@@ -8,7 +8,7 @@ import { SELLER_STATUS_LABEL } from "@/lib/seller";
 import { SetupNotice } from "@/components/SetupNotice";
 import { StatusDot, type StatusTone } from "@/components/StatusDot";
 import type { MarketplaceSettings, Order, Product, Seller } from "@/lib/types";
-import { IssueButtons, PayoutButton, SellerAdminForm, SettingsForm } from "./Forms";
+import { IssueButtons, MarketplaceSwitch, PayoutButton, SellerAdminForm, SettingsForm } from "./Forms";
 
 export const metadata: Metadata = { title: "Vendedores" };
 
@@ -63,6 +63,10 @@ export default async function AdminVendedoresPage() {
           Totomuves. Tú cobras con tu Mercado Pago, retienes hasta que el comprador revisa y luego les transfieres.
         </p>
       </div>
+
+      <section className="rounded-2xl border-2 border-foreground bg-card p-4">
+        <MarketplaceSwitch enabled={Boolean((settings as MarketplaceSettings | null)?.marketplace_enabled)} />
+      </section>
 
       <section className="space-y-3 rounded-2xl border border-border bg-card p-4">
         <h2 className="font-black">Configuración</h2>

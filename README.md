@@ -54,7 +54,9 @@ Cada producto tiene una **cantidad** (1 si es pieza única). El comprador elige 
 
 ### Vendedores (marketplace)
 
-Cualquier persona o empresa de mudanzas puede vender en la tienda:
+> **Interruptor:** el marketplace parte **apagado** (solo vende Totomuves). Se enciende o apaga en **Admin → Vendedores**, sin tocar código. Apagado: no se ven ni se pueden comprar productos de otros vendedores, `/vender` no existe, el panel de vendedor muestra "pausado" y desaparecen los enlaces de vender.
+
+Con el marketplace encendido, cualquier persona o empresa de mudanzas puede vender en la tienda:
 
 1. Se registra en `/vender` (con su correo). Queda **en revisión** hasta que un admin la aprueba en `/admin/vendedores`.
 2. Ya aprobada, sube productos desde `/vendedor` con las mismas herramientas del admin (fondo blanco, sugerencias con IA). Sus fotos quedan en la carpeta `sellers/<id>/` y solo puede editar lo suyo.

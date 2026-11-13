@@ -108,7 +108,14 @@ export type Seller = {
   updated_at: string;
 };
 
-export type MarketplaceSettings = { id: 1; commission_pct: number; review_days: number; updated_at: string };
+export type MarketplaceSettings = {
+  id: 1;
+  commission_pct: number;
+  review_days: number;
+  /** Apagado: solo vende Totomuves. */
+  marketplace_enabled?: boolean;
+  updated_at: string;
+};
 
 export type BannerStyle = "suave" | "marca" | "oscuro";
 
