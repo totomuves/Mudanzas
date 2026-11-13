@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/admin";
 import { getCategories, getProduct } from "@/lib/data";
 import { SetupNotice } from "@/components/SetupNotice";
 import { ProductForm } from "../ProductForm";
+import { aiFeatures } from "@/lib/admin-api";
 
 export const metadata: Metadata = { title: "Editar producto" };
 
@@ -17,7 +18,7 @@ export default async function EditarProductoPage({ params }: PageProps<"/admin/[
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-black">Editar producto</h1>
-      <ProductForm categories={categories} product={product} />
+      <ProductForm categories={categories} product={product} ai={aiFeatures()} />
     </div>
   );
 }

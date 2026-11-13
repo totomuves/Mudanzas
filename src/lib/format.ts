@@ -37,7 +37,9 @@ export function isSold(p: Pick<Product, "status">) {
   return p.status === "sold";
 }
 
-/** ¿Alguien lo tiene apartado mientras paga? */
-export function isReserved(p: Pick<Product, "reserved_until">, now = Date.now()) {
-  return p.reserved_until != null && new Date(p.reserved_until).getTime() > now;
+/** Texto de stock: "Última unidad", "Quedan 3"… */
+export function stockLabel(p: Pick<Product, "quantity" | "status">) {
+  if (p.status === "sold" || p.quantity <= 0) return "Agotado";
+  if (p.quantity === 1) return "Pieza única";
+  return `Quedan ${p.quantity}`;
 }

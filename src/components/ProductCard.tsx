@@ -18,6 +18,11 @@ export function ProductCard({ product, category }: { product: Product; category?
             ⚡ Relámpago
           </span>
         )}
+        {!sold && product.quantity > 1 && (
+          <span className="absolute right-2 top-2 rounded-full bg-black/60 px-2 py-0.5 text-xs font-bold text-white">
+            x{product.quantity}
+          </span>
+        )}
         {sold && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/50">
             <span className="rotate-[-8deg] rounded-lg border-4 border-white px-3 py-1 text-xl font-black text-white">

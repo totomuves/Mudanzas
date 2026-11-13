@@ -51,13 +51,16 @@ export default async function PedidoPage({ params, searchParams }: PageProps<"/p
       <h1 className="text-3xl font-black">{s.title}</h1>
       <p className="text-muted">{s.text}</p>
       <div className="rounded-2xl border border-border bg-card p-4 text-left text-sm">
-        <p className="font-bold">{order.products?.title}</p>
+        <p className="font-bold">
+          {order.products?.title}
+          {order.quantity > 1 ? ` × ${order.quantity}` : ""}
+        </p>
         <p>Total: {formatCLP(order.amount)}</p>
         <p>Entrega: {order.delivery === "retiro" ? "Retiro en bodega" : `Despacho a ${order.address}`}</p>
         <p className="text-xs text-muted">Pedido #{order.id.slice(0, 8)}</p>
       </div>
       <div className="flex flex-col gap-2">
-        {(order.status === "failed" || order.status === "cancelled") && order.products?.status === "available" && (
+        {(order.status === "failed" || order.status === "cancelled") && order.products?.status === "available" && order.products.quantity > 0 && (
           <Link href={`/comprar/${order.product_id}`} className="rounded-full bg-brand py-3 font-extrabold text-white">
             Intentar de nuevo
           </Link>
