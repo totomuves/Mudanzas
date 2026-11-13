@@ -1,6 +1,6 @@
 import "server-only";
 import crypto from "node:crypto";
-import MercadoPagoConfig, { Payment, Preference } from "mercadopago";
+import MercadoPagoConfig, { Payment, PaymentRefund, Preference } from "mercadopago";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { siteUrl } from "@/lib/env";
 import { brand } from "@/brand";
@@ -84,6 +84,14 @@ export async function syncPayment(paymentId: string) {
         .update({ status: payment.status === "cancelled" ? "cancelled" : "failed", mp_payment_id: String(payment.id) })
         .eq("id", orderId);
       // Al dejar de estar "pending", las unidades apartadas se liberan solas
+    } else if (order.status === "paid" && ["refunded", "charged_back"].includes(payment.status ?? "")) {
+      // Devuelto desde el panel de Mercado Pago o contracargo: no se le paga al vendedor
+      await db
+        .from("orders")
+        .update({ status: "refunded", refunded_at: new Date().toISOString() })
+        .eq("id", orderId)
+        .is("payout_at", null);
+      return "refunded";
     }
     return "failed";
   }
@@ -123,4 +131,27 @@ export function verifyWebhookSignature(opts: {
   const a = Buffer.from(expected);
   const b = Buffer.from(v1);
   return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+/**
+ * Devuelve el total de un pedido pagado al comprador (Mercado Pago) y repone el stock.
+ * La usa el admin al resolver un reclamo.
+ */
+export async function refundOrder(orderId: string) {
+  const db = createAdminClient();
+  const { data: order } = await db.from("orders").select("*").eq("id", orderId).maybeSingle();
+  if (!order || order.status !== "paid") return { error: "El pedido no está pagado." };
+  if (order.payout_at) return { error: "Ya se le transfirió al vendedor: devuélvelo a mano y pídeselo al vendedor." };
+  if (!order.mp_payment_id) return { error: "El pedido no tiene pago de Mercado Pago asociado." };
+
+  await new PaymentRefund(mpConfig()).total({
+    payment_id: order.mp_payment_id,
+    requestOptions: { idempotencyKey: `refund-${orderId}` },
+  });
+
+  await db.from("orders").update({ status: "refunded", refunded_at: new Date().toISOString() }).eq("id", orderId);
+  // Repone las unidades (si estaba agotado vuelve a estar disponible)
+  const { data: product } = await db.from("products").select("quantity").eq("id", order.product_id).maybeSingle();
+  if (product) await db.from("products").update({ quantity: product.quantity + order.quantity }).eq("id", order.product_id);
+  return { ok: true };
 }
