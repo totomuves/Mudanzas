@@ -78,6 +78,18 @@ export default async function Home() {
         ))}
       </section>
 
+      <Link
+        href="/mudanzas"
+        className="flex items-center gap-4 rounded-card border border-border bg-card p-5 transition hover:border-brand"
+      >
+        <span className="text-5xl" aria-hidden>🚚</span>
+        <span className="flex-1">
+          <span className="block text-lg font-black">¿Te cambias de casa?</span>
+          <span className="block text-sm text-muted">Cotiza tu mudanza en un minuto y reserva tu hora en línea.</span>
+        </span>
+        <span className="font-extrabold text-brand">Cotizar →</span>
+      </Link>
+
       {flashProducts.length > 0 && (
         <section className="space-y-4">
           <h2 className="text-2xl font-black">⚡ Ofertas relámpago</h2>

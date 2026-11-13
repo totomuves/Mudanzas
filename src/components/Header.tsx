@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Logo } from "./Logo";
 
 const links = [
+  { href: "/mudanzas", label: "Mudanzas" },
   { href: "/descubrir", label: "Descubrir" },
   { href: "/catalogo", label: "Catálogo" },
   { href: "/favoritos", label: "Favoritos" },

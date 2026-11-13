@@ -1,7 +1,9 @@
 # Totomuves 📦
 
-Tienda web + app (PWA instalable) para vender los productos que los clientes nos regalan en las mudanzas.
-La gente elige qué necesita, desliza productos estilo Tinder y la app aprende sus gustos para mostrarle primero lo que más le puede interesar. El pago es con Mercado Pago.
+Web + app (PWA instalable) de Totomuves con dos partes:
+
+1. **Servicio de mudanzas:** cómo trabajamos, precios, cotizador en línea y reserva de horas.
+2. **Tienda de segunda mano** con los productos que los clientes nos regalan en las mudanzas: la gente elige qué necesita, desliza productos estilo Tinder y la app aprende sus gustos. El pago es con Mercado Pago.
 
 ## Qué incluye esta primera versión
 
@@ -15,6 +17,10 @@ La gente elige qué necesita, desliza productos estilo Tinder y la app aprende s
 | `/producto/[id]` | Detalle con galería de fotos |
 | `/comprar/[id]` | Datos de contacto y entrega, y pago con Mercado Pago Checkout Pro |
 | `/pedido/[id]` | Resultado del pago |
+| `/mudanzas` | Cómo trabajamos, precios por tipo de servicio, adicionales y preguntas frecuentes |
+| `/mudanzas/cotizar` | Cotizador paso a paso con precio en vivo y elección de día y bloque horario |
+| `/mudanzas/reserva/[id]` | Confirmación de la reserva con botón a WhatsApp |
+| `/admin/mudanzas` | Agenda: reservas, cambio de estado y días bloqueados |
 | `/admin` | Panel: subir productos con fotos desde el celular, editar, ofertas relámpago, ver pedidos y cuántos ♥ tiene cada producto |
 
 ### Cómo "aprende" la app
@@ -29,6 +35,15 @@ Cada swipe ajusta un puntaje de afinidad del usuario con la categoría del produ
 6. un poco de azar, para que descubra cosas nuevas.
 
 Todo vive en `supabase/migrations/`, así que se puede ajustar sin tocar la app.
+
+### Cómo funcionan las reservas de mudanza
+
+- Los precios salen de dos tablas que puedes editar en Supabase → **Table Editor**:
+  - `service_types`: cada tipo de servicio (nombre, precio base "desde", qué incluye, personas, horas).
+  - `moving_settings`: recargo por distancia, precio por piso sin ascensor, % de embalaje, objetos pesados, recargo sábado, **bloques horarios** (`slot_times`, ej. `{08:00,14:00}`), **equipos por bloque** (`crews_per_slot`), días cerrados (0 = domingo), anticipación mínima y tu **número de WhatsApp**.
+- La cotización se calcula igual en el navegador y en el servidor (`src/lib/moving.ts`), así que el precio guardado no se puede manipular.
+- Cada bloque tiene tantos cupos como equipos. Si dos personas reservan el último cupo al mismo tiempo, solo una lo obtiene.
+- Por ahora la reserva no cobra nada: queda "Solicitada" y ustedes confirman por WhatsApp. Cobrar un abono con Mercado Pago es un buen siguiente paso.
 
 ### Pagos y stock
 
@@ -65,7 +80,9 @@ cp .env.example .env.local
 ### 3. Crear el proyecto en Supabase
 
 1. Crea una cuenta en https://supabase.com y un proyecto nuevo (región **São Paulo** es la más cercana a Chile). Guarda la contraseña de la base de datos.
-2. Ve a **SQL Editor**, pega el contenido de `supabase/migrations/20261113000000_esquema_inicial.sql` y aprieta **Run**. Esto crea las tablas, la seguridad, el bucket de fotos y las categorías.
+2. Ve a **SQL Editor** y ejecuta, en orden, cada archivo de `supabase/migrations/` (pega el contenido y aprieta **Run**):
+   1. `20261113000000_esquema_inicial.sql`: tienda (productos, swipes, pedidos, fotos, categorías).
+   2. `20261113010000_servicio_mudanzas.sql`: servicios, precios, agenda y reservas.
 3. (Opcional) Pega también `supabase/seed.sql` para tener 16 productos de ejemplo.
 4. Ve a **Authentication → Sign In / Providers** y activa **Allow anonymous sign-ins** (permite que la gente use la app sin registrarse). Deja activado **Email**.
 5. Ve a **Authentication → URL Configuration**:
@@ -124,6 +141,19 @@ Más adelante, si quieren estar en Google Play / App Store, se puede envolver es
 
 ---
 
+## Diseñar: marca, colores y tipografía
+
+Todo el diseño está centralizado para que lo puedas cambiar sin tocar las pantallas:
+
+| Qué cambiar | Dónde |
+| --- | --- |
+| Nombre, textos de la portada, logo | `src/brand.ts` (pon tu logo en `public/brand/` y escribe su ruta en `logoImage`) |
+| Colores (principal, fondo, botones del swipe, modo oscuro), esquinas | `src/styles/theme.css` |
+| Tipografía | `src/app/fonts.ts` (cualquier fuente de Google Fonts) |
+| Ícono de la app instalada | `public/icons/` (192×192, 512×512 y `apple-touch-icon` 180×180) y `src/app/icon.png` |
+
+Con `npm run dev` corriendo, los cambios se ven al instante en el navegador.
+
 ## Comandos útiles
 
 | Comando | Para qué |
@@ -138,11 +168,14 @@ Más adelante, si quieren estar en Google Play / App Store, se puede envolver es
 ```
 src/
   app/                 Páginas (cada carpeta es una URL)
+    mudanzas/          Servicio de mudanzas: info, cotizador y reservas
     descubrir/         Mazo estilo Tinder (SwipeDeck) y medidor de gustos
     admin/             Panel de administración
     api/mercadopago/   Webhook de pagos
   components/          Piezas de interfaz reutilizables
-  lib/                 Supabase, Mercado Pago, formatos y tipos
+  lib/                 Supabase, Mercado Pago, cotizador, formatos y tipos
+  brand.ts             Nombre, textos y logo
+  styles/theme.css     Colores
   proxy.ts             Mantiene la sesión de Supabase al día
 supabase/
   migrations/          Esquema de base de datos, seguridad y algoritmo del feed
@@ -152,6 +185,9 @@ public/                Íconos, service worker y página sin conexión
 
 ## Ideas para las próximas versiones
 
+- Cobrar un **abono** de la mudanza con Mercado Pago al reservar.
+- Recordatorio automático por WhatsApp/correo el día antes de la mudanza.
+- Calcular la distancia exacta con Google Maps en el cotizador.
 - **Packs** ("Kit cocina completa", "Pieza de estudiante") con precio especial.
 - Notificaciones push cuando llegue algo de sus categorías favoritas.
 - Alertas de "bajó de precio" para productos en favoritos.
