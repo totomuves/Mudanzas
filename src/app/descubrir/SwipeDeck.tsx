@@ -50,6 +50,7 @@ export function SwipeDeck({
   const [last, setLast] = useState<{ product: Product; action: SwipeAction } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [superliked, setSuperliked] = useState<Product | null>(null);
+  const [loadError, setLoadError] = useState(false);
 
   const seen = useRef(new Set<string>());
   const fetching = useRef(false);
@@ -61,9 +62,11 @@ export function SwipeDeck({
     fetching.current = false;
     setLoading(false);
     if (error) {
-      setToast("No pudimos cargar productos 😕");
+      console.error("[get_feed]", error);
+      setLoadError(true);
       return;
     }
+    setLoadError(false);
     const fresh = ((data ?? []) as Product[]).filter((p) => !seen.current.has(p.id));
     fresh.forEach((p) => seen.current.add(p.id));
     if (fresh.length === 0) setExhausted(true);
@@ -150,7 +153,23 @@ export function SwipeDeck({
           {loading && deck.length === 0 && (
             <div className="absolute inset-0 animate-pulse rounded-card bg-border" />
           )}
-          {!loading && deck.length === 0 && (
+          {!loading && deck.length === 0 && loadError && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-card border-2 border-dashed border-border p-6 text-center">
+              <div className="text-6xl">😕</div>
+              <h2 className="text-xl font-black">No pudimos cargar productos</h2>
+              <p className="text-sm text-muted">Revisa tu conexión e intenta de nuevo.</p>
+              <button
+                onClick={() => {
+                  setLoading(true);
+                  fetchMore();
+                }}
+                className="rounded-full bg-brand px-5 py-2.5 font-extrabold text-white"
+              >
+                Reintentar
+              </button>
+            </div>
+          )}
+          {!loading && deck.length === 0 && !loadError && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-card border-2 border-dashed border-border p-6 text-center">
               <div className="text-6xl">🎉</div>
               <h2 className="text-xl font-black">¡Viste todo por ahora!</h2>
