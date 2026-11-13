@@ -31,8 +31,8 @@ export function MarketplaceSwitch({ enabled }: { enabled: boolean }) {
           <p className="font-black">Marketplace {enabled ? "encendido" : "apagado"}</p>
           <p className="text-sm text-muted">
             {enabled
-              ? "Personas y empresas aprobadas venden en la tienda (con la marca Totomuves)."
-              : "Solo vende Totomuves. El registro de vendedores y su panel están ocultos."}
+              ? "Personas y empresas aprobadas venden en la tienda (con la marca MÜVEO)."
+              : "Solo vende MÜVEO. El registro de vendedores y su panel están ocultos."}
           </p>
         </div>
         <button

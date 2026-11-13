@@ -5,7 +5,7 @@
  */
 export const brand = {
   /** Nombre (se puede sobrescribir con NEXT_PUBLIC_APP_NAME) */
-  name: process.env.NEXT_PUBLIC_APP_NAME || "Totomuves",
+  name: process.env.NEXT_PUBLIC_APP_NAME || "MÜVEO",
   /** Frase corta para buscadores y la app instalada */
   description: "Muebles, electro y tesoros que quedan en las mudanzas, a precios bajísimos. Desliza, elige y compra.",
   /** Textos de la portada */
@@ -15,12 +15,14 @@ export const brand = {
     cta: "Empezar a descubrir",
   },
   /**
-   * Logo: pon tu archivo en public/brand/ (ej. public/brand/logo.svg) y
-   * escribe aquí su ruta: "/brand/logo.svg". Si queda vacío se dibuja una caja con el color de la marca.
+   * Logo: reemplaza public/brand/logo.svg por el logo definitivo (mismo nombre) o
+   * pon aquí la ruta de otro archivo dentro de public/. Si queda vacío se dibuja
+   * un cuadrado con el color de la marca. Los íconos de la app instalada están en
+   * public/icons/ y src/app/icon.png.
    */
-  logoImage: "",
+  logoImage: "/brand/logo.svg",
   /** Lo que aparece en el resumen de la tarjeta del comprador (máx. 13 caracteres) */
-  statementDescriptor: "TOTOMUVES",
+  statementDescriptor: "MUVEO",
   /**
    * Colores para la app instalada (barra del celular y pantalla de carga).
    * Deben coincidir con --background de src/styles/theme.css.
