@@ -123,17 +123,18 @@ export function Onboarding({
         <section className="space-y-6">
           <div>
             <h1 className="text-3xl font-black">Un par de datos más 📍</h1>
-            <p className="mt-1 text-muted">Así te mostramos primero lo que te queda cerca y en tu presupuesto.</p>
+            <p className="mt-1 text-muted">Así te mostramos primero lo que te queda cerca y en tu presupuesto. Puedes saltarte esto.</p>
           </div>
 
           <label className="block space-y-2">
             <span className="font-bold">¿En qué comuna estás?</span>
+            <span className="block text-sm text-muted">Te mostramos productos de todas partes; si eliges tu comuna, los cercanos aparecen primero.</span>
             <select
               value={comuna}
               onChange={(e) => setComuna(e.target.value)}
               className="w-full rounded-xl border border-border bg-card px-4 py-3"
             >
-              <option value="">Prefiero no decir</option>
+              <option value="">📍 Todas las comunas</option>
               {COMUNAS.map((c) => (
                 <option key={c} value={c}>
                   {c}

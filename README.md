@@ -96,6 +96,7 @@ cp .env.example .env.local
    2. `20261113010000_servicio_mudanzas.sql`: servicios, precios, agenda y reservas.
    3. `20261113020000_stock_productos.sql`: cantidad (stock) por producto.
    4. `20261113030000_equipo_admins.sql`: gestionar administradores desde /admin/equipo.
+   5. `20261113040000_arreglar_feed.sql`: corrige el feed de Descubrir después de agregar el stock.
 3. (Opcional) Pega también `supabase/seed.sql` para tener 16 productos de ejemplo.
 4. Ve a **Authentication → Sign In / Providers** y activa **Allow anonymous sign-ins** (permite que la gente use la app sin registrarse). Deja activado **Email**.
 5. Ve a **Authentication → URL Configuration**:
