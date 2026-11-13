@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { CONDITION_LABEL } from "@/lib/format";
 import type { Product } from "@/lib/types";
 import { activeModel, embed, toPgVector } from "./embeddings";
+import { notifyNewProducts } from "./push";
 import { COLORS, MATERIALS, ROOMS, SIZES, STYLES, keywordAttributes, type ProductAttributes } from "./text";
 
 /**
@@ -81,7 +82,8 @@ export function contentHash(p: Product) {
   return crypto.createHash("md5").update(parts.join("|")).digest("hex");
 }
 
-export async function indexProduct(p: Product, categoryName: string, model = activeModel()) {
+/** Devuelve true si es la primera vez que se analiza (producto nuevo). */
+export async function indexProduct(p: Product, categoryName: string, model = activeModel()): Promise<boolean> {
   const db = createAdminClient();
   const hashRow = contentHash(p);
   const existing = await db.from("product_features").select("attributes, content_hash").eq("product_id", p.id).maybeSingle();
@@ -105,6 +107,7 @@ export async function indexProduct(p: Product, categoryName: string, model = act
     indexed_at: new Date().toISOString(),
   });
   if (error) throw error;
+  return !existing.data;
 }
 
 /** Analiza hasta `limit` productos pendientes (o los ids indicados). */
@@ -133,16 +136,26 @@ export async function indexPending(opts: { ids?: string[]; limit?: number } = {}
 
   let done = 0;
   const failed: string[] = [];
+  const fresh: string[] = [];
+  const weekAgo = Date.now() - 7 * 86400_000;
   for (const p of products) {
     try {
-      await indexProduct(p, catName[p.category_slug] ?? p.category_slug, model);
+      const first = await indexProduct(p, catName[p.category_slug] ?? p.category_slug, model);
       done++;
+      // Producto recién publicado: avisar a quienes les puede gustar
+      if (first && p.status === "available" && new Date(p.created_at).getTime() > weekAgo) fresh.push(p.id);
     } catch (e) {
       console.error("[recomendador] no se pudo analizar", p.id, e);
       failed.push(p.id);
     }
   }
-  return { done, failed, model };
+  let notified = 0;
+  try {
+    notified = await notifyNewProducts(fresh);
+  } catch (e) {
+    console.warn("[recomendador] avisos", e);
+  }
+  return { done, failed, model, notified };
 }
 
 /** Huella de una búsqueda (para aprender de lo que la gente busca). */
