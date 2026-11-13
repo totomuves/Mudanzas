@@ -414,7 +414,7 @@ function SwipeCard({
 
   return (
     <div
-      className={`no-overscroll absolute inset-0 select-none overflow-hidden rounded-card bg-card shadow-xl ring-1 ring-black/5 ${
+      className={`no-overscroll absolute inset-0 flex select-none flex-col overflow-hidden rounded-card bg-card shadow-xl ring-1 ring-black/5 ${
         isTop ? "cursor-grab active:cursor-grabbing" : "pointer-events-none"
       }`}
       style={{
@@ -427,12 +427,15 @@ function SwipeCard({
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
     >
-      <ProductImage product={product} category={category} index={photo} priority={isTop} sizes="400px" />
+      {/* Foto completa (sin recortar) sobre gris claro, encima del texto */}
+      <div className="relative min-h-0 flex-1 bg-surface">
+        <ProductImage product={product} category={category} index={photo} fit="contain" priority={isTop} sizes="400px" />
+      </div>
 
       {product.images.length > 1 && (
         <div className="absolute inset-x-3 top-2 flex gap-1">
           {product.images.map((_, i) => (
-            <div key={i} className={`h-1 flex-1 rounded-full ${i === photo ? "bg-white" : "bg-white/40"}`} />
+            <div key={i} className={`h-1 flex-1 rounded-full ${i === photo ? "bg-foreground" : "bg-foreground/20"}`} />
           ))}
         </div>
       )}
@@ -447,22 +450,20 @@ function SwipeCard({
       <Stamp text="PASO" className="right-5 top-14 rotate-12 border-pass text-pass" opacity={passOpacity} />
       <Stamp text="¡LO QUIERO!" className="inset-x-0 bottom-40 mx-auto w-fit border-star text-star" opacity={superOpacity} />
 
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/50 to-transparent p-5 pt-16 text-white">
+      <div className="shrink-0 border-t border-border bg-card px-5 pb-5 pt-3">
         <div className="mb-1 flex flex-wrap gap-1.5 text-xs font-bold">
           {category && (
-            <span className="rounded-full bg-white/20 px-2 py-0.5 backdrop-blur">
+            <span className="rounded-full bg-surface px-2 py-0.5">
               {category.name}
             </span>
           )}
-          <span className="rounded-full bg-white/20 px-2 py-0.5 backdrop-blur">{CONDITION_LABEL[product.condition]}</span>
-          {product.comuna && <span className="rounded-full bg-white/20 px-2 py-0.5 backdrop-blur"><Icon name="pin" className="mr-0.5 inline h-3 w-3 align-[-1px]" strokeWidth={2.4} />{product.comuna}</span>}
-          {product.quantity > 1 && <span className="rounded-full bg-white/20 px-2 py-0.5 backdrop-blur">Quedan {product.quantity}</span>}
+          <span className="rounded-full bg-surface px-2 py-0.5">{CONDITION_LABEL[product.condition]}</span>
+          {product.comuna && <span className="rounded-full bg-surface px-2 py-0.5"><Icon name="pin" className="mr-0.5 inline h-3 w-3 align-[-1px]" strokeWidth={2.4} />{product.comuna}</span>}
+          {product.quantity > 1 && <span className="rounded-full bg-surface px-2 py-0.5">Quedan {product.quantity}</span>}
         </div>
-        <h2 className="text-2xl font-black leading-tight drop-shadow">{product.title}</h2>
-        <div className="[&_.text-muted]:text-white/70 [&_.text-brand]:text-yellow-300">
-          <PriceTag product={product} />
-        </div>
-        {product.description && <p className="mt-1 line-clamp-2 text-sm text-white/85">{product.description}</p>}
+        <h2 className="line-clamp-1 text-xl font-black leading-tight">{product.title}</h2>
+        <PriceTag product={product} />
+        {product.description && <p className="mt-1 line-clamp-1 text-sm text-muted">{product.description}</p>}
       </div>
     </div>
   );

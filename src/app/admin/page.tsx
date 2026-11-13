@@ -60,8 +60,8 @@ export default async function AdminPage() {
           {products.map((p) => (
             <li key={p.id}>
               <Link href={`/admin/${p.id}`} className="flex items-center gap-3 p-3 hover:bg-background">
-                <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl">
-                  <ProductImage product={p} category={cats[p.category_slug]} sizes="56px" />
+                <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-surface">
+                  <ProductImage product={p} category={cats[p.category_slug]} fit="contain" sizes="56px" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-bold">{p.title}</p>
