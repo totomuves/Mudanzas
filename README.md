@@ -95,6 +95,7 @@ cp .env.example .env.local
    1. `20261113000000_esquema_inicial.sql`: tienda (productos, swipes, pedidos, fotos, categorías).
    2. `20261113010000_servicio_mudanzas.sql`: servicios, precios, agenda y reservas.
    3. `20261113020000_stock_productos.sql`: cantidad (stock) por producto.
+   4. `20261113030000_equipo_admins.sql`: gestionar administradores desde /admin/equipo.
 3. (Opcional) Pega también `supabase/seed.sql` para tener 16 productos de ejemplo.
 4. Ve a **Authentication → Sign In / Providers** y activa **Allow anonymous sign-ins** (permite que la gente use la app sin registrarse). Deja activado **Email**.
 5. Ve a **Authentication → URL Configuration**:
@@ -132,7 +133,8 @@ Abre http://localhost:3000. Para probar en tu celular en la misma red WiFi, usa 
    where id = (select id from auth.users where email = 'tu@correo.cl');
    ```
 
-3. Entra a http://localhost:3000/admin y sube tu primer producto. Desde el celular puedes sacar la foto directo con la cámara.
+3. Entra a http://localhost:3000/admin y sube tu primer producto.
+4. Para sumar a otra persona como admin: pídele que entre una vez en `/ingresar` con su correo, y luego agrégala en **/admin/equipo**. Desde ahí también puedes quitar permisos (siempre queda al menos un admin). Desde el celular puedes sacar la foto directo con la cámara.
 
 ---
 

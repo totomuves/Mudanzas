@@ -8,8 +8,28 @@
 
 export type BgProvider = "local" | "removebg" | "off";
 
-async function loadBitmap(src: Blob) {
-  return createImageBitmap(src);
+type Decoded = { source: CanvasImageSource; width: number; height: number };
+
+/**
+ * Decodifica la foto respetando la orientación EXIF del celular.
+ * Se usa <img> porque createImageBitmap ignora la orientación en algunos
+ * navegadores (por eso a veces salían fotos dadas vuelta).
+ */
+async function loadBitmap(src: Blob): Promise<Decoded> {
+  const url = URL.createObjectURL(src);
+  try {
+    const img = new Image();
+    img.decoding = "async";
+    img.src = url;
+    await img.decode();
+    return { source: img, width: img.naturalWidth, height: img.naturalHeight };
+  } catch {
+    const bmp = await createImageBitmap(src, { imageOrientation: "from-image" });
+    return { source: bmp, width: bmp.width, height: bmp.height };
+  } finally {
+    // El objeto URL se libera un rato después, cuando ya se dibujó
+    setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  }
 }
 
 function canvasToBlob(canvas: HTMLCanvasElement, type = "image/webp", quality = 0.85) {
@@ -25,8 +45,21 @@ export async function compress(src: Blob, maxSize = 1600): Promise<Blob> {
   const canvas = document.createElement("canvas");
   canvas.width = Math.round(bitmap.width * scale);
   canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  canvas.getContext("2d")!.drawImage(bitmap.source, 0, 0, canvas.width, canvas.height);
   return canvasToBlob(canvas);
+}
+
+/** Gira la foto 90° (a la derecha por defecto) y la devuelve como WebP. */
+export async function rotate(src: Blob, clockwise = true): Promise<Blob> {
+  const img = await loadBitmap(src);
+  const canvas = document.createElement("canvas");
+  canvas.width = img.height;
+  canvas.height = img.width;
+  const ctx = canvas.getContext("2d")!;
+  ctx.translate(canvas.width / 2, canvas.height / 2);
+  ctx.rotate(((clockwise ? 90 : -90) * Math.PI) / 180);
+  ctx.drawImage(img.source, -img.width / 2, -img.height / 2);
+  return canvasToBlob(canvas, "image/webp", 0.9);
 }
 
 /**
@@ -40,7 +73,7 @@ export async function placeOnWhite(cutout: Blob, size = 1400, margin = 0.08): Pr
   probe.width = bitmap.width;
   probe.height = bitmap.height;
   const pctx = probe.getContext("2d", { willReadFrequently: true })!;
-  pctx.drawImage(bitmap, 0, 0);
+  pctx.drawImage(bitmap.source, 0, 0);
   const { data, width, height } = pctx.getImageData(0, 0, probe.width, probe.height);
   let minX = width, minY = height, maxX = -1, maxY = -1;
   for (let y = 0; y < height; y++) {

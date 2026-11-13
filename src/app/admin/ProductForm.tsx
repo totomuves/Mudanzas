@@ -7,9 +7,16 @@ import { createClient } from "@/lib/supabase/client";
 import { COMUNAS } from "@/lib/comunas";
 import { CONDITION_LABEL } from "@/lib/format";
 import type { Category, Condition, Product } from "@/lib/types";
-import { compress, whiteBackground, type BgProvider } from "@/lib/photo";
+import { compress, rotate, whiteBackground, type BgProvider } from "@/lib/photo";
 
 const MAX_PHOTOS = 6;
+const STORAGE_PREFIX = "/storage/v1/object/public/products/";
+
+/** Ruta dentro del bucket a partir de la URL pública (o null si no es nuestra). */
+function storagePath(url: string) {
+  const i = url.indexOf(STORAGE_PREFIX);
+  return i >= 0 ? decodeURIComponent(url.slice(i + STORAGE_PREFIX.length).split("?")[0]) : null;
+}
 
 export function ProductForm({
   categories,
@@ -23,6 +30,9 @@ export function ProductForm({
   const router = useRouter();
   const supabase = createClient();
   const [images, setImages] = useState<string[]>(product?.images ?? []);
+  // Fotos ya guardadas en el producto que se quitaron: se borran del almacenamiento al guardar
+  const [removedSaved, setRemovedSaved] = useState<string[]>([]);
+  const [busyPhoto, setBusyPhoto] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
   const [whiteBg, setWhiteBg] = useState(true);
@@ -71,14 +81,8 @@ export function ProductForm({
           blob = await compress(file);
         }
         setProgress(label + "Subiendo…");
-        const path = `${crypto.randomUUID()}.webp`;
-        const { error } = await supabase.storage.from("products").upload(path, blob, {
-          contentType: "image/webp",
-          cacheControl: "31536000",
-        });
-        if (error) throw error;
-        const { data } = supabase.storage.from("products").getPublicUrl(path);
-        setImages((imgs) => [...imgs, data.publicUrl]);
+        const url = await uploadBlob(blob);
+        setImages((imgs) => [...imgs, url]);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error subiendo fotos");
@@ -116,6 +120,46 @@ export function ProductForm({
       setError(err instanceof Error ? err.message : "No se pudo sugerir");
     } finally {
       setSuggesting(false);
+    }
+  }
+
+  async function uploadBlob(blob: Blob) {
+    const path = `${crypto.randomUUID()}.webp`;
+    const { error } = await supabase.storage.from("products").upload(path, blob, {
+      contentType: "image/webp",
+      cacheControl: "31536000",
+    });
+    if (error) throw error;
+    return supabase.storage.from("products").getPublicUrl(path).data.publicUrl;
+  }
+
+  /** Saca la foto de la lista y la borra del almacenamiento (si aún no estaba guardada). */
+  async function discard(url: string) {
+    if (product?.images.includes(url)) {
+      setRemovedSaved((r) => [...r, url]);
+    } else {
+      const path = storagePath(url);
+      if (path) await supabase.storage.from("products").remove([path]);
+    }
+  }
+
+  async function removePhoto(url: string) {
+    setImages((imgs) => imgs.filter((x) => x !== url));
+    await discard(url);
+  }
+
+  async function rotatePhoto(url: string) {
+    setBusyPhoto(url);
+    setError(null);
+    try {
+      const blob = await (await fetch(url, { cache: "no-store" })).blob();
+      const newUrl = await uploadBlob(await rotate(blob));
+      setImages((imgs) => imgs.map((x) => (x === url ? newUrl : x)));
+      await discard(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo girar la foto");
+    } finally {
+      setBusyPhoto(null);
     }
   }
 
@@ -169,6 +213,9 @@ export function ProductForm({
       setSaving(false);
       return setError(res.error.message);
     }
+    // Borra del almacenamiento las fotos que se quitaron del producto
+    const paths = removedSaved.map(storagePath).filter((x): x is string => Boolean(x));
+    if (paths.length) await supabase.storage.from("products").remove(paths);
     router.push("/admin");
     router.refresh();
   }
@@ -185,6 +232,10 @@ export function ProductForm({
       );
       return;
     }
+    const paths = [...product.images, ...images, ...removedSaved]
+      .map(storagePath)
+      .filter((x): x is string => Boolean(x));
+    if (paths.length) await supabase.storage.from("products").remove([...new Set(paths)]);
     router.push("/admin");
     router.refresh();
   }
@@ -223,19 +274,34 @@ export function ProductForm({
         {images.length > 0 && (
           <>
             <p className="text-sm font-bold text-muted">
-              Fotos ({images.length}/{MAX_PHOTOS}) · la primera es la portada
+              Fotos ({images.length}/{MAX_PHOTOS}) · la primera es la portada · ✕ eliminar · ↻ girar
             </p>
-            <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {images.map((src, i) => (
                 <div key={src} className="relative aspect-square overflow-hidden rounded-xl bg-white ring-1 ring-border">
-                  <Image src={src} alt="" fill sizes="120px" className="object-contain" />
+                  <Image src={src} alt="" fill sizes="160px" className={`object-contain ${busyPhoto === src ? "opacity-40" : ""}`} />
                   {i === 0 && (
                     <span className="absolute left-1 top-1 rounded bg-black/60 px-1.5 text-[10px] font-bold text-white">Portada</span>
                   )}
-                  <div className="absolute inset-x-0 bottom-0 flex justify-between bg-black/50 p-1 text-xs text-white">
-                    <button type="button" onClick={() => move(i, -1)} aria-label="Mover a la izquierda">◀</button>
-                    <button type="button" onClick={() => setImages((imgs) => imgs.filter((x) => x !== src))} aria-label="Quitar">🗑️</button>
-                    <button type="button" onClick={() => move(i, 1)} aria-label="Mover a la derecha">▶</button>
+                  <button
+                    type="button"
+                    onClick={() => removePhoto(src)}
+                    aria-label="Eliminar foto"
+                    title="Eliminar foto"
+                    className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-full bg-pass text-lg font-black text-white shadow"
+                  >
+                    ✕
+                  </button>
+                  <div className="absolute inset-x-0 bottom-0 flex justify-between bg-black/55 text-sm text-white">
+                    <button type="button" className="flex-1 py-1.5" onClick={() => move(i, -1)} aria-label="Mover a la izquierda" disabled={i === 0}>
+                      ◀
+                    </button>
+                    <button type="button" className="flex-1 py-1.5" onClick={() => rotatePhoto(src)} aria-label="Girar foto" title="Girar" disabled={busyPhoto !== null}>
+                      ↻
+                    </button>
+                    <button type="button" className="flex-1 py-1.5" onClick={() => move(i, 1)} aria-label="Mover a la derecha" disabled={i === images.length - 1}>
+                      ▶
+                    </button>
                   </div>
                 </div>
               ))}
