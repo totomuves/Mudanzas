@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMUNAS } from "@/lib/comunas";
 import { formatCLP } from "@/lib/format";
-import type { Category, Profile } from "@/lib/types";
+import type { Category, MovingContext, Profile } from "@/lib/types";
 import { CategoryIcon, Icon } from "@/components/Icon";
 
 const BUDGETS = [20000, 50000, 100000, 200000, 500000];
@@ -14,16 +14,20 @@ export function Onboarding({
   categories,
   initialSelected,
   profile,
+  contexts = [],
 }: {
   categories: Category[];
   initialSelected: string[];
   profile: Profile | null;
+  /** Situaciones de mudanza (primer depa, oficina…) si ya existe la tabla */
+  contexts?: MovingContext[];
 }) {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2>(1);
   const [selected, setSelected] = useState<string[]>(initialSelected);
   const [comuna, setComuna] = useState(profile?.comuna ?? "");
   const [budget, setBudget] = useState<number | null>(profile?.budget_max ?? null);
+  const [context, setContext] = useState<string[]>(profile?.context ?? []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,6 +56,10 @@ export function Onboarding({
         .update({ comuna: comuna || null, budget_max: budget, onboarded: true })
         .eq("id", user.id);
       if (pErr) throw pErr;
+      if (contexts.length > 0) {
+        // Aparte: si aún no existe la columna, no bloquea la bienvenida
+        await supabase.from("profiles").update({ context }).eq("id", user.id);
+      }
 
       if (selected.length > 0) {
         const { error: ucErr } = await supabase.from("user_categories").upsert(
@@ -131,6 +139,31 @@ export function Onboarding({
             <h1 className="text-3xl font-black">Un par de datos más</h1>
             <p className="mt-1 text-muted">Así te mostramos primero lo que te queda cerca y en tu presupuesto. Puedes saltarte esto.</p>
           </div>
+
+          {contexts.length > 0 && (
+            <fieldset className="space-y-2">
+              <legend className="font-bold">¿Qué te describe?</legend>
+              <span className="block text-sm text-muted">Elige las que quieras: así te mostramos lo que te sirve de verdad.</span>
+              <div className="flex flex-wrap gap-2">
+                {contexts.map((c) => {
+                  const on = context.includes(c.slug);
+                  return (
+                    <button
+                      key={c.slug}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => setContext((s) => (on ? s.filter((x) => x !== c.slug) : [...s, c.slug]))}
+                      className={`rounded-full border-2 px-4 py-2 text-sm font-bold ${
+                        on ? "border-foreground bg-foreground text-background" : "border-border bg-card"
+                      }`}
+                    >
+                      {c.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </fieldset>
+          )}
 
           <label className="block space-y-2">
             <span className="font-bold">¿En qué comuna estás?</span>

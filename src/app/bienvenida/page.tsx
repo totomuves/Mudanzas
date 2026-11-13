@@ -3,7 +3,7 @@ import { hasSupabaseEnv } from "@/lib/env";
 import { getCategories } from "@/lib/data";
 import { getUser } from "@/lib/supabase/server";
 import { SetupNotice } from "@/components/SetupNotice";
-import type { Profile } from "@/lib/types";
+import type { MovingContext, Profile } from "@/lib/types";
 import { Onboarding } from "./Onboarding";
 
 export const metadata: Metadata = { title: "Tus gustos" };
@@ -11,6 +11,7 @@ export const metadata: Metadata = { title: "Tus gustos" };
 export default async function BienvenidaPage() {
   if (!hasSupabaseEnv()) return <SetupNotice />;
   const [categories, { supabase, user }] = await Promise.all([getCategories(), getUser()]);
+  const { data: contexts } = await supabase.from("moving_contexts").select("*").order("sort_order");
 
   let profile: Profile | null = null;
   let selected: string[] = [];
@@ -23,5 +24,12 @@ export default async function BienvenidaPage() {
     selected = (uc.data ?? []).map((r: { category_slug: string }) => r.category_slug);
   }
 
-  return <Onboarding categories={categories} initialSelected={selected} profile={profile} />;
+  return (
+    <Onboarding
+      categories={categories}
+      initialSelected={selected}
+      profile={profile}
+      contexts={(contexts ?? []) as MovingContext[]}
+    />
+  );
 }
