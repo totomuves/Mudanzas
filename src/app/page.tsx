@@ -5,7 +5,7 @@ import { categoryMap, getCategories, getHomeBanners } from "@/lib/data";
 import { createClient } from "@/lib/supabase/server";
 import { ProductCard } from "@/components/ProductCard";
 import { BannerCard } from "@/components/BannerCard";
-import { Icon } from "@/components/Icon";
+import { CategoryIcon, Icon } from "@/components/Icon";
 import { SetupNotice } from "@/components/SetupNotice";
 import type { Product } from "@/lib/types";
 
@@ -65,11 +65,11 @@ export default async function Home() {
         <h1 className="text-[28px] font-black leading-tight md:text-4xl">{brand.hero.title}</h1>
         <div className="scroll-row -mx-4 flex gap-4 overflow-x-auto px-4 pb-1">
           {categories.map((c) => (
-            <Link key={c.slug} href={`/catalogo?categoria=${c.slug}`} className="group flex w-16 shrink-0 flex-col items-center gap-1.5 text-center md:w-20">
-              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-surface text-3xl transition group-hover:ring-2 group-hover:ring-foreground md:h-20 md:w-20 md:text-4xl" aria-hidden>
-                {c.emoji}
+            <Link key={c.slug} href={`/catalogo?categoria=${c.slug}`} className="group flex w-[72px] shrink-0 flex-col items-center gap-1.5 text-center md:w-20">
+              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-surface transition group-hover:ring-2 group-hover:ring-foreground md:h-20 md:w-20" aria-hidden>
+                <CategoryIcon slug={c.slug} className="h-7 w-7 md:h-8 md:w-8" strokeWidth={1.5} />
               </span>
-              <span className="line-clamp-2 text-xs font-semibold leading-tight">{c.name}</span>
+              <span className="line-clamp-2 w-full hyphens-auto break-words text-[11px] font-semibold leading-tight md:text-xs">{c.name}</span>
             </Link>
           ))}
         </div>

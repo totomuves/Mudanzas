@@ -1,5 +1,5 @@
 /**
- * 🔤 TIPOGRAFÍA
+ * TIPOGRAFÍA
  * Cambia "Figtree" por cualquier fuente de https://fonts.google.com
  * (por ejemplo Plus_Jakarta_Sans, Archivo, Inter, Nunito). Para fuentes con
  * pesos fijos agrega: weight: ["400", "700", "900"].

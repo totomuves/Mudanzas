@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Icon } from "./Icon";
 
 function format(ms: number) {
   if (ms <= 0) return "terminó";
@@ -26,7 +27,8 @@ export function FlashCountdown({ until, className = "" }: { until: string; class
     <span
       className={`inline-flex items-center gap-1 rounded-full bg-flash px-2.5 py-1 text-xs font-extrabold text-flash-text ${className}`}
     >
-      ⚡ Oferta relámpago {now != null && <span className="tabular-nums">· {format(new Date(until).getTime() - now)}</span>}
+      <Icon name="zap" className="h-3.5 w-3.5" strokeWidth={2.4} fill="currentColor" />
+      Oferta relámpago {now != null && <span className="tabular-nums">· {format(new Date(until).getTime() - now)}</span>}
     </span>
   );
 }

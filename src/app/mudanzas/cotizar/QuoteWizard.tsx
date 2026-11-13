@@ -3,6 +3,7 @@
 import { useActionState, useMemo, useState } from "react";
 import { COMUNAS } from "@/lib/comunas";
 import { formatCLP } from "@/lib/format";
+import { Icon, ServiceIcon } from "@/components/Icon";
 import {
   computeQuote,
   DISTANCES,
@@ -93,7 +94,7 @@ export function QuoteWizard({
       ))}
 
       <div>
-        <h1 className="text-3xl font-black">Cotiza tu mudanza 🚚</h1>
+        <h1 className="text-3xl font-black">Cotiza tu mudanza</h1>
         <ol className="mt-3 flex gap-1">
           {STEPS.map((s, i) => (
             <li key={s} className="flex-1">
@@ -118,9 +119,9 @@ export function QuoteWizard({
                 key={s.slug}
                 type="button"
                 onClick={() => set("service_slug", s.slug)}
-                className={`rounded-2xl border-2 p-4 text-left ${f.service_slug === s.slug ? "border-brand bg-brand/10" : "border-border bg-card"}`}
+                className={`rounded-card border-2 p-4 text-left ${f.service_slug === s.slug ? "border-foreground bg-surface" : "border-border bg-background"}`}
               >
-                <span className="text-3xl">{s.emoji}</span>
+                <ServiceIcon slug={s.slug} className="h-7 w-7" />
                 <span className="mt-1 block font-extrabold">{s.name}</span>
                 <span className="block text-sm text-muted">{s.description}</span>
                 <span className="mt-1 block text-sm font-bold">Desde {formatCLP(s.base_price)}</span>
@@ -134,7 +135,10 @@ export function QuoteWizard({
         <section className="space-y-5">
           {(["origin", "dest"] as const).map((p) => (
             <fieldset key={p} className="space-y-3 rounded-2xl border border-border bg-card p-4">
-              <legend className="px-1 font-extrabold">{p === "origin" ? "📍 Desde" : "🏁 Hacia"}</legend>
+              <legend className="flex items-center gap-1.5 px-1 font-extrabold">
+                <Icon name={p === "origin" ? "pin" : "flag"} className="h-4 w-4" strokeWidth={2.2} />
+                {p === "origin" ? "Desde" : "Hacia"}
+              </legend>
               <input
                 className={input}
                 placeholder="Dirección (calle y número)"
@@ -195,13 +199,13 @@ export function QuoteWizard({
           <label className="flex items-start gap-3 rounded-2xl border border-border bg-card p-4">
             <input type="checkbox" className="mt-1" checked={f.packing} onChange={(e) => set("packing", e.target.checked)} />
             <span>
-              <span className="block font-bold">📦 Embalaje completo</span>
+              <span className="flex items-center gap-1.5 font-bold"><Icon name="box" className="h-4 w-4" strokeWidth={2.2} />Embalaje completo</span>
               <span className="text-sm text-muted">Llevamos cajas y materiales y embalamos todo por ti.</span>
             </span>
           </label>
           <div className="flex items-center justify-between rounded-2xl border border-border bg-card p-4">
             <span>
-              <span className="block font-bold">🎹 Objetos muy pesados</span>
+              <span className="flex items-center gap-1.5 font-bold"><Icon name="piano" className="h-4 w-4" strokeWidth={2.2} />Objetos muy pesados</span>
               <span className="text-sm text-muted">Piano, caja fuerte, máquinas de ejercicio…</span>
             </span>
             <span className="flex items-center gap-3">
@@ -285,8 +289,8 @@ export function QuoteWizard({
           <input className={input} type="tel" placeholder="WhatsApp (+56 9 …)" value={f.contact_phone} onChange={(e) => set("contact_phone", e.target.value)} autoComplete="tel" />
 
           <div className="rounded-2xl border border-border bg-card p-4 text-sm">
-            <p className="font-extrabold">
-              {service.emoji} {service.name}
+            <p className="flex items-center gap-2 font-extrabold">
+              <ServiceIcon slug={service.slug} className="h-5 w-5" /> {service.name}
             </p>
             <p className="text-muted first-letter:uppercase">
               {formatDay(f.day)} · {f.slot_time} hrs

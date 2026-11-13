@@ -1,9 +1,9 @@
 import Image from "next/image";
-import { brand } from "@/brand";
+import { CategoryIcon } from "./Icon";
 import type { Category, Product } from "@/lib/types";
 
 /**
- * Foto del producto o, si no tiene, un fondo gris claro con el emoji de su categoría.
+ * Foto del producto o, si no tiene, un fondo gris claro con el ícono de su categoría.
  * fit="contain" muestra el producto completo sobre gris (estilo catálogo); las
  * fotos con fondo blanco se funden con el gris.
  */
@@ -17,7 +17,7 @@ export function ProductImage({
   fit = "cover",
 }: {
   product: Pick<Product, "id" | "title" | "images">;
-  category?: Pick<Category, "emoji"> | null;
+  category?: Pick<Category, "slug"> | null;
   index?: number;
   sizes?: string;
   priority?: boolean;
@@ -42,9 +42,7 @@ export function ProductImage({
     <div
       className={`absolute inset-0 flex items-center justify-center bg-surface ${className}`}
     >
-      <span className="text-7xl opacity-80" aria-hidden>
-        {category?.emoji ?? brand.logoEmoji}
-      </span>
+      <CategoryIcon slug={category?.slug ?? ""} className="h-1/3 w-1/3 text-muted/50" strokeWidth={1.1} />
     </div>
   );
 }

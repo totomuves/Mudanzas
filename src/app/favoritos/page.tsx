@@ -6,6 +6,7 @@ import { getUser } from "@/lib/supabase/server";
 import { ProductCard } from "@/components/ProductCard";
 import { SetupNotice } from "@/components/SetupNotice";
 import type { Product } from "@/lib/types";
+import { Icon } from "@/components/Icon";
 
 export const metadata: Metadata = { title: "Favoritos" };
 
@@ -32,10 +33,10 @@ export default async function FavoritosPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-black">Mis favoritos ❤️</h1>
+      <h1 className="text-3xl font-black">Mis favoritos</h1>
       {products.length === 0 ? (
         <div className="rounded-2xl border-2 border-dashed border-border p-8 text-center">
-          <p className="text-5xl">💔</p>
+          <Icon name="heart" className="mx-auto h-12 w-12 text-muted" strokeWidth={1.4} />
           <p className="mt-2 text-muted">Todavía no tienes favoritos. Desliza a la derecha lo que te guste.</p>
           <Link href="/descubrir" className="mt-4 inline-block rounded-full bg-brand px-5 py-2.5 font-extrabold text-white">
             Ir a descubrir
@@ -44,8 +45,9 @@ export default async function FavoritosPage() {
       ) : (
         <>
           {available.length > 0 && (
-            <p className="rounded-xl bg-yellow-100 p-3 text-sm font-bold text-yellow-900">
-              ⏳ Son piezas únicas: si alguien más lo compra primero, se va.
+            <p className="flex items-center gap-2 rounded-xl bg-brand-soft p-3 text-sm font-bold">
+              <Icon name="clock" className="h-4 w-4" strokeWidth={2.2} />
+              Son piezas únicas: si alguien más lo compra primero, se va.
             </p>
           )}
           <div className="grid grid-cols-2 gap-x-3 gap-y-6 md:grid-cols-4 md:gap-x-5">
@@ -56,7 +58,7 @@ export default async function FavoritosPage() {
           {sold.length > 0 && (
             <section className="space-y-3 pt-4">
               <h2 className="font-extrabold text-muted">Ya se vendieron</h2>
-              <div className="grid grid-cols-2 gap-4 opacity-70 md:grid-cols-4">
+              <div className="grid grid-cols-2 gap-x-3 gap-y-6 opacity-70 md:grid-cols-4 md:gap-x-5">
                 {sold.map((p) => (
                   <ProductCard key={p.id} product={p} category={cats[p.category_slug]} />
                 ))}

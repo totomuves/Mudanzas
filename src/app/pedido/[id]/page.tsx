@@ -7,15 +7,16 @@ import { formatCLP } from "@/lib/format";
 import { syncPayment } from "@/lib/payments";
 import { SetupNotice } from "@/components/SetupNotice";
 import type { Order, Product } from "@/lib/types";
+import { Icon, type IconName } from "@/components/Icon";
 
 export const metadata: Metadata = { title: "Tu pedido" };
 
-const STATUS = {
-  paid: { icon: "🎉", title: "¡Pago aprobado!", text: "Es tuyo. Te escribiremos por WhatsApp para coordinar la entrega." },
-  pending: { icon: "⏳", title: "Pago en proceso", text: "Estamos esperando la confirmación de Mercado Pago. Actualiza esta página en unos minutos." },
-  failed: { icon: "😕", title: "El pago no se completó", text: "No se realizó ningún cobro. Puedes intentarlo de nuevo si el producto sigue disponible." },
-  cancelled: { icon: "🚫", title: "Pedido cancelado", text: "No se realizó ningún cobro." },
-} as const;
+const STATUS: Record<Order["status"], { icon: IconName; color: string; title: string; text: string }> = {
+  paid: { icon: "party", color: "text-accent", title: "¡Pago aprobado!", text: "Es tuyo. Te escribiremos por WhatsApp para coordinar la entrega." },
+  pending: { icon: "clock", color: "text-muted", title: "Pago en proceso", text: "Estamos esperando la confirmación de Mercado Pago. Actualiza esta página en unos minutos." },
+  failed: { icon: "sad", color: "text-pass", title: "El pago no se completó", text: "No se realizó ningún cobro. Puedes intentarlo de nuevo si el producto sigue disponible." },
+  cancelled: { icon: "fail", color: "text-muted", title: "Pedido cancelado", text: "No se realizó ningún cobro." },
+};
 
 export default async function PedidoPage({ params, searchParams }: PageProps<"/pedido/[id]">) {
   if (!hasSupabaseEnv()) return <SetupNotice />;
@@ -47,7 +48,9 @@ export default async function PedidoPage({ params, searchParams }: PageProps<"/p
 
   return (
     <div className="mx-auto max-w-md space-y-5 text-center">
-      <div className="animate-pop text-7xl">{s.icon}</div>
+      <div className={`animate-pop flex justify-center ${s.color}`}>
+        <Icon name={s.icon} className="h-16 w-16" strokeWidth={1.4} />
+      </div>
       <h1 className="text-3xl font-black">{s.title}</h1>
       <p className="text-muted">{s.text}</p>
       <div className="rounded-2xl border border-border bg-card p-4 text-left text-sm">

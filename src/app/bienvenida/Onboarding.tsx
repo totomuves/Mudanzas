@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { COMUNAS } from "@/lib/comunas";
 import { formatCLP } from "@/lib/format";
 import type { Category, Profile } from "@/lib/types";
+import { CategoryIcon, Icon } from "@/components/Icon";
 
 const BUDGETS = [20000, 50000, 100000, 200000, 500000];
 
@@ -86,7 +87,7 @@ export function Onboarding({
       {step === 1 ? (
         <section className="space-y-5">
           <div>
-            <h1 className="text-3xl font-black">¿Qué necesitas para tu casa? 🏡</h1>
+            <h1 className="text-3xl font-black">¿Qué necesitas para tu casa?</h1>
             <p className="mt-1 text-muted">
               Elige todo lo que te interese. Después, con cada swipe, la app aprende tus gustos.
             </p>
@@ -100,11 +101,16 @@ export function Onboarding({
                   type="button"
                   onClick={() => toggle(c.slug)}
                   aria-pressed={on}
-                  className={`flex flex-col items-center gap-1 rounded-2xl border-2 p-4 font-bold transition active:scale-95 ${
-                    on ? "border-brand bg-brand/10 shadow-md" : "border-border bg-card"
+                  className={`relative flex flex-col items-center gap-2 rounded-card border-2 p-4 font-bold transition active:scale-95 ${
+                    on ? "border-foreground bg-surface" : "border-border bg-background hover:border-foreground/40"
                   }`}
                 >
-                  <span className={`text-4xl transition ${on ? "scale-110" : ""}`}>{c.emoji}</span>
+                  {on && (
+                    <span className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-foreground text-background">
+                      <Icon name="check" className="h-3 w-3" strokeWidth={3} />
+                    </span>
+                  )}
+                  <CategoryIcon slug={c.slug} className={`h-9 w-9 transition ${on ? "scale-110" : ""}`} strokeWidth={1.4} />
                   <span className="text-center text-sm">{c.name}</span>
                 </button>
               );
@@ -122,7 +128,7 @@ export function Onboarding({
       ) : (
         <section className="space-y-6">
           <div>
-            <h1 className="text-3xl font-black">Un par de datos más 📍</h1>
+            <h1 className="text-3xl font-black">Un par de datos más</h1>
             <p className="mt-1 text-muted">Así te mostramos primero lo que te queda cerca y en tu presupuesto. Puedes saltarte esto.</p>
           </div>
 
@@ -134,7 +140,7 @@ export function Onboarding({
               onChange={(e) => setComuna(e.target.value)}
               className="w-full rounded-xl border border-border bg-card px-4 py-3"
             >
-              <option value="">📍 Todas las comunas</option>
+              <option value="">Todas las comunas</option>
               {COMUNAS.map((c) => (
                 <option key={c} value={c}>
                   {c}
@@ -186,7 +192,7 @@ export function Onboarding({
               disabled={saving}
               className="flex-1 rounded-full bg-brand py-4 text-lg font-extrabold text-white disabled:opacity-60"
             >
-              {saving ? "Guardando…" : "¡A descubrir! 🔥"}
+              {saving ? "Guardando…" : "¡A descubrir!"}
             </button>
           </div>
         </section>

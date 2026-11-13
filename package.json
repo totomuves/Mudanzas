@@ -13,6 +13,7 @@
     "@imgly/background-removal": "^1.7.0",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.119.0",
+    "lucide-react": "^0.468.0",
     "mercadopago": "^3.6.2",
     "next": "16.4.6",
     "onnxruntime-web": "^1.21.0",

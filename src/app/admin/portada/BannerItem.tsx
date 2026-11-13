@@ -4,6 +4,7 @@ import { useState } from "react";
 import { BannerCard } from "@/components/BannerCard";
 import type { HomeBanner } from "@/lib/types";
 import { BannerForm } from "./BannerForm";
+import { Icon } from "@/components/Icon";
 import { deleteBanner, moveBanner } from "./actions";
 
 export function BannerItem({ banner, first, last }: { banner: HomeBanner; first: boolean; last: boolean }) {
@@ -19,12 +20,12 @@ export function BannerItem({ banner, first, last }: { banner: HomeBanner; first:
           <form action={moveBanner}>
             <input type="hidden" name="id" value={banner.id} />
             <input type="hidden" name="dir" value="up" />
-            <button disabled={first} className="rounded-full px-3 py-1.5 hover:bg-surface disabled:opacity-30" aria-label="Subir">↑</button>
+            <button disabled={first} className="rounded-full px-3 py-1.5 hover:bg-surface disabled:opacity-30" aria-label="Subir"><Icon name="up" className="h-4 w-4" strokeWidth={2.2} /></button>
           </form>
           <form action={moveBanner}>
             <input type="hidden" name="id" value={banner.id} />
             <input type="hidden" name="dir" value="down" />
-            <button disabled={last} className="rounded-full px-3 py-1.5 hover:bg-surface disabled:opacity-30" aria-label="Bajar">↓</button>
+            <button disabled={last} className="rounded-full px-3 py-1.5 hover:bg-surface disabled:opacity-30" aria-label="Bajar"><Icon name="down" className="h-4 w-4" strokeWidth={2.2} /></button>
           </form>
           <button onClick={() => setEditing((v) => !v)} className="rounded-full px-3 py-1.5 hover:bg-surface">
             {editing ? "Cerrar" : "Editar"}

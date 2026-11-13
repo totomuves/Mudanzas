@@ -5,14 +5,15 @@ import { requireAdmin } from "@/lib/admin";
 import { formatCLP } from "@/lib/format";
 import { SetupNotice } from "@/components/SetupNotice";
 import type { Order, Product } from "@/lib/types";
+import { StatusDot, type StatusTone } from "@/components/StatusDot";
 
 export const metadata: Metadata = { title: "Pedidos" };
 
-const LABEL: Record<Order["status"], string> = {
-  paid: "✅ Pagado",
-  pending: "⏳ Pendiente",
-  failed: "❌ Fallido",
-  cancelled: "🚫 Cancelado",
+const LABEL: Record<Order["status"], { tone: StatusTone; label: string }> = {
+  paid: { tone: "ok", label: "Pagado" },
+  pending: { tone: "warn", label: "Pendiente" },
+  failed: { tone: "bad", label: "Fallido" },
+  cancelled: { tone: "off", label: "Cancelado" },
 };
 
 export default async function PedidosPage() {
@@ -66,7 +67,7 @@ export default async function PedidosPage() {
                     </td>
                     <td className="p-3">{o.delivery === "retiro" ? "Retiro" : `Despacho: ${o.address}`}</td>
                     <td className="whitespace-nowrap p-3 font-bold">{formatCLP(o.amount)}</td>
-                    <td className="whitespace-nowrap p-3">{LABEL[o.status]}</td>
+                    <td className="whitespace-nowrap p-3"><StatusDot {...LABEL[o.status]} /></td>
                   </tr>
                 );
               })}
