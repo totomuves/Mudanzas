@@ -124,6 +124,17 @@ export default async function Home() {
         <Icon name="arrow" className="h-6 w-6 transition group-hover:translate-x-1" />
       </Link>
 
+      <Link href="/vender" className="group flex items-center gap-4 rounded-card border border-border p-5 md:p-8">
+        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-surface">
+          <Icon name="store" className="h-7 w-7" />
+        </span>
+        <span className="flex-1">
+          <span className="block text-lg font-black">Vende con nosotros</span>
+          <span className="block text-sm text-muted">¿Te sobran cosas o tienes una empresa de mudanzas? Súbelas y nosotros las vendemos.</span>
+        </span>
+        <Icon name="arrow" className="h-6 w-6 transition group-hover:translate-x-1" />
+      </Link>
+
       <section className="grid gap-6 border-t border-border pt-8 md:grid-cols-3">
         {[
           { icon: "sparkle" as const, title: "Cuéntanos qué buscas", text: "Elige categorías, tu comuna y presupuesto." },

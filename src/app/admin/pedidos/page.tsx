@@ -14,6 +14,7 @@ const LABEL: Record<Order["status"], { tone: StatusTone; label: string }> = {
   pending: { tone: "warn", label: "Pendiente" },
   failed: { tone: "bad", label: "Fallido" },
   cancelled: { tone: "off", label: "Cancelado" },
+  refunded: { tone: "off", label: "Reembolsado" },
 };
 
 export default async function PedidosPage() {
@@ -21,10 +22,10 @@ export default async function PedidosPage() {
   const { supabase } = await requireAdmin();
   const { data } = await supabase
     .from("orders")
-    .select("*, products(title)")
+    .select("*, products(title), sellers(name)")
     .order("created_at", { ascending: false })
     .limit(200);
-  const orders = (data ?? []) as (Order & { products: Pick<Product, "title"> | null })[];
+  const orders = (data ?? []) as (Order & { products: Pick<Product, "title"> | null; sellers: { name: string } | null })[];
 
   return (
     <div className="space-y-4">
@@ -55,6 +56,10 @@ export default async function PedidosPage() {
                         {o.products?.title ?? "—"}
                         {o.quantity > 1 ? ` × ${o.quantity}` : ""}
                       </Link>
+                      <div className="text-xs text-muted">
+                        {o.sellers ? `Vende: ${o.sellers.name}` : "Totomuves"}
+                        {o.issue_at && !o.released_at && o.status === "paid" ? " · Con reclamo" : ""}
+                      </div>
                     </td>
                     <td className="p-3">
                       <div>{o.buyer_name}</div>
