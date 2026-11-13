@@ -57,7 +57,7 @@ export default async function PedidosPage() {
                         {o.quantity > 1 ? ` × ${o.quantity}` : ""}
                       </Link>
                       <div className="text-xs text-muted">
-                        {o.sellers ? `Vende: ${o.sellers.name}` : "Totomuves"}
+                        {o.sellers ? `Vende: ${o.sellers.name}` : "MÜVEO"}
                         {o.issue_at && !o.released_at && o.status === "paid" ? " · Con reclamo" : ""}
                       </div>
                     </td>
