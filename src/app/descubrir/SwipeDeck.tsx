@@ -54,12 +54,24 @@ export function SwipeDeck({
 
   const seen = useRef(new Set<string>());
   const fetching = useRef(false);
+  // Filtro de categorías (chips). Vacío = todas.
+  const [filters, setFilters] = useState<string[]>([]);
+  const filtersRef = useRef<string[]>([]);
+  const [selectedCats, setSelectedCats] = useState<Set<string>>(
+    () => new Set(initialPrefs.filter((p) => p.selected).map((p) => p.category_slug)),
+  );
 
   const fetchMore = useCallback(async () => {
     if (fetching.current) return;
     fetching.current = true;
-    const { data, error } = await supabase.rpc("get_feed", { p_limit: 15 });
+    const wanted = filtersRef.current;
+    const { data, error } = await supabase.rpc("get_feed", {
+      p_limit: 15,
+      p_categories: wanted.length ? wanted : null,
+    });
     fetching.current = false;
+    // Si cambiaron los filtros mientras cargaba, esta respuesta ya no sirve
+    if (wanted !== filtersRef.current) return;
     setLoading(false);
     if (error) {
       console.error("[get_feed]", error);
@@ -75,7 +87,6 @@ export function SwipeDeck({
 
   useEffect(() => {
     // Carga inicial del mazo
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchMore();
   }, [fetchMore]);
 
@@ -128,6 +139,32 @@ export function SwipeDeck({
     await supabase.from("swipes").delete().eq("user_id", userId).eq("product_id", product.id);
   }
 
+  function applyFilters(next: string[]) {
+    filtersRef.current = next;
+    setFilters(next);
+    setDeck([]);
+    setExhausted(false);
+    setLoadError(false);
+    setLoading(true);
+    seen.current = new Set();
+    fetching.current = false;
+    fetchMore();
+  }
+
+  /** Activa/desactiva una categoría. Elegirla también le enseña a la app que la necesitas. */
+  async function toggleFilter(slug: string) {
+    const next = filters.includes(slug) ? filters.filter((s) => s !== slug) : [...filters, slug];
+    applyFilters(next);
+
+    if (!filters.includes(slug) && !selectedCats.has(slug)) {
+      setSelectedCats((s) => new Set(s).add(slug));
+      setWeights((w) => ({ ...w, [slug]: (w[slug] ?? 0) + 3 }));
+      await supabase
+        .from("user_categories")
+        .upsert({ user_id: userId, category_slug: slug, selected: true }, { onConflict: "user_id,category_slug" });
+    }
+  }
+
   async function reviewPassed() {
     setLoading(true);
     setExhausted(false);
@@ -148,8 +185,36 @@ export function SwipeDeck({
 
   return (
     <div className="mx-auto grid max-w-4xl gap-6 md:grid-cols-[1fr_280px]">
+      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 md:col-span-2" role="group" aria-label="Filtrar por categorías">
+        <button
+          type="button"
+          aria-pressed={filters.length === 0}
+          onClick={() => filters.length > 0 && applyFilters([])}
+          className={`shrink-0 rounded-full border px-4 py-2 text-sm font-bold ${
+            filters.length === 0 ? "border-brand bg-brand text-white" : "border-border bg-card"
+          }`}
+        >
+          ✨ Todo
+        </button>
+        {categories.map((c) => {
+          const on = filters.includes(c.slug);
+          return (
+            <button
+              key={c.slug}
+              type="button"
+              aria-pressed={on}
+              onClick={() => toggleFilter(c.slug)}
+              className={`shrink-0 rounded-full border px-4 py-2 text-sm font-bold ${
+                on ? "border-brand bg-brand text-white" : "border-border bg-card"
+              }`}
+            >
+              {c.emoji} {c.name}
+            </button>
+          );
+        })}
+      </div>
       <div className="mx-auto w-full max-w-sm">
-        <div className="relative aspect-[3/4.2] w-full">
+        <div className="relative aspect-[3/4.2] max-h-[calc(100svh-17rem)] min-h-80 w-full">
           {loading && deck.length === 0 && (
             <div className="absolute inset-0 animate-pulse rounded-card bg-border" />
           )}
@@ -173,7 +238,11 @@ export function SwipeDeck({
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-card border-2 border-dashed border-border p-6 text-center">
               <div className="text-6xl">🎉</div>
               <h2 className="text-xl font-black">¡Viste todo por ahora!</h2>
-              <p className="text-sm text-muted">Subimos tesoros nuevos después de cada mudanza. Vuelve pronto.</p>
+              <p className="text-sm text-muted">
+                {filters.length > 0
+                  ? "No quedan productos en estas categorías. Prueba agregando otras o mira todo."
+                  : "Subimos tesoros nuevos después de cada mudanza. Vuelve pronto."}
+              </p>
               <div className="flex flex-col gap-2 pt-2">
                 <Link href="/favoritos" className="rounded-full bg-brand px-5 py-2.5 font-extrabold text-white">
                   Ver mis favoritos

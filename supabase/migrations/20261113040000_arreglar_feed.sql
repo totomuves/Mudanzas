@@ -4,10 +4,13 @@
 -- get_feed devolvía la lista de columnas antigua ("No pudimos cargar
 -- productos"). Ahora devuelve la fila completa, así no se rompe
 -- cuando se agreguen columnas en el futuro.
--- Además: no muestra productos sin unidades disponibles.
+-- Además: no muestra productos sin unidades disponibles y acepta un
+-- filtro opcional de varias categorías (chips de Descubrir).
 -- =============================================================
 
-create or replace function public.get_feed(p_limit int default 20)
+drop function if exists public.get_feed(int);
+
+create or replace function public.get_feed(p_limit int default 20, p_categories text[] default null)
 returns setof public.products
 language sql
 volatile
@@ -21,6 +24,7 @@ as $$
   left join public.profiles me on me.id = auth.uid()
   where pr.status = 'available'
     and public.available_units(pr) > 0
+    and (p_categories is null or cardinality(p_categories) = 0 or pr.category_slug = any (p_categories))
     and not exists (
       select 1 from public.swipes s
       where s.user_id = auth.uid() and s.product_id = pr.id
@@ -49,4 +53,6 @@ as $$
 $$;
 
 -- Que la API (PostgREST) vea los cambios de inmediato
+grant execute on function public.get_feed(int, text[]) to anon, authenticated;
+
 notify pgrst, 'reload schema';
