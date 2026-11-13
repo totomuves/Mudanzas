@@ -1,4 +1,3 @@
-export const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "Totomuves";
 
 export const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 export const SUPABASE_PUBLISHABLE_KEY =

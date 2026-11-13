@@ -1,16 +1,16 @@
 import type { MetadataRoute } from "next";
-import { APP_NAME } from "@/lib/env";
+import { brand } from "@/brand";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: APP_NAME,
-    short_name: APP_NAME,
-    description: "Tesoros que quedan en las mudanzas, a precios bajísimos.",
+    name: brand.name,
+    short_name: brand.name,
+    description: brand.description,
     start_url: "/descubrir",
     display: "standalone",
     orientation: "portrait",
-    background_color: "#fff8f1",
-    theme_color: "#ff6b3d",
+    background_color: brand.backgroundColor,
+    theme_color: brand.themeColor,
     lang: "es-CL",
     icons: [
       { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },

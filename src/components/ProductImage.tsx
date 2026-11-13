@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { brand } from "@/brand";
 import type { Category, Product } from "@/lib/types";
 
 const GRADIENTS = [
@@ -52,7 +53,7 @@ export function ProductImage({
       } ${className}`}
     >
       <span className="text-8xl drop-shadow-sm" aria-hidden>
-        {category?.emoji ?? "📦"}
+        {category?.emoji ?? brand.logoEmoji}
       </span>
     </div>
   );

@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import MercadoPagoConfig, { Payment, Preference } from "mercadopago";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { siteUrl } from "@/lib/env";
+import { brand } from "@/brand";
 
 function mpConfig() {
   const accessToken = process.env.MP_ACCESS_TOKEN;
@@ -45,7 +46,7 @@ export async function createPreference(input: {
         : {}),
       expires: true,
       expiration_date_to: input.expiresAt.toISOString(),
-      statement_descriptor: "TOTOMUVES",
+      statement_descriptor: brand.statementDescriptor,
     },
     requestOptions: { idempotencyKey: input.orderId },
   });

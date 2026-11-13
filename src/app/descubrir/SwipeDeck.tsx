@@ -148,10 +148,10 @@ export function SwipeDeck({
       <div className="mx-auto w-full max-w-sm">
         <div className="relative aspect-[3/4.2] w-full">
           {loading && deck.length === 0 && (
-            <div className="absolute inset-0 animate-pulse rounded-3xl bg-border" />
+            <div className="absolute inset-0 animate-pulse rounded-card bg-border" />
           )}
           {!loading && deck.length === 0 && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-3xl border-2 border-dashed border-border p-6 text-center">
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-card border-2 border-dashed border-border p-6 text-center">
               <div className="text-6xl">🎉</div>
               <h2 className="text-xl font-black">¡Viste todo por ahora!</h2>
               <p className="text-sm text-muted">Subimos tesoros nuevos después de cada mudanza. Vuelve pronto.</p>
@@ -222,7 +222,7 @@ export function SwipeDeck({
 
       {superliked && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 md:items-center" onClick={() => setSuperliked(null)}>
-          <div className="animate-pop w-full max-w-sm rounded-3xl bg-card p-6 text-center shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="animate-pop w-full max-w-sm rounded-card bg-card p-6 text-center shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="text-5xl">⭐</div>
             <h2 className="mt-2 text-2xl font-black">¡Te encantó!</h2>
             <p className="mt-1 text-muted">
@@ -325,7 +325,7 @@ function SwipeCard({
 
   return (
     <div
-      className={`no-overscroll absolute inset-0 select-none overflow-hidden rounded-3xl bg-card shadow-xl ring-1 ring-black/5 ${
+      className={`no-overscroll absolute inset-0 select-none overflow-hidden rounded-card bg-card shadow-xl ring-1 ring-black/5 ${
         isTop ? "cursor-grab active:cursor-grabbing" : "pointer-events-none"
       }`}
       style={{

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { APP_NAME } from "@/lib/env";
+import { Logo } from "./Logo";
 
 const links = [
   { href: "/descubrir", label: "Descubrir" },
@@ -12,8 +12,7 @@ export function Header() {
     <header className="sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
         <Link href="/" className="flex items-center gap-2 text-lg font-extrabold">
-          <span aria-hidden className="text-2xl">📦</span>
-          <span>{APP_NAME}</span>
+          <Logo />
         </Link>
         <nav className="hidden items-center gap-6 text-sm font-bold md:flex">
           {links.map((l) => (

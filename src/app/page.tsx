@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { APP_NAME, hasSupabaseEnv } from "@/lib/env";
+import { hasSupabaseEnv } from "@/lib/env";
+import { brand } from "@/brand";
 import { categoryMap, getCategories } from "@/lib/data";
 import { createClient } from "@/lib/supabase/server";
 import { ProductCard } from "@/components/ProductCard";
@@ -34,22 +35,21 @@ export default async function Home() {
 
   return (
     <div className="space-y-12">
-      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand to-rose-500 px-6 py-10 text-white md:px-12 md:py-16">
+      <section className="relative overflow-hidden rounded-card bg-gradient-to-br from-brand to-brand-2 px-6 py-10 text-white md:px-12 md:py-16">
         <div className="max-w-xl space-y-4">
-          <p className="text-sm font-bold uppercase tracking-widest text-white/80">{APP_NAME}</p>
+          <p className="text-sm font-bold uppercase tracking-widest text-white/80">{brand.name}</p>
           <h1 className="text-4xl font-black leading-tight md:text-5xl">
-            Lo que otros dejan en su mudanza, tú lo estrenas.
+            {brand.hero.title}
           </h1>
           <p className="text-lg text-white/90">
-            Muebles, electro y tesoros a precios bajísimos. Desliza ❤️ lo que te gusta y la app
-            aprende qué mostrarte.
+            {brand.hero.subtitle}
           </p>
           <div className="flex flex-wrap gap-3 pt-2">
             <Link
               href="/bienvenida"
               className="rounded-full bg-white px-6 py-3 font-extrabold text-brand shadow-lg hover:scale-105"
             >
-              Empezar a descubrir
+              {brand.hero.cta}
             </Link>
             <Link
               href="/catalogo"
@@ -97,7 +97,7 @@ export default async function Home() {
           </Link>
         </div>
         {latestProducts.length === 0 ? (
-          <p className="text-muted">Pronto subiremos los primeros tesoros. 📦</p>
+          <p className="text-muted">Pronto subiremos los primeros tesoros. {brand.logoEmoji}</p>
         ) : (
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             {latestProducts.map((p) => (

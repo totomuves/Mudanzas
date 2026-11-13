@@ -14,7 +14,7 @@ export function ProductCard({ product, category }: { product: Product; category?
       <div className="relative aspect-square">
         <ProductImage product={product} category={category} sizes="(max-width: 768px) 50vw, 250px" />
         {isFlashActive(product) && !sold && (
-          <span className="absolute left-2 top-2 rounded-full bg-yellow-300 px-2 py-0.5 text-xs font-extrabold text-yellow-950">
+          <span className="absolute left-2 top-2 rounded-full bg-flash px-2 py-0.5 text-xs font-extrabold text-flash-text">
             ⚡ Relámpago
           </span>
         )}

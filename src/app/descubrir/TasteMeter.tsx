@@ -29,7 +29,7 @@ export function TasteMeter({
   const knowledge = Math.min(100, Math.round((swipeCount / 30) * 100));
 
   return (
-    <aside className="space-y-4 rounded-3xl border border-border bg-card p-5 md:self-start">
+    <aside className="space-y-4 rounded-card border border-border bg-card p-5 md:self-start">
       <div className="flex items-center gap-3">
         <span className="text-4xl">{level.icon}</span>
         <div>
@@ -49,7 +49,7 @@ export function TasteMeter({
           <span>{knowledge}%</span>
         </div>
         <div className="h-2 overflow-hidden rounded-full bg-border">
-          <div className="h-full rounded-full bg-gradient-to-r from-brand to-rose-500 transition-all" style={{ width: `${knowledge}%` }} />
+          <div className="h-full rounded-full bg-gradient-to-r from-brand to-brand-2 transition-all" style={{ width: `${knowledge}%` }} />
         </div>
       </div>
 

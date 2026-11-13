@@ -8,7 +8,7 @@ export function Gallery({ product, category }: { product: Product; category?: Ca
   const [i, setI] = useState(0);
   return (
     <div className="space-y-3">
-      <div className="relative aspect-square overflow-hidden rounded-3xl bg-card">
+      <div className="relative aspect-square overflow-hidden rounded-card bg-card">
         <ProductImage product={product} category={category} index={i} priority sizes="(max-width: 768px) 100vw, 500px" />
       </div>
       {product.images.length > 1 && (

@@ -24,7 +24,7 @@ export function FlashCountdown({ until, className = "" }: { until: string; class
   }, []);
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full bg-yellow-300 px-2.5 py-1 text-xs font-extrabold text-yellow-950 ${className}`}
+      className={`inline-flex items-center gap-1 rounded-full bg-flash px-2.5 py-1 text-xs font-extrabold text-flash-text ${className}`}
     >
       ⚡ Oferta relámpago {now != null && <span className="tabular-nums">· {format(new Date(until).getTime() - now)}</span>}
     </span>
