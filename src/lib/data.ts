@@ -16,7 +16,11 @@ export function categoryMap(categories: Category[]) {
 export async function getProduct(id: string): Promise<Product | null> {
   if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
   const supabase = await createClient();
-  const { data } = await supabase.from("products").select("*").eq("id", id).maybeSingle();
+  const { data } = await supabase
+    .from("products")
+    .select("*, available_units")
+    .eq("id", id)
+    .maybeSingle();
   return (data as Product | null) ?? null;
 }
 

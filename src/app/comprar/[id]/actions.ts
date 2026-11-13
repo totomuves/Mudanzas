@@ -3,9 +3,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { currentPrice } from "@/lib/format";
 import { createPreference } from "@/lib/payments";
-import type { Product } from "@/lib/types";
+import type { Order } from "@/lib/types";
 
 export type CheckoutState = { error?: string };
 
@@ -33,44 +32,45 @@ export async function startCheckout(_prev: CheckoutState, formData: FormData): P
   if (!user) return { error: "No pudimos iniciar tu sesión. Intenta de nuevo." };
 
   const db = createAdminClient();
+  const quantity = Math.max(1, Math.min(50, parseInt(String(formData.get("quantity") ?? "1"), 10) || 1));
 
-  // Reserva el producto 15 minutos para que nadie más lo compre mientras pagas
-  const { data: reserved } = await db.rpc("reserve_product", {
-    p_product_id: productId,
-    p_user_id: user.id,
-  });
-  const product = reserved as Product | null;
-  if (!product?.id) {
-    return { error: "¡Uy! Este producto ya no está disponible o alguien lo está pagando ahora." };
-  }
-
-  const amount = currentPrice(product);
-  const { data: order, error: orderErr } = await db
-    .from("orders")
-    .insert({
+  // Crea el pedido y aparta las unidades 15 minutos (atómico, en la base de datos)
+  const { data: placed, error: placeErr } = await db.rpc("place_order", {
+    p: {
+      product_id: productId,
       user_id: user.id,
-      product_id: product.id,
-      amount,
+      quantity,
       buyer_name: name,
       buyer_email: email,
       buyer_phone: phone,
       delivery,
-      address: delivery === "despacho" ? address : null,
-    })
-    .select("id")
-    .single();
-  if (orderErr || !order) return { error: "No pudimos crear tu pedido. Intenta de nuevo." };
+      address: delivery === "despacho" ? address : "",
+    },
+  });
+  const order = placed as Order | null;
+  if (placeErr || !order?.id) {
+    if (placeErr) console.error("[checkout]", placeErr);
+    return {
+      error:
+        quantity > 1
+          ? "No quedan tantas unidades disponibles. Prueba con menos."
+          : "¡Uy! Este producto ya no está disponible o alguien lo está pagando ahora.",
+    };
+  }
+
+  const { data: product } = await db.from("products").select("title, images").eq("id", productId).single();
 
   let payUrl: string | null = null;
   try {
     const pref = await createPreference({
       orderId: order.id,
-      productId: product.id,
-      title: product.title,
-      amount,
-      pictureUrl: product.images[0],
+      productId,
+      title: product?.title ?? "Producto",
+      quantity,
+      unitPrice: Math.round(order.amount / quantity),
+      pictureUrl: product?.images?.[0],
       buyer: { name, email },
-      expiresAt: new Date(product.reserved_until ?? Date.now() + 15 * 60_000),
+      expiresAt: new Date(order.reserved_until ?? Date.now() + 15 * 60_000),
     });
     await db.from("orders").update({ mp_preference_id: pref.id }).eq("id", order.id);
     payUrl = pref.url;
@@ -78,8 +78,8 @@ export async function startCheckout(_prev: CheckoutState, formData: FormData): P
     console.error("[checkout]", e);
   }
   if (!payUrl) {
+    // Libera las unidades apartadas
     await db.from("orders").update({ status: "failed" }).eq("id", order.id);
-    await db.from("products").update({ reserved_by: null, reserved_until: null }).eq("id", product.id);
     return { error: "No pudimos conectar con Mercado Pago. Intenta en unos minutos." };
   }
 

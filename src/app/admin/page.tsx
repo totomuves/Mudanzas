@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: "Admin" };
 const STATUS_LABEL: Record<Product["status"], string> = {
   available: "🟢 Disponible",
   reserved: "🟡 Reservado",
-  sold: "🔵 Vendido",
+  sold: "🔵 Agotado",
   hidden: "⚪ Oculto",
 };
 
@@ -33,15 +33,21 @@ export default async function AdminPage() {
   const stats = {
     disponibles: products.filter((p) => p.status === "available").length,
     vendidos: products.filter((p) => p.status === "sold").length,
-    ventas: products.filter((p) => p.status === "sold").reduce((s, p) => s + currentPrice(p), 0),
+    unidades: products.filter((p) => p.status === "available").reduce((s, p) => s + p.quantity, 0),
   };
 
   return (
     <div className="space-y-6">
+      <Link
+        href="/admin/nuevo"
+        className="flex items-center justify-center gap-3 rounded-card bg-brand p-5 text-lg font-black text-white shadow-lg active:scale-95"
+      >
+        <span className="text-3xl">📷</span> Fotografiar y subir producto
+      </Link>
       <div className="grid grid-cols-3 gap-3">
         <Stat label="Disponibles" value={String(stats.disponibles)} />
-        <Stat label="Vendidos" value={String(stats.vendidos)} />
-        <Stat label="Vendido (aprox.)" value={formatCLP(stats.ventas)} />
+        <Stat label="Agotados" value={String(stats.vendidos)} />
+        <Stat label="Unidades en stock" value={String(stats.unidades)} />
       </div>
       {products.length === 0 ? (
         <p className="text-muted">
@@ -59,7 +65,7 @@ export default async function AdminPage() {
                   <p className="truncate font-bold">{p.title}</p>
                   <p className="text-xs text-muted">
                     {cats[p.category_slug]?.name} · {formatCLP(currentPrice(p))}
-                    {isFlashActive(p) ? " ⚡" : ""} · ❤️ {likeCount[p.id] ?? 0}
+                    {isFlashActive(p) ? " ⚡" : ""} · 📦 {p.quantity} · ❤️ {likeCount[p.id] ?? 0}
                   </p>
                 </div>
                 <span className="shrink-0 text-xs font-bold">{STATUS_LABEL[p.status]}</span>

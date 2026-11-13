@@ -1,33 +1,47 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { COMUNAS } from "@/lib/comunas";
 import { CONDITION_LABEL } from "@/lib/format";
 import type { Category, Condition, Product } from "@/lib/types";
+import { compress, whiteBackground, type BgProvider } from "@/lib/photo";
 
 const MAX_PHOTOS = 6;
 
-/** Reduce la foto (las de celular pesan mucho) y la convierte a WebP. */
-async function compress(file: File, maxSize = 1600): Promise<Blob> {
-  const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, maxSize / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  return new Promise((resolve, reject) =>
-    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("No se pudo procesar la foto"))), "image/webp", 0.82),
-  );
-}
-
-export function ProductForm({ categories, product }: { categories: Category[]; product?: Product }) {
+export function ProductForm({
+  categories,
+  product,
+  ai,
+}: {
+  categories: Category[];
+  product?: Product;
+  ai: { bgProvider: BgProvider; suggest: boolean };
+}) {
   const router = useRouter();
   const supabase = createClient();
   const [images, setImages] = useState<string[]>(product?.images ?? []);
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState<string | null>(null);
+  const [whiteBg, setWhiteBg] = useState(true);
+  const [suggesting, setSuggesting] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  // Recuerda la preferencia de fondo blanco en este dispositivo
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (localStorage.getItem("totomuves.whiteBg") === "0") setWhiteBg(false);
+    } catch {}
+  }, []);
+  function toggleWhiteBg(v: boolean) {
+    setWhiteBg(v);
+    try {
+      localStorage.setItem("totomuves.whiteBg", v ? "1" : "0");
+    } catch {}
+  }
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [flashOn, setFlashOn] = useState(
@@ -41,8 +55,22 @@ export function ProductForm({ categories, product }: { categories: Category[]; p
     setUploading(true);
     setError(null);
     try {
-      for (const file of files) {
-        const blob = await compress(file);
+      for (const [i, file] of files.entries()) {
+        const label = files.length > 1 ? `Foto ${i + 1}/${files.length}: ` : "";
+        let blob: Blob;
+        if (whiteBg && ai.bgProvider !== "off") {
+          try {
+            blob = await whiteBackground(file, ai.bgProvider, (m) => setProgress(label + m));
+          } catch (err) {
+            console.error(err);
+            setError("No se pudo quitar el fondo, subimos la foto original.");
+            blob = await compress(file);
+          }
+        } else {
+          setProgress(label + "Subiendo…");
+          blob = await compress(file);
+        }
+        setProgress(label + "Subiendo…");
         const path = `${crypto.randomUUID()}.webp`;
         const { error } = await supabase.storage.from("products").upload(path, blob, {
           contentType: "image/webp",
@@ -56,6 +84,38 @@ export function ProductForm({ categories, product }: { categories: Category[]; p
       setError(err instanceof Error ? err.message : "Error subiendo fotos");
     } finally {
       setUploading(false);
+      setProgress(null);
+    }
+  }
+
+  /** Pide a la IA título, descripción, categoría y precio a partir de la portada. */
+  async function suggest() {
+    if (!images[0] || !formRef.current) return;
+    setSuggesting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/sugerir", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ imageUrl: images[0] }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "No se pudo sugerir");
+      const form = formRef.current;
+      const setField = (name: string, value: string | number | null) => {
+        const el = form.elements.namedItem(name) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null;
+        if (el && value != null) el.value = String(value);
+      };
+      setField("title", data.title);
+      setField("description", data.description);
+      setField("category_slug", data.category_slug);
+      setField("condition", data.condition);
+      setField("price", data.price);
+      setField("original_price", data.original_price);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo sugerir");
+    } finally {
+      setSuggesting(false);
     }
   }
 
@@ -84,6 +144,7 @@ export function ProductForm({ categories, product }: { categories: Category[]; p
       condition: String(f.get("condition")) as Condition,
       comuna: String(f.get("comuna") ?? "") || null,
       price: num("price") ?? 0,
+      quantity: num("quantity") ?? 1,
       original_price: num("original_price"),
       status: String(f.get("status") ?? "available"),
       images,
@@ -131,28 +192,66 @@ export function ProductForm({ categories, product }: { categories: Category[]; p
   const input = "w-full rounded-xl border border-border bg-card px-4 py-3";
 
   return (
-    <form onSubmit={onSubmit} className="mx-auto max-w-2xl space-y-5">
-      <section className="space-y-2">
-        <p className="font-bold">Fotos ({images.length}/{MAX_PHOTOS}) · la primera es la portada</p>
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-          {images.map((src, i) => (
-            <div key={src} className="group relative aspect-square overflow-hidden rounded-xl bg-border">
-              <Image src={src} alt="" fill sizes="120px" className="object-cover" />
-              <div className="absolute inset-x-0 bottom-0 flex justify-between bg-black/50 p-1 text-xs text-white">
-                <button type="button" onClick={() => move(i, -1)} aria-label="Mover a la izquierda">◀</button>
-                <button type="button" onClick={() => setImages((imgs) => imgs.filter((x) => x !== src))} aria-label="Quitar">🗑️</button>
-                <button type="button" onClick={() => move(i, 1)} aria-label="Mover a la derecha">▶</button>
-              </div>
-            </div>
-          ))}
-          {images.length < MAX_PHOTOS && (
-            <label className="flex aspect-square cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-border text-center text-xs font-bold text-muted hover:border-brand">
-              <span className="text-2xl">{uploading ? "⏳" : "📷"}</span>
-              {uploading ? "Subiendo…" : "Agregar"}
-              <input type="file" accept="image/*" multiple capture="environment" onChange={onFiles} className="sr-only" disabled={uploading} />
+    <form ref={formRef} onSubmit={onSubmit} className="mx-auto max-w-2xl space-y-5">
+      <section className="space-y-3">
+        {images.length < MAX_PHOTOS && (
+          <div className="grid grid-cols-2 gap-3">
+            <label
+              className={`flex cursor-pointer flex-col items-center justify-center gap-1 rounded-card bg-brand p-5 text-center font-extrabold text-white shadow-lg active:scale-95 ${uploading ? "pointer-events-none opacity-60" : ""}`}
+            >
+              <span className="text-4xl">📷</span>
+              Tomar foto
+              <input type="file" accept="image/*" capture="environment" onChange={onFiles} className="sr-only" disabled={uploading} />
             </label>
-          )}
-        </div>
+            <label
+              className={`flex cursor-pointer flex-col items-center justify-center gap-1 rounded-card border-2 border-border bg-card p-5 text-center font-extrabold active:scale-95 ${uploading ? "pointer-events-none opacity-60" : ""}`}
+            >
+              <span className="text-4xl">🖼️</span>
+              Desde la galería
+              <input type="file" accept="image/*" multiple onChange={onFiles} className="sr-only" disabled={uploading} />
+            </label>
+          </div>
+        )}
+        <label className="flex items-center gap-2 text-sm font-bold">
+          <input type="checkbox" checked={whiteBg} onChange={(e) => toggleWhiteBg(e.target.checked)} />
+          ✨ Quitar el fondo y dejarlo blanco con IA
+        </label>
+        {progress && (
+          <p className="animate-pulse rounded-xl bg-brand/10 p-3 text-sm font-bold text-brand">⏳ {progress}</p>
+        )}
+
+        {images.length > 0 && (
+          <>
+            <p className="text-sm font-bold text-muted">
+              Fotos ({images.length}/{MAX_PHOTOS}) · la primera es la portada
+            </p>
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+              {images.map((src, i) => (
+                <div key={src} className="relative aspect-square overflow-hidden rounded-xl bg-white ring-1 ring-border">
+                  <Image src={src} alt="" fill sizes="120px" className="object-contain" />
+                  {i === 0 && (
+                    <span className="absolute left-1 top-1 rounded bg-black/60 px-1.5 text-[10px] font-bold text-white">Portada</span>
+                  )}
+                  <div className="absolute inset-x-0 bottom-0 flex justify-between bg-black/50 p-1 text-xs text-white">
+                    <button type="button" onClick={() => move(i, -1)} aria-label="Mover a la izquierda">◀</button>
+                    <button type="button" onClick={() => setImages((imgs) => imgs.filter((x) => x !== src))} aria-label="Quitar">🗑️</button>
+                    <button type="button" onClick={() => move(i, 1)} aria-label="Mover a la derecha">▶</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {ai.suggest && (
+              <button
+                type="button"
+                onClick={suggest}
+                disabled={suggesting || uploading}
+                className="w-full rounded-full border-2 border-brand py-3 font-extrabold text-brand disabled:opacity-50"
+              >
+                {suggesting ? "Mirando la foto…" : "✨ Completar título, descripción y precio con IA"}
+              </button>
+            )}
+          </>
+        )}
       </section>
 
       <label className="block space-y-1">
@@ -186,6 +285,10 @@ export function ProductForm({ categories, product }: { categories: Category[]; p
           <input name="price" inputMode="numeric" defaultValue={product?.price} required className={input} placeholder="35000" />
         </label>
         <label className="block space-y-1">
+          <span className="font-bold">Cantidad (unidades)</span>
+          <input name="quantity" type="number" min={0} max={999} defaultValue={product?.quantity ?? 1} required className={input} />
+        </label>
+        <label className="block space-y-1">
           <span className="font-bold">Precio original nuevo (opcional)</span>
           <input name="original_price" inputMode="numeric" defaultValue={product?.original_price ?? ""} className={input} placeholder="89990" />
         </label>
@@ -203,7 +306,7 @@ export function ProductForm({ categories, product }: { categories: Category[]; p
           <select name="status" defaultValue={product?.status ?? "available"} className={input}>
             <option value="available">Disponible</option>
             <option value="hidden">Oculto</option>
-            <option value="sold">Vendido</option>
+            <option value="sold">Agotado / vendido</option>
           </select>
         </label>
       </div>

@@ -52,6 +52,7 @@ export default async function PedidosPage() {
                     <td className="p-3">
                       <Link href={`/admin/${o.product_id}`} className="font-bold hover:underline">
                         {o.products?.title ?? "—"}
+                        {o.quantity > 1 ? ` × ${o.quantity}` : ""}
                       </Link>
                     </td>
                     <td className="p-3">

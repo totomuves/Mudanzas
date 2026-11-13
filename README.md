@@ -21,7 +21,7 @@ Web + app (PWA instalable) de Totomuves con dos partes:
 | `/mudanzas/cotizar` | Cotizador paso a paso con precio en vivo y elección de día y bloque horario |
 | `/mudanzas/reserva/[id]` | Confirmación de la reserva con botón a WhatsApp |
 | `/admin/mudanzas` | Agenda: reservas, cambio de estado y días bloqueados |
-| `/admin` | Panel: subir productos con fotos desde el celular, editar, ofertas relámpago, ver pedidos y cuántos ♥ tiene cada producto |
+| `/admin` | Panel: fotografiar y subir productos (fondo blanco automático con IA), cantidad en stock, editar, ofertas relámpago, ver pedidos y cuántos ♥ tiene cada producto |
 
 ### Cómo "aprende" la app
 
@@ -47,7 +47,18 @@ Todo vive en `supabase/migrations/`, así que se puede ajustar sin tocar la app.
 
 ### Pagos y stock
 
-Cada producto es una pieza única. Al apretar "Pagar", el servidor **aparta el producto por 15 minutos** para que nadie más lo compre mientras paga. Cuando Mercado Pago confirma el pago (webhook o al volver a la página del pedido), el pedido queda **pagado** y el producto **vendido**. Si el pago se rechaza, la reserva se libera.
+Cada producto tiene una **cantidad** (1 si es pieza única). El comprador elige cuántas unidades quiere y, al apretar "Pagar", el servidor **le aparta esas unidades por 15 minutos** para que nadie más las compre mientras paga. Cuando Mercado Pago confirma el pago (webhook o al volver a la página del pedido), el pedido queda **pagado** y se **descuenta el stock**; al llegar a 0 el producto queda **agotado**. Si el pago se rechaza o pasan los 15 minutos, las unidades se liberan solas. Si repones stock de un producto agotado desde el admin, vuelve a estar disponible.
+
+### Fotos con IA
+
+En `/admin/nuevo` hay dos botones grandes: **Tomar foto** (abre la cámara del celular) y **Desde la galería**. Con la opción *"Quitar el fondo y dejarlo blanco con IA"* activada, cada foto se recorta, se centra y queda sobre fondo blanco, como en una tienda.
+
+- **Por defecto es gratis:** la IA corre en el mismo navegador (librería `@imgly/background-removal`). La primera vez descarga el modelo (~40 MB) y después queda guardado. Tarda unos segundos por foto; en un computador es más rápido que en el celular.
+- **Licencia:** esa librería es AGPL-3.0. Solo se carga en el panel de admin, pero si la app se vuelve un producto comercial grande conviene comprar la licencia comercial de IMG.LY o usar remove.bg.
+- **Alternativa con remove.bg:** crea una clave en https://www.remove.bg/api y ponla en `REMOVE_BG_API_KEY`. Desde ese momento se usa remove.bg (calidad muy buena, 50 fotos gratis al mes en baja resolución, después es pagado).
+- Si la IA falla, la foto se sube igual, sin quitar el fondo.
+
+Si además configuras `ANTHROPIC_API_KEY`, aparece el botón **"Completar título, descripción y precio con IA"**: mira la portada y llena el título, la descripción, la categoría, el estado y un precio sugerido en pesos. Tú revisas y corriges antes de publicar. Cuesta una fracción de peso por producto.
 
 **¿Por qué no WooCommerce?** Sería un segundo sistema que mantener (WordPress, hosting, plugins) y habría que sincronizar el stock entre la tienda y la app. Aquí la tienda, el stock y el pago viven en un solo lugar, y Mercado Pago es el estándar en Chile.
 
@@ -83,6 +94,7 @@ cp .env.example .env.local
 2. Ve a **SQL Editor** y ejecuta, en orden, cada archivo de `supabase/migrations/` (pega el contenido y aprieta **Run**):
    1. `20261113000000_esquema_inicial.sql`: tienda (productos, swipes, pedidos, fotos, categorías).
    2. `20261113010000_servicio_mudanzas.sql`: servicios, precios, agenda y reservas.
+   3. `20261113020000_stock_productos.sql`: cantidad (stock) por producto.
 3. (Opcional) Pega también `supabase/seed.sql` para tener 16 productos de ejemplo.
 4. Ve a **Authentication → Sign In / Providers** y activa **Allow anonymous sign-ins** (permite que la gente use la app sin registrarse). Deja activado **Email**.
 5. Ve a **Authentication → URL Configuration**:

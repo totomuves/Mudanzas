@@ -16,7 +16,8 @@ export async function createPreference(input: {
   orderId: string;
   productId: string;
   title: string;
-  amount: number;
+  quantity: number;
+  unitPrice: number;
   pictureUrl?: string;
   buyer: { name: string; email: string };
   expiresAt: Date;
@@ -31,8 +32,8 @@ export async function createPreference(input: {
         {
           id: input.productId,
           title: input.title,
-          quantity: 1,
-          unit_price: input.amount,
+          quantity: input.quantity,
+          unit_price: input.unitPrice,
           currency_id: "CLP",
           picture_url: input.pictureUrl,
         },
@@ -82,12 +83,7 @@ export async function syncPayment(paymentId: string) {
         .from("orders")
         .update({ status: payment.status === "cancelled" ? "cancelled" : "failed", mp_payment_id: String(payment.id) })
         .eq("id", orderId);
-      // Libera la reserva para que otro pueda comprarlo
-      await db
-        .from("products")
-        .update({ reserved_by: null, reserved_until: null })
-        .eq("id", order.product_id)
-        .eq("status", "available");
+      // Al dejar de estar "pending", las unidades apartadas se liberan solas
     }
     return "failed";
   }

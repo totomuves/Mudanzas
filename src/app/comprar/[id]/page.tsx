@@ -6,6 +6,7 @@ import { getCategories, getProduct } from "@/lib/data";
 import { SetupNotice } from "@/components/SetupNotice";
 import { ProductImage } from "@/components/ProductImage";
 import { PriceTag } from "@/components/PriceTag";
+import { currentPrice } from "@/lib/format";
 import { CheckoutForm } from "./CheckoutForm";
 
 export const metadata: Metadata = { title: "Comprar" };
@@ -17,7 +18,7 @@ export default async function ComprarPage({ params }: PageProps<"/comprar/[id]">
   if (!product) notFound();
   const category = categories.find((c) => c.slug === product.category_slug);
 
-  if (product.status !== "available") {
+  if (product.status !== "available" || (product.available_units ?? product.quantity) <= 0) {
     return (
       <div className="mx-auto max-w-md space-y-4 text-center">
         <p className="text-5xl">😢</p>
@@ -41,7 +42,11 @@ export default async function ComprarPage({ params }: PageProps<"/comprar/[id]">
           <PriceTag product={product} />
         </div>
       </div>
-      <CheckoutForm productId={product.id} />
+      <CheckoutForm
+        productId={product.id}
+        unitPrice={currentPrice(product)}
+        maxQuantity={Math.min(10, product.available_units ?? product.quantity)}
+      />
     </div>
   );
 }

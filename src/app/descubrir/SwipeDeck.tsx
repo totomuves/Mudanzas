@@ -226,7 +226,7 @@ export function SwipeDeck({
             <div className="text-5xl">⭐</div>
             <h2 className="mt-2 text-2xl font-black">¡Te encantó!</h2>
             <p className="mt-1 text-muted">
-              <b>{superliked.title}</b> es pieza única. Si lo quieres, aparta el tuyo antes que otro.
+              <b>{superliked.title}</b> {superliked.quantity > 1 ? `quedan solo ${superliked.quantity}.` : "es pieza única."} Si lo quieres, aparta el tuyo antes que otro.
             </p>
             <div className="mt-5 flex flex-col gap-2">
               <Link href={`/comprar/${superliked.id}`} className="rounded-full bg-brand py-3 font-extrabold text-white">
@@ -367,6 +367,7 @@ function SwipeCard({
           )}
           <span className="rounded-full bg-white/20 px-2 py-0.5 backdrop-blur">{CONDITION_LABEL[product.condition]}</span>
           {product.comuna && <span className="rounded-full bg-white/20 px-2 py-0.5 backdrop-blur">📍 {product.comuna}</span>}
+          {product.quantity > 1 && <span className="rounded-full bg-white/20 px-2 py-0.5 backdrop-blur">📦 Quedan {product.quantity}</span>}
         </div>
         <h2 className="text-2xl font-black leading-tight drop-shadow">{product.title}</h2>
         <div className="[&_.text-muted]:text-white/70 [&_.text-brand]:text-yellow-300">

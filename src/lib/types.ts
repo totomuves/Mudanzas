@@ -18,6 +18,9 @@ export type Product = {
   condition: Condition;
   comuna: string | null;
   images: string[];
+  quantity: number;
+  /** Unidades comprables ahora (stock menos pagos en curso). Solo si se pide en el select. */
+  available_units?: number;
   status: ProductStatus;
   flash_price: number | null;
   flash_until: string | null;
@@ -52,6 +55,8 @@ export type Order = {
   user_id: string | null;
   product_id: string;
   amount: number;
+  quantity: number;
+  reserved_until: string | null;
   status: OrderStatus;
   buyer_name: string;
   buyer_email: string;
