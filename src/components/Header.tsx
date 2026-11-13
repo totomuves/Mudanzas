@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Logo } from "./Logo";
 import { Icon } from "./Icon";
+import { AccountMenu } from "./AccountMenu";
+import { getAccount } from "@/lib/account";
 
 const links = [
   { href: "/descubrir", label: "Descubrir" },
@@ -9,7 +11,8 @@ const links = [
   { href: "/favoritos", label: "Favoritos" },
 ];
 
-export function Header() {
+export async function Header() {
+  const account = await getAccount();
   return (
     <header className="sticky top-0 z-30 bg-background/95 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-5xl items-center gap-4 px-4">
@@ -36,6 +39,7 @@ export function Header() {
         >
           <Icon name="heart" className="h-6 w-6" />
         </Link>
+        <AccountMenu account={account} />
       </div>
     </header>
   );

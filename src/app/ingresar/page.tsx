@@ -5,7 +5,7 @@ export const metadata: Metadata = { title: "Ingresar" };
 
 export default async function IngresarPage({ searchParams }: PageProps<"/ingresar">) {
   const sp = await searchParams;
-  const next = typeof sp.next === "string" && sp.next.startsWith("/") ? sp.next : "/admin";
+  const next = typeof sp.next === "string" && sp.next.startsWith("/") ? sp.next : "/";
   return (
     <div className="mx-auto max-w-sm space-y-4 py-8">
       <h1 className="text-3xl font-black">Ingresar</h1>
