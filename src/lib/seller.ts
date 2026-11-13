@@ -1,6 +1,6 @@
 import "server-only";
 import { redirect } from "next/navigation";
-import { getUser } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import type { Seller } from "@/lib/types";
 
 /** Tienda del usuario actual (en cualquier estado) o null. */
@@ -16,8 +16,19 @@ export async function requireSeller() {
   const { supabase, user, seller } = await getMySeller();
   if (!user) redirect("/ingresar?next=/vendedor");
   if (!seller) redirect("/vender");
-  if (seller.status !== "approved") redirect("/vendedor");
+  if (seller.status !== "approved" || !(await getMarketplaceEnabled())) redirect("/vendedor");
   return { supabase, user, seller };
+}
+
+/** ¿Está encendido el marketplace? (Admin → Vendedores). Apagado = solo vende Totomuves. */
+export async function getMarketplaceEnabled() {
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("marketplace_enabled");
+    return !error && data === true;
+  } catch {
+    return false;
+  }
 }
 
 export const SELLER_STATUS_LABEL: Record<Seller["status"], string> = {

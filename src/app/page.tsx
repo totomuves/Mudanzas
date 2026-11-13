@@ -4,6 +4,7 @@ import { brand } from "@/brand";
 import { categoryMap, getCategories, getHomeBanners } from "@/lib/data";
 import { createClient } from "@/lib/supabase/server";
 import { ProductCard } from "@/components/ProductCard";
+import { getMarketplaceEnabled } from "@/lib/seller";
 import { BannerCard } from "@/components/BannerCard";
 import { CategoryIcon, Icon } from "@/components/Icon";
 import { SetupNotice } from "@/components/SetupNotice";
@@ -14,7 +15,7 @@ export default async function Home() {
 
   const supabase = await createClient();
   const nowIso = new Date().toISOString();
-  const [categories, banners, latest, flash] = await Promise.all([
+  const [categories, banners, latest, flash, marketplaceOn] = await Promise.all([
     getCategories(),
     getHomeBanners(),
     supabase
@@ -31,6 +32,7 @@ export default async function Home() {
       .gt("flash_until", nowIso)
       .order("flash_until")
       .limit(4),
+    getMarketplaceEnabled(),
   ]);
   const cats = categoryMap(categories);
   const latestProducts = (latest.data ?? []) as Product[];
@@ -124,6 +126,7 @@ export default async function Home() {
         <Icon name="arrow" className="h-6 w-6 transition group-hover:translate-x-1" />
       </Link>
 
+      {marketplaceOn && (
       <Link href="/vender" className="group flex items-center gap-4 rounded-card border border-border p-5 md:p-8">
         <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-surface">
           <Icon name="store" className="h-7 w-7" />
@@ -134,6 +137,7 @@ export default async function Home() {
         </span>
         <Icon name="arrow" className="h-6 w-6 transition group-hover:translate-x-1" />
       </Link>
+      )}
 
       <section className="grid gap-6 border-t border-border pt-8 md:grid-cols-3">
         {[

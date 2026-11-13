@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { hasSupabaseEnv } from "@/lib/env";
-import { getMySeller, SELLER_STATUS_LABEL } from "@/lib/seller";
+import { getMarketplaceEnabled, getMySeller, SELLER_STATUS_LABEL } from "@/lib/seller";
 import { SetupNotice } from "@/components/SetupNotice";
 import { Icon } from "@/components/Icon";
 
@@ -11,8 +11,9 @@ export default async function VendedorLayout({ children }: LayoutProps<"/vendedo
   const { user, seller } = await getMySeller();
   if (!user) redirect("/ingresar?next=/vendedor");
   if (!seller) redirect("/vender");
+  const marketplaceOn = await getMarketplaceEnabled();
 
-  const approved = seller.status === "approved";
+  const approved = seller.status === "approved" && marketplaceOn;
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -37,7 +38,17 @@ export default async function VendedorLayout({ children }: LayoutProps<"/vendedo
           <Link href="/vendedor/tienda" className="shrink-0 rounded-full bg-surface px-4 py-2 hover:bg-border">Mis datos</Link>
         </nav>
       )}
-      {children}
+      {marketplaceOn ? (
+        children
+      ) : (
+        <div className="flex gap-3 rounded-card bg-surface p-5">
+          <Icon name="clock" className="h-6 w-6 shrink-0" />
+          <div>
+            <h1 className="text-lg font-black">La venta de otros vendedores está pausada</h1>
+            <p className="text-sm text-muted">Te avisaremos cuando vuelva a estar abierta. Tus datos y productos quedan guardados.</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

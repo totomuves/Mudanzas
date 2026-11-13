@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { brand } from "@/brand";
 import { hasSupabaseEnv } from "@/lib/env";
-import { getMySeller } from "@/lib/seller";
+import { getMarketplaceEnabled, getMySeller } from "@/lib/seller";
 import { SetupNotice } from "@/components/SetupNotice";
 import { Icon, type IconName } from "@/components/Icon";
 import { SellerForm } from "./SellerForm";
@@ -22,6 +22,8 @@ const STEPS: { icon: IconName; title: string; text: string }[] = [
 
 export default async function VenderPage() {
   if (!hasSupabaseEnv()) return <SetupNotice />;
+  // Con el marketplace apagado esta página no existe
+  if (!(await getMarketplaceEnabled())) notFound();
   const { user, seller } = await getMySeller();
   if (seller) redirect("/vendedor");
 

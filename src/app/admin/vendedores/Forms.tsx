@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import type { MarketplaceSettings, Seller } from "@/lib/types";
-import { markPaidOut, resolveIssue, updateSeller, updateSettings, type AdminSellerState } from "./actions";
+import { markPaidOut, resolveIssue, setMarketplaceEnabled, updateSeller, updateSettings, type AdminSellerState } from "./actions";
 
 const input = "w-full rounded-xl border border-border bg-background px-3 py-2";
 
@@ -10,6 +10,44 @@ function Message({ state }: { state: AdminSellerState }) {
   if (state.ok) return <p className="text-sm font-bold text-accent">{state.ok}</p>;
   if (state.error) return <p className="text-sm font-bold text-pass">{state.error}</p>;
   return null;
+}
+
+export function MarketplaceSwitch({ enabled }: { enabled: boolean }) {
+  const [state, action, pending] = useActionState<AdminSellerState, FormData>(setMarketplaceEnabled, {});
+  return (
+    <form
+      action={action}
+      onSubmit={(e) => {
+        const msg = enabled
+          ? "¿Apagar el marketplace? Los productos de otros vendedores dejan de verse y de venderse."
+          : "¿Encender el marketplace? Se abre el registro de vendedores y se publican los productos de los aprobados.";
+        if (!window.confirm(msg)) e.preventDefault();
+      }}
+      className="space-y-2"
+    >
+      <input type="hidden" name="enabled" value={enabled ? "0" : "1"} />
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <p className="font-black">Marketplace {enabled ? "encendido" : "apagado"}</p>
+          <p className="text-sm text-muted">
+            {enabled
+              ? "Personas y empresas aprobadas venden en la tienda (con la marca Totomuves)."
+              : "Solo vende Totomuves. El registro de vendedores y su panel están ocultos."}
+          </p>
+        </div>
+        <button
+          disabled={pending}
+          role="switch"
+          aria-checked={enabled}
+          aria-label="Marketplace"
+          className={`relative h-8 w-14 shrink-0 rounded-full transition disabled:opacity-60 ${enabled ? "bg-accent" : "bg-border"}`}
+        >
+          <span className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow transition-all ${enabled ? "left-7" : "left-1"}`} />
+        </button>
+      </div>
+      <Message state={state} />
+    </form>
+  );
 }
 
 export function SettingsForm({ settings }: { settings: MarketplaceSettings | null }) {
