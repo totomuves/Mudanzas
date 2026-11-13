@@ -11,6 +11,7 @@
 --   * explora para no quedarse pegado y evita repetir lo mismo
 --   * explica por qué muestra cada producto
 --
+-- Correr después de 20261114000000_vendedores.sql.
 -- Se puede correr más de una vez sin problemas (idempotente).
 -- Ejecutar en Supabase: SQL Editor -> pegar todo -> Run.
 -- =============================================================

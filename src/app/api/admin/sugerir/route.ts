@@ -2,16 +2,16 @@ import { NextResponse, type NextRequest } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
-import { isAdminRequest } from "@/lib/admin-api";
+import { canUseProductTools } from "@/lib/admin-api";
 import { getCategories } from "@/lib/data";
 import { SUPABASE_URL } from "@/lib/env";
 
 /**
  * Mira la foto de un producto y sugiere título, descripción, categoría,
- * estado y precio en pesos chilenos. Solo admins. Requiere ANTHROPIC_API_KEY.
+ * estado y precio en pesos chilenos. Solo admins y vendedores aprobados. Requiere ANTHROPIC_API_KEY.
  */
 export async function POST(request: NextRequest) {
-  if (!(await isAdminRequest())) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  if (!(await canUseProductTools())) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json({ error: "Falta ANTHROPIC_API_KEY" }, { status: 400 });
   }

@@ -8,6 +8,7 @@ import { syncPayment } from "@/lib/payments";
 import { SetupNotice } from "@/components/SetupNotice";
 import type { Order, Product } from "@/lib/types";
 import { Icon, type IconName } from "@/components/Icon";
+import { ReceiptActions } from "./ReceiptActions";
 
 export const metadata: Metadata = { title: "Tu pedido" };
 
@@ -16,6 +17,7 @@ const STATUS: Record<Order["status"], { icon: IconName; color: string; title: st
   pending: { icon: "clock", color: "text-muted", title: "Pago en proceso", text: "Estamos esperando la confirmación de Mercado Pago. Actualiza esta página en unos minutos." },
   failed: { icon: "sad", color: "text-pass", title: "El pago no se completó", text: "No se realizó ningún cobro. Puedes intentarlo de nuevo si el producto sigue disponible." },
   cancelled: { icon: "fail", color: "text-muted", title: "Pedido cancelado", text: "No se realizó ningún cobro." },
+  refunded: { icon: "undo", color: "text-muted", title: "Pago devuelto", text: "Te devolvimos el dinero. Puede tardar unos días en verse en tu medio de pago." },
 };
 
 export default async function PedidoPage({ params, searchParams }: PageProps<"/pedido/[id]">) {
@@ -45,6 +47,11 @@ export default async function PedidoPage({ params, searchParams }: PageProps<"/p
 
   const order = data as Order & { products: Product | null };
   const s = STATUS[order.status];
+  // Ventas de vendedores: el comprador confirma la recepción o reporta un problema
+  const canReview =
+    order.status === "paid" && Boolean(order.seller_id) && !order.confirmed_at && !order.issue_at && !order.released_at &&
+    !(order.release_at && new Date(order.release_at) <= new Date());
+  const reviewDays = canReview ? ((await supabase.rpc("marketplace_review_days")).data as number | null) ?? 3 : 3;
 
   return (
     <div className="mx-auto max-w-md space-y-5 text-center">
@@ -59,9 +66,13 @@ export default async function PedidoPage({ params, searchParams }: PageProps<"/p
           {order.quantity > 1 ? ` × ${order.quantity}` : ""}
         </p>
         <p>Total: {formatCLP(order.amount)}</p>
-        <p>Entrega: {order.delivery === "retiro" ? "Retiro en bodega" : `Despacho a ${order.address}`}</p>
+        <p>Entrega: {order.delivery === "retiro" ? (order.seller_id ? "Retiro (te contactamos para coordinar)" : "Retiro en bodega") : `Despacho a ${order.address}`}</p>
         <p className="text-xs text-muted">Pedido #{order.id.slice(0, 8)}</p>
       </div>
+      {canReview && <ReceiptActions orderId={order.id} reviewDays={reviewDays} releaseAt={order.release_at ?? null} />}
+      {order.status === "paid" && order.issue_at && !order.released_at && (
+        <p className="rounded-xl bg-surface p-3 text-sm">Recibimos tu reclamo y retuvimos el pago. Te contactaremos para resolverlo.</p>
+      )}
       <div className="flex flex-col gap-2">
         {(order.status === "failed" || order.status === "cancelled") && order.products?.status === "available" && order.products.quantity > 0 && (
           <Link href={`/comprar/${order.product_id}`} className="rounded-full bg-brand py-3 font-extrabold text-white">

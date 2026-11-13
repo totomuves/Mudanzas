@@ -1,6 +1,6 @@
 -- =============================================================
 -- Totomuves · Avisos de productos nuevos que calzan con cada comprador
--- Requiere 20261113200000_recomendador.sql.
+-- Requiere 20261114100000_recomendador.sql.
 -- Se puede correr más de una vez sin problemas (idempotente).
 -- =============================================================
 
@@ -72,7 +72,10 @@ declare
   v_total int;
   v_cut real;
 begin
-  select * into v_p from public.products where id = p_product_id and status = 'available';
+  select * into v_p from public.products
+   where id = p_product_id and status = 'available'
+     -- Productos de vendedores suspendidos o sin aprobar no se avisan
+     and (seller_id is null or public.seller_is_active(seller_id));
   select * into v_f from public.product_features where product_id = p_product_id;
   if v_p.id is null or v_f.embedding is null then
     return;

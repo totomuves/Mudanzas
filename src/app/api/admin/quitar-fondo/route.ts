@@ -1,9 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { isAdminRequest } from "@/lib/admin-api";
+import { canUseProductTools } from "@/lib/admin-api";
 
-/** Quita el fondo con remove.bg y lo deja blanco. Solo admins. */
+/** Quita el fondo con remove.bg y lo deja blanco. Solo admins y vendedores aprobados. */
 export async function POST(request: NextRequest) {
-  if (!(await isAdminRequest())) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  if (!(await canUseProductTools())) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   const key = process.env.REMOVE_BG_API_KEY;
   if (!key) return NextResponse.json({ error: "Falta REMOVE_BG_API_KEY" }, { status: 400 });
 

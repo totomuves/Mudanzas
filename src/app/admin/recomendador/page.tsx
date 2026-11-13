@@ -32,7 +32,7 @@ export default async function RecomendadorAdminPage() {
       <div className="rounded-card border border-border bg-card p-6">
         <h1 className="text-2xl font-black">Recomendador</h1>
         <p className="mt-2 text-muted">
-          Falta correr la migración <code>20261113200000_recomendador.sql</code> en Supabase (SQL Editor).
+          Falta correr la migración <code>20261114100000_recomendador.sql</code> en Supabase (SQL Editor).
         </p>
       </div>
     );

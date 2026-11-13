@@ -21,6 +21,9 @@ Web + app (PWA instalable) de Totomuves con dos partes:
 | `/mudanzas/cotizar` | Cotizador paso a paso con precio en vivo y elección de día y bloque horario |
 | `/mudanzas/reserva/[id]` | Confirmación de la reserva con botón a WhatsApp |
 | `/admin/mudanzas` | Agenda: reservas, cambio de estado y días bloqueados |
+| `/vender` | Registro de vendedores (personas o empresas de mudanza) |
+| `/vendedor` | Panel del vendedor: sus productos (mismas fotos con IA), sus ventas, su saldo y sus datos |
+| `/admin/vendedores` | Aprobar vendedores, comisión, reclamos y transferencias |
 | `/admin` | Panel: fotografiar y subir productos (fondo blanco automático con IA), cantidad en stock, editar, ofertas relámpago, ver pedidos y cuántos ♥ tiene cada producto |
 
 ### Cómo "aprende" la app
@@ -48,6 +51,21 @@ Todo vive en `supabase/migrations/`, así que se puede ajustar sin tocar la app.
 ### Pagos y stock
 
 Cada producto tiene una **cantidad** (1 si es pieza única). El comprador elige cuántas unidades quiere y, al apretar "Pagar", el servidor **le aparta esas unidades por 15 minutos** para que nadie más las compre mientras paga. Cuando Mercado Pago confirma el pago (webhook o al volver a la página del pedido), el pedido queda **pagado** y se **descuenta el stock**; al llegar a 0 el producto queda **agotado**. Si el pago se rechaza o pasan los 15 minutos, las unidades se liberan solas. Si repones stock de un producto agotado desde el admin, vuelve a estar disponible.
+
+### Vendedores (marketplace)
+
+Cualquier persona o empresa de mudanzas puede vender en la tienda:
+
+1. Se registra en `/vender` (con su correo). Queda **en revisión** hasta que un admin la aprueba en `/admin/vendedores`.
+2. Ya aprobada, sube productos desde `/vendedor` con las mismas herramientas del admin (fondo blanco, sugerencias con IA). Sus fotos quedan en la carpeta `sellers/<id>/` y solo puede editar lo suyo.
+3. **El cliente solo ve Totomuves**: el nombre y logo del vendedor aparecen únicamente en su panel y en el admin.
+4. **El pago lo cobra Totomuves** con su Mercado Pago y queda **retenido**. El vendedor entrega y marca "Entregado"; el comprador tiene unos días (3 por defecto) para confirmar en la página de su pedido o reportar un problema. Si no reclama, el pago se **libera** solo.
+5. En `/admin/vendedores` ves por vendedor lo retenido y lo **por transferir** (venta menos tu comisión, 10% por defecto, editable y con % propio por vendedor). Haces la transferencia a la cuenta que el vendedor dejó y apretas "Ya le transferí".
+6. Si hay un reclamo, lo resuelves ahí: **liberar** al vendedor o **devolver el dinero** al comprador (reembolso por Mercado Pago, repone el stock).
+
+Si un vendedor queda suspendido, sus productos dejan de mostrarse y no se pueden comprar.
+
+> Antes de cobrar por terceros, revisa con tu contador cómo emitir boletas/facturas (lo usual es actuar como comisionista y facturar solo la comisión).
 
 ### Fotos con IA
 
@@ -185,7 +203,9 @@ src/
   app/                 Páginas (cada carpeta es una URL)
     mudanzas/          Servicio de mudanzas: info, cotizador y reservas
     descubrir/         Mazo estilo Tinder (SwipeDeck) y medidor de gustos
-    admin/             Panel de administración
+    admin/             Panel de administración (incluye admin/vendedores)
+    vender/            Registro de vendedores
+    vendedor/          Panel de cada vendedor
     api/mercadopago/   Webhook de pagos
   components/          Piezas de interfaz reutilizables
   lib/                 Supabase, Mercado Pago, cotizador, formatos y tipos
