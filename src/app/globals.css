@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+:root {
+  --background: #fff8f1;
+  --foreground: #1f2433;
+  --muted: #6b7280;
+  --card: #ffffff;
+  --border: #f1e4d6;
+  --brand: #ff6b3d;
+  --brand-dark: #e5532a;
+  --accent: #2bb673;
+  --pass: #ef4444;
+  --star: #3b82f6;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #14161f;
+    --foreground: #f4f1ec;
+    --muted: #9ca3af;
+    --card: #1e2130;
+    --border: #2c3044;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-card: var(--card);
+  --color-border: var(--border);
+  --color-brand: var(--brand);
+  --color-brand-dark: var(--brand-dark);
+  --color-accent: var(--accent);
+  --color-pass: var(--pass);
+  --color-star: var(--star);
+  --font-sans: var(--font-nunito);
+}
+
+body {
+  overflow-x: clip;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* Evita el "pull to refresh" mientras se hace swipe */
+.no-overscroll {
+  overscroll-behavior: contain;
+  touch-action: none;
+}
+
+@keyframes pop {
+  0% { transform: scale(0.4); opacity: 0; }
+  60% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-pop { animation: pop 0.35s ease-out both; }
+
+@keyframes float-up {
+  0% { transform: translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateY(-120px) scale(1.6); opacity: 0; }
+}
+.animate-float-up { animation: float-up 0.9s ease-out forwards; }
