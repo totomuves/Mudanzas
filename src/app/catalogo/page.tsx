@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { hasSupabaseEnv } from "@/lib/env";
 import { categoryMap, getCategories } from "@/lib/data";
-import { createClient } from "@/lib/supabase/server";
+import { after } from "next/server";
+import { getUser } from "@/lib/supabase/server";
+import { logSearch } from "@/lib/recsys/server";
 import { ProductCard } from "@/components/ProductCard";
 import { SetupNotice } from "@/components/SetupNotice";
 import type { Product } from "@/lib/types";
@@ -15,7 +17,9 @@ export default async function CatalogoPage({ searchParams }: PageProps<"/catalog
   const categoria = typeof sp.categoria === "string" ? sp.categoria : undefined;
   const q = typeof sp.q === "string" ? sp.q.trim().slice(0, 60) : "";
 
-  const supabase = await createClient();
+  const { supabase, user } = await getUser();
+  // Lo que busca el comprador alimenta sus gustos (sin demorar la página)
+  if (q && user) after(() => logSearch(user.id, q));
   let query = supabase
     .from("products")
     .select("*")

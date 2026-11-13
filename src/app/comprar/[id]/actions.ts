@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createPreference } from "@/lib/payments";
 import type { Order } from "@/lib/types";
+import { logServerEvent } from "@/lib/recsys/server";
 
 export type CheckoutState = { error?: string };
 
@@ -57,6 +58,9 @@ export async function startCheckout(_prev: CheckoutState, formData: FormData): P
           : "¡Uy! Este producto ya no está disponible o alguien lo está pagando ahora.",
     };
   }
+
+  // Empezar a pagar dice mucho de lo que le gusta
+  await logServerEvent(user.id, "checkout", productId);
 
   const { data: product } = await db.from("products").select("title, images").eq("id", productId).single();
 
