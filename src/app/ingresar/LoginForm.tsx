@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { Icon } from "@/components/Icon";
 
 export function LoginForm({ next }: { next: string }) {
   const [email, setEmail] = useState("");
@@ -18,7 +19,7 @@ export function LoginForm({ next }: { next: string }) {
   }
 
   if (state === "sent") {
-    return <p className="rounded-xl bg-accent/15 p-4 font-bold text-accent">📬 Revisa tu correo y abre el enlace.</p>;
+    return <p className="flex items-center gap-2 rounded-xl bg-accent/15 p-4 font-bold text-accent"><Icon name="mail" className="h-5 w-5" strokeWidth={2.2} />Revisa tu correo y abre el enlace.</p>;
   }
   return (
     <form onSubmit={submit} className="space-y-3">

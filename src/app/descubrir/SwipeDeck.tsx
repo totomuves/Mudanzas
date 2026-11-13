@@ -8,6 +8,7 @@ import type { Category, Product, SwipeAction, UserCategory } from "@/lib/types";
 import { ProductImage } from "@/components/ProductImage";
 import { PriceTag } from "@/components/PriceTag";
 import { FlashCountdown } from "@/components/FlashCountdown";
+import { Icon, CategoryIcon } from "@/components/Icon";
 import { TasteMeter } from "./TasteMeter";
 
 // Mismos valores que el trigger learn_from_swipe en la base de datos
@@ -16,11 +17,11 @@ const SWIPE_X = 110;
 const SWIPE_Y = 130;
 
 const LIKE_MESSAGES = [
-  "¡Buen ojo! 👀",
-  "Guardado en favoritos ❤️",
-  "Ese tiene tu nombre ✨",
+  "¡Buen ojo!",
+  "Guardado en favoritos",
+  "Ese tiene tu nombre",
   "¡Anotado! Te mostraré más así",
-  "Uff, joyita 💎",
+  "Uff, joyita",
 ];
 
 type Exit = { id: string; action: SwipeAction } | null;
@@ -191,10 +192,10 @@ export function SwipeDeck({
           aria-pressed={filters.length === 0}
           onClick={() => filters.length > 0 && applyFilters([])}
           className={`shrink-0 rounded-full border px-4 py-2 text-sm font-bold ${
-            filters.length === 0 ? "border-brand bg-brand text-white" : "border-border bg-card"
+            filters.length === 0 ? "border-foreground bg-foreground text-background" : "border-border bg-background hover:border-foreground"
           }`}
         >
-          ✨ Todo
+          Todo
         </button>
         {categories.map((c) => {
           const on = filters.includes(c.slug);
@@ -204,11 +205,11 @@ export function SwipeDeck({
               type="button"
               aria-pressed={on}
               onClick={() => toggleFilter(c.slug)}
-              className={`shrink-0 rounded-full border px-4 py-2 text-sm font-bold ${
-                on ? "border-brand bg-brand text-white" : "border-border bg-card"
+              className={`flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-bold ${
+                on ? "border-foreground bg-foreground text-background" : "border-border bg-background hover:border-foreground"
               }`}
             >
-              {c.emoji} {c.name}
+              <CategoryIcon slug={c.slug} className="h-4 w-4" strokeWidth={2} /> {c.name}
             </button>
           );
         })}
@@ -220,7 +221,7 @@ export function SwipeDeck({
           )}
           {!loading && deck.length === 0 && loadError && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-card border-2 border-dashed border-border p-6 text-center">
-              <div className="text-6xl">😕</div>
+              <Icon name="sad" className="h-14 w-14 text-muted" strokeWidth={1.4} />
               <h2 className="text-xl font-black">No pudimos cargar productos</h2>
               <p className="text-sm text-muted">Revisa tu conexión e intenta de nuevo.</p>
               <button
@@ -236,7 +237,7 @@ export function SwipeDeck({
           )}
           {!loading && deck.length === 0 && !loadError && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-card border-2 border-dashed border-border p-6 text-center">
-              <div className="text-6xl">🎉</div>
+              <Icon name="party" className="h-14 w-14 text-brand" strokeWidth={1.4} />
               <h2 className="text-xl font-black">¡Viste todo por ahora!</h2>
               <p className="text-sm text-muted">
                 {filters.length > 0
@@ -277,17 +278,17 @@ export function SwipeDeck({
         </div>
 
         <div className="mt-5 flex items-center justify-center gap-4">
-          <RoundButton label="Deshacer" onClick={undo} disabled={!last} className="h-12 w-12 text-xl text-yellow-500">
-            ↺
+          <RoundButton label="Deshacer" onClick={undo} disabled={!last} className="h-12 w-12 text-muted">
+            <Icon name="undo" className="h-5 w-5" strokeWidth={2.2} />
           </RoundButton>
-          <RoundButton label="Paso" onClick={() => swipe("pass")} disabled={!top} className="h-16 w-16 text-3xl text-pass">
-            ✕
+          <RoundButton label="Paso" onClick={() => swipe("pass")} disabled={!top} className="h-16 w-16 text-pass">
+            <Icon name="x" className="h-8 w-8" strokeWidth={2.6} />
           </RoundButton>
-          <RoundButton label="¡Lo quiero!" onClick={() => swipe("superlike")} disabled={!top} className="h-12 w-12 text-xl text-star">
-            ★
+          <RoundButton label="¡Lo quiero!" onClick={() => swipe("superlike")} disabled={!top} className="h-12 w-12 text-star">
+            <Icon name="star" className="h-5 w-5" strokeWidth={2.2} fill="currentColor" />
           </RoundButton>
-          <RoundButton label="Me gusta" onClick={() => swipe("like")} disabled={!top} className="h-16 w-16 text-3xl text-accent">
-            ♥
+          <RoundButton label="Me gusta" onClick={() => swipe("like")} disabled={!top} className="h-16 w-16 text-accent">
+            <Icon name="heart" className="h-8 w-8" strokeWidth={2.2} fill="currentColor" />
           </RoundButton>
           {top ? (
             <Link
@@ -295,7 +296,7 @@ export function SwipeDeck({
               aria-label="Ver detalle"
               className="flex h-12 w-12 items-center justify-center rounded-full border border-border bg-card text-xl shadow-md"
             >
-              ℹ️
+              <Icon name="arrow" className="h-5 w-5" strokeWidth={2.2} />
             </Link>
           ) : (
             <span className="h-12 w-12" />
@@ -311,7 +312,7 @@ export function SwipeDeck({
       {superliked && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 md:items-center" onClick={() => setSuperliked(null)}>
           <div className="animate-pop w-full max-w-sm rounded-card bg-card p-6 text-center shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="text-5xl">⭐</div>
+            <Icon name="star" className="mx-auto h-12 w-12 text-star" strokeWidth={1.6} fill="currentColor" />
             <h2 className="mt-2 text-2xl font-black">¡Te encantó!</h2>
             <p className="mt-1 text-muted">
               <b>{superliked.title}</b> {superliked.quantity > 1 ? `quedan solo ${superliked.quantity}.` : "es pieza única."} Si lo quieres, aparta el tuyo antes que otro.
@@ -450,12 +451,12 @@ function SwipeCard({
         <div className="mb-1 flex flex-wrap gap-1.5 text-xs font-bold">
           {category && (
             <span className="rounded-full bg-white/20 px-2 py-0.5 backdrop-blur">
-              {category.emoji} {category.name}
+              {category.name}
             </span>
           )}
           <span className="rounded-full bg-white/20 px-2 py-0.5 backdrop-blur">{CONDITION_LABEL[product.condition]}</span>
-          {product.comuna && <span className="rounded-full bg-white/20 px-2 py-0.5 backdrop-blur">📍 {product.comuna}</span>}
-          {product.quantity > 1 && <span className="rounded-full bg-white/20 px-2 py-0.5 backdrop-blur">📦 Quedan {product.quantity}</span>}
+          {product.comuna && <span className="rounded-full bg-white/20 px-2 py-0.5 backdrop-blur"><Icon name="pin" className="mr-0.5 inline h-3 w-3 align-[-1px]" strokeWidth={2.4} />{product.comuna}</span>}
+          {product.quantity > 1 && <span className="rounded-full bg-white/20 px-2 py-0.5 backdrop-blur">Quedan {product.quantity}</span>}
         </div>
         <h2 className="text-2xl font-black leading-tight drop-shadow">{product.title}</h2>
         <div className="[&_.text-muted]:text-white/70 [&_.text-brand]:text-yellow-300">

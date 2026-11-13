@@ -1,6 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import type { Category, Product } from "./types";
+import type { Category, HomeBanner, Product } from "./types";
 import type { MovingSettings, ServiceType } from "./moving";
 
 export async function getCategories(): Promise<Category[]> {
@@ -22,6 +22,19 @@ export async function getProduct(id: string): Promise<Product | null> {
     .eq("id", id)
     .maybeSingle();
   return (data as Product | null) ?? null;
+}
+
+/** Banners activos de la portada (vacío si aún no se corre la migración de banners). */
+export async function getHomeBanners(): Promise<HomeBanner[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("home_banners")
+    .select("*")
+    .eq("active", true)
+    .order("sort_order")
+    .order("created_at");
+  if (error) return [];
+  return (data ?? []) as HomeBanner[];
 }
 
 export async function getMovingData() {

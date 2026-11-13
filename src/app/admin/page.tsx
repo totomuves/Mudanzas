@@ -7,14 +7,16 @@ import { currentPrice, formatCLP, isFlashActive } from "@/lib/format";
 import { SetupNotice } from "@/components/SetupNotice";
 import { ProductImage } from "@/components/ProductImage";
 import type { Product } from "@/lib/types";
+import { Icon } from "@/components/Icon";
+import { StatusDot, type StatusTone } from "@/components/StatusDot";
 
 export const metadata: Metadata = { title: "Admin" };
 
-const STATUS_LABEL: Record<Product["status"], string> = {
-  available: "🟢 Disponible",
-  reserved: "🟡 Reservado",
-  sold: "🔵 Agotado",
-  hidden: "⚪ Oculto",
+const STATUS_LABEL: Record<Product["status"], { tone: StatusTone; label: string }> = {
+  available: { tone: "ok", label: "Disponible" },
+  reserved: { tone: "warn", label: "Reservado" },
+  sold: { tone: "info", label: "Agotado" },
+  hidden: { tone: "off", label: "Oculto" },
 };
 
 export default async function AdminPage() {
@@ -42,7 +44,7 @@ export default async function AdminPage() {
         href="/admin/nuevo"
         className="flex items-center justify-center gap-3 rounded-card bg-brand p-5 text-lg font-black text-white shadow-lg active:scale-95"
       >
-        <span className="text-3xl">📷</span> Fotografiar y subir producto
+        <Icon name="camera" className="h-7 w-7" strokeWidth={2} /> Fotografiar y subir producto
       </Link>
       <div className="grid grid-cols-3 gap-3">
         <Stat label="Disponibles" value={String(stats.disponibles)} />
@@ -65,10 +67,10 @@ export default async function AdminPage() {
                   <p className="truncate font-bold">{p.title}</p>
                   <p className="text-xs text-muted">
                     {cats[p.category_slug]?.name} · {formatCLP(currentPrice(p))}
-                    {isFlashActive(p) ? " ⚡" : ""} · 📦 {p.quantity} · ❤️ {likeCount[p.id] ?? 0}
+                    {isFlashActive(p) ? " · Relámpago" : ""} · {p.quantity} u. · {likeCount[p.id] ?? 0} me gusta
                   </p>
                 </div>
-                <span className="shrink-0 text-xs font-bold">{STATUS_LABEL[p.status]}</span>
+                <span className="shrink-0 text-xs font-bold"><StatusDot {...STATUS_LABEL[p.status]} /></span>
               </Link>
             </li>
           ))}

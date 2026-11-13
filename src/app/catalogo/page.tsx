@@ -38,11 +38,11 @@ export default async function CatalogoPage({ searchParams }: PageProps<"/catalog
           name="q"
           defaultValue={q}
           placeholder="Busca: sofá, microondas, bicicleta…"
-          className="flex-1 rounded-full border border-border bg-card px-4 py-2.5"
+          className="min-w-0 flex-1 rounded-full bg-surface px-4 py-3 outline-none focus:ring-2 focus:ring-foreground"
         />
-        <button className="rounded-full bg-brand px-5 font-extrabold text-white">Buscar</button>
+        <button className="rounded-full bg-foreground px-5 font-extrabold text-background">Buscar</button>
       </form>
-      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
+      <div className="scroll-row -mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
         <Chip href={q ? `/catalogo?q=${encodeURIComponent(q)}` : "/catalogo"} active={!categoria}>
           Todo
         </Chip>
@@ -52,14 +52,14 @@ export default async function CatalogoPage({ searchParams }: PageProps<"/catalog
             href={`/catalogo?categoria=${c.slug}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
             active={categoria === c.slug}
           >
-            {c.emoji} {c.name}
+            {c.name}
           </Chip>
         ))}
       </div>
       {products.length === 0 ? (
-        <p className="py-10 text-center text-muted">No encontramos productos con ese filtro. 🔍</p>
+        <p className="py-10 text-center text-muted">No encontramos productos con ese filtro.</p>
       ) : (
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-x-3 gap-y-6 md:grid-cols-4 md:gap-x-5">
           {products.map((p) => (
             <ProductCard key={p.id} product={p} category={cats[p.category_slug]} />
           ))}
@@ -74,7 +74,7 @@ function Chip({ href, active, children }: { href: string; active: boolean; child
     <Link
       href={href}
       className={`shrink-0 rounded-full border px-4 py-2 text-sm font-bold ${
-        active ? "border-brand bg-brand text-white" : "border-border bg-card"
+        active ? "border-foreground bg-foreground text-background" : "border-border bg-background hover:border-foreground"
       }`}
     >
       {children}

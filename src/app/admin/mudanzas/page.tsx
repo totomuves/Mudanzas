@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/admin";
 import { formatCLP } from "@/lib/format";
 import { BOOKING_STATUS, DISTANCES, formatDay } from "@/lib/moving";
 import { SetupNotice } from "@/components/SetupNotice";
+import { Icon, ServiceIcon } from "@/components/Icon";
 import { blockDay, setBookingStatus, unblockDay } from "./actions";
 
 export const metadata: Metadata = { title: "Agenda de mudanzas" };
@@ -29,7 +30,7 @@ type Row = {
   contact_email: string;
   contact_phone: string;
   estimated_price: number;
-  service_types: { name: string; emoji: string } | null;
+  service_types: { slug: string; name: string } | null;
 };
 
 export default async function AdminMudanzasPage({ searchParams }: PageProps<"/admin/mudanzas">) {
@@ -39,7 +40,7 @@ export default async function AdminMudanzasPage({ searchParams }: PageProps<"/ad
   const showPast = sp.ver === "todas";
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Santiago" });
 
-  let q = supabase.from("bookings").select("*, service_types(name, emoji)").order("day").order("slot_time").limit(300);
+  let q = supabase.from("bookings").select("*, service_types(slug, name)").order("day").order("slot_time").limit(300);
   if (!showPast) q = q.gte("day", today);
   const [{ data }, { data: blocked }] = await Promise.all([
     q,
@@ -67,11 +68,12 @@ export default async function AdminMudanzasPage({ searchParams }: PageProps<"/ad
               <li key={b.id} className={`rounded-2xl border border-border bg-card p-4 ${b.status === "cancelled" ? "opacity-50" : ""}`}>
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
-                    <p className="font-extrabold">
-                      📅 {formatDay(b.day)} · {b.slot_time} hrs
+                    <p className="flex items-center gap-1.5 font-extrabold">
+                      <Icon name="calendar" className="h-4 w-4" strokeWidth={2.2} />
+                      {formatDay(b.day)} · {b.slot_time} hrs
                     </p>
-                    <p className="text-sm">
-                      {b.service_types?.emoji} {b.service_types?.name} · <b>{formatCLP(b.estimated_price)}</b>
+                    <p className="flex items-center gap-1.5 text-sm">
+                      <ServiceIcon slug={b.service_types?.slug ?? ""} className="h-4 w-4" /> {b.service_types?.name} · <b>{formatCLP(b.estimated_price)}</b>
                     </p>
                   </div>
                   <form action={setBookingStatus} className="flex items-center gap-2">
@@ -79,30 +81,30 @@ export default async function AdminMudanzasPage({ searchParams }: PageProps<"/ad
                     <select name="status" defaultValue={b.status} className="rounded-lg border border-border bg-background px-2 py-1 text-sm">
                       {Object.entries(BOOKING_STATUS).map(([k, v]) => (
                         <option key={k} value={k}>
-                          {v.icon} {v.label}
+                          {v.label}
                         </option>
                       ))}
                     </select>
                     <button className="rounded-lg bg-foreground px-3 py-1 text-sm font-bold text-background">Guardar</button>
                   </form>
                 </div>
-                <div className="mt-2 grid gap-1 text-sm text-muted sm:grid-cols-2">
-                  <p>📍 {b.origin_address}, {b.origin_comuna} (piso {b.origin_floor}{b.origin_elevator ? ", ascensor" : ""})</p>
-                  <p>🏁 {b.dest_address}, {b.dest_comuna} (piso {b.dest_floor}{b.dest_elevator ? ", ascensor" : ""})</p>
+                <div className="mt-2 grid gap-1 text-sm text-muted sm:grid-cols-2 [&>p]:flex [&>p]:gap-1.5">
+                  <p><Icon name="pin" className="mt-0.5 h-4 w-4" />{b.origin_address}, {b.origin_comuna} (piso {b.origin_floor}{b.origin_elevator ? ", ascensor" : ""})</p>
+                  <p><Icon name="flag" className="mt-0.5 h-4 w-4" />{b.dest_address}, {b.dest_comuna} (piso {b.dest_floor}{b.dest_elevator ? ", ascensor" : ""})</p>
                   <p>
                     Distancia: {DISTANCES.find((d) => d.key === b.distance)?.label}
-                    {b.packing ? " · 📦 Embalaje" : ""}
-                    {b.heavy_items ? ` · 🎹 ${b.heavy_items} pesado(s)` : ""}
+                    {b.packing ? " · Embalaje" : ""}
+                    {b.heavy_items ? ` · ${b.heavy_items} pesado(s)` : ""}
                   </p>
                   <p>
-                    👤 {b.contact_name} · {b.contact_email} ·{" "}
+                    <Icon name="user" className="mt-0.5 h-4 w-4" />{b.contact_name} · {b.contact_email} ·{" "}
                     <a href={`https://wa.me/${phone}`} target="_blank" rel="noreferrer" className="font-bold text-accent">
                       WhatsApp
                     </a>
                   </p>
-                  {b.notes && <p className="sm:col-span-2">📝 {b.notes}</p>}
+                  {b.notes && <p className="sm:col-span-2"><Icon name="note" className="mt-0.5 h-4 w-4" />{b.notes}</p>}
                 </div>
-                <p className="mt-1 text-xs text-muted">{st?.icon} {st?.label} · #{b.id.slice(0, 8)}</p>
+                <p className="mt-1 text-xs text-muted">{st?.label} · #{b.id.slice(0, 8)}</p>
               </li>
             );
           })}

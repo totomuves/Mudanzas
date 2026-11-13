@@ -46,7 +46,7 @@ export function RemoveAdminButton({ email }: { email: string }) {
 }
 
 function Message({ state }: { state: TeamState }) {
-  if (state.ok) return <p className="rounded-xl bg-accent/15 p-3 text-sm font-bold text-accent">✅ {state.ok}</p>;
+  if (state.ok) return <p className="rounded-xl bg-accent/15 p-3 text-sm font-bold text-accent">{state.ok}</p>;
   if (state.error) return <p className="rounded-xl bg-pass/10 p-3 text-sm font-bold text-pass">{state.error}</p>;
   return null;
 }

@@ -2,6 +2,8 @@
 // El mismo cálculo se usa en el navegador (precio en vivo) y en el servidor
 // (precio definitivo al reservar), así nadie puede manipular el precio.
 
+import type { IconName } from "@/components/Icon";
+
 export type ServiceType = {
   slug: string;
   name: string;
@@ -88,11 +90,11 @@ export function computeQuote(input: QuoteInput, s: MovingSettings) {
   return { lines, total };
 }
 
-export const BOOKING_STATUS: Record<string, { label: string; icon: string }> = {
-  requested: { label: "Solicitada", icon: "📝" },
-  confirmed: { label: "Confirmada", icon: "✅" },
-  completed: { label: "Realizada", icon: "🏁" },
-  cancelled: { label: "Cancelada", icon: "🚫" },
+export const BOOKING_STATUS: Record<string, { label: string; icon: IconName }> = {
+  requested: { label: "Solicitada", icon: "note" },
+  confirmed: { label: "Confirmada", icon: "ok" },
+  completed: { label: "Realizada", icon: "flag" },
+  cancelled: { label: "Cancelada", icon: "fail" },
 };
 
 export function formatDay(day: string) {

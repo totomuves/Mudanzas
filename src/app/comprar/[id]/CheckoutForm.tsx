@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { formatCLP } from "@/lib/format";
+import { Icon } from "@/components/Icon";
 import { startCheckout, type CheckoutState } from "./actions";
 
 export function CheckoutForm({
@@ -40,13 +41,13 @@ export function CheckoutForm({
         <div className="grid grid-cols-2 gap-2">
           {(
             [
-              ["retiro", "🏬 Retiro en bodega", "Gratis"],
-              ["despacho", "🚚 Despacho", "Se coordina y cotiza aparte"],
+              ["retiro", "Retiro en bodega", "Gratis", "warehouse"],
+              ["despacho", "Despacho", "Se coordina y cotiza aparte", "truck"],
             ] as const
-          ).map(([value, label, hint]) => (
+          ).map(([value, label, hint, icon]) => (
             <label
               key={value}
-              className={`cursor-pointer rounded-2xl border-2 p-3 ${delivery === value ? "border-brand bg-brand/10" : "border-border bg-card"}`}
+              className={`cursor-pointer rounded-2xl border-2 p-3 ${delivery === value ? "border-foreground bg-surface" : "border-border bg-background"}`}
             >
               <input
                 type="radio"
@@ -56,6 +57,7 @@ export function CheckoutForm({
                 onChange={() => setDelivery(value)}
                 className="sr-only"
               />
+              <Icon name={icon} className="mb-1 h-6 w-6" />
               <span className="block font-bold">{label}</span>
               <span className="text-xs text-muted">{hint}</span>
             </label>

@@ -8,6 +8,7 @@ import { COMUNAS } from "@/lib/comunas";
 import { CONDITION_LABEL } from "@/lib/format";
 import type { Category, Condition, Product } from "@/lib/types";
 import { compress, rotate, whiteBackground, type BgProvider } from "@/lib/photo";
+import { Icon } from "@/components/Icon";
 
 const MAX_PHOTOS = 6;
 const STORAGE_PREFIX = "/storage/v1/object/public/products/";
@@ -250,14 +251,14 @@ export function ProductForm({
             <label
               className={`flex cursor-pointer flex-col items-center justify-center gap-1 rounded-card bg-brand p-5 text-center font-extrabold text-white shadow-lg active:scale-95 ${uploading ? "pointer-events-none opacity-60" : ""}`}
             >
-              <span className="text-4xl">📷</span>
+              <Icon name="camera" className="h-9 w-9" strokeWidth={1.8} />
               Tomar foto
               <input type="file" accept="image/*" capture="environment" onChange={onFiles} className="sr-only" disabled={uploading} />
             </label>
             <label
               className={`flex cursor-pointer flex-col items-center justify-center gap-1 rounded-card border-2 border-border bg-card p-5 text-center font-extrabold active:scale-95 ${uploading ? "pointer-events-none opacity-60" : ""}`}
             >
-              <span className="text-4xl">🖼️</span>
+              <Icon name="imagePlus" className="h-9 w-9" strokeWidth={1.8} />
               Desde la galería
               <input type="file" accept="image/*" multiple onChange={onFiles} className="sr-only" disabled={uploading} />
             </label>
@@ -265,16 +266,17 @@ export function ProductForm({
         )}
         <label className="flex items-center gap-2 text-sm font-bold">
           <input type="checkbox" checked={whiteBg} onChange={(e) => toggleWhiteBg(e.target.checked)} />
-          ✨ Quitar el fondo y dejarlo blanco con IA
+          <Icon name="wand" className="h-4 w-4" strokeWidth={2.2} />
+          Quitar el fondo y dejarlo blanco con IA
         </label>
         {progress && (
-          <p className="animate-pulse rounded-xl bg-brand/10 p-3 text-sm font-bold text-brand">⏳ {progress}</p>
+          <p className="animate-pulse rounded-xl bg-brand/10 p-3 text-sm font-bold text-brand">{progress}</p>
         )}
 
         {images.length > 0 && (
           <>
             <p className="text-sm font-bold text-muted">
-              Fotos ({images.length}/{MAX_PHOTOS}) · la primera es la portada · ✕ eliminar · ↻ girar
+              Fotos ({images.length}/{MAX_PHOTOS}) · la primera es la portada
             </p>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {images.map((src, i) => (
@@ -288,19 +290,19 @@ export function ProductForm({
                     onClick={() => removePhoto(src)}
                     aria-label="Eliminar foto"
                     title="Eliminar foto"
-                    className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-full bg-pass text-lg font-black text-white shadow"
+                    className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-full bg-pass text-white shadow"
                   >
-                    ✕
+                    <Icon name="trash" className="h-4 w-4" strokeWidth={2.2} />
                   </button>
-                  <div className="absolute inset-x-0 bottom-0 flex justify-between bg-black/55 text-sm text-white">
+                  <div className="absolute inset-x-0 bottom-0 flex justify-between bg-black/55 text-sm text-white [&>button]:flex [&>button]:justify-center [&>button:disabled]:opacity-30">
                     <button type="button" className="flex-1 py-1.5" onClick={() => move(i, -1)} aria-label="Mover a la izquierda" disabled={i === 0}>
-                      ◀
+                      <Icon name="back" className="h-4 w-4" strokeWidth={2.4} />
                     </button>
                     <button type="button" className="flex-1 py-1.5" onClick={() => rotatePhoto(src)} aria-label="Girar foto" title="Girar" disabled={busyPhoto !== null}>
-                      ↻
+                      <Icon name="rotate" className="h-4 w-4" strokeWidth={2.4} />
                     </button>
                     <button type="button" className="flex-1 py-1.5" onClick={() => move(i, 1)} aria-label="Mover a la derecha" disabled={i === images.length - 1}>
-                      ▶
+                      <Icon name="arrow" className="h-4 w-4" strokeWidth={2.4} />
                     </button>
                   </div>
                 </div>
@@ -311,9 +313,10 @@ export function ProductForm({
                 type="button"
                 onClick={suggest}
                 disabled={suggesting || uploading}
-                className="w-full rounded-full border-2 border-brand py-3 font-extrabold text-brand disabled:opacity-50"
+                className="flex w-full items-center justify-center gap-2 rounded-full border-2 border-foreground py-3 font-extrabold disabled:opacity-50"
               >
-                {suggesting ? "Mirando la foto…" : "✨ Completar título, descripción y precio con IA"}
+                <Icon name="sparkle" className="h-5 w-5" strokeWidth={2} />
+                {suggesting ? "Mirando la foto…" : "Completar título, descripción y precio con IA"}
               </button>
             )}
           </>
@@ -334,7 +337,7 @@ export function ProductForm({
           <span className="font-bold">Categoría</span>
           <select name="category_slug" defaultValue={product?.category_slug ?? categories[0]?.slug} className={input}>
             {categories.map((c) => (
-              <option key={c.slug} value={c.slug}>{c.emoji} {c.name}</option>
+              <option key={c.slug} value={c.slug}>{c.name}</option>
             ))}
           </select>
         </label>
@@ -380,7 +383,8 @@ export function ProductForm({
       <section className="space-y-3 rounded-2xl border border-border bg-card p-4">
         <label className="flex items-center gap-2 font-bold">
           <input type="checkbox" checked={flashOn} onChange={(e) => setFlashOn(e.target.checked)} />
-          ⚡ Oferta relámpago
+          <Icon name="zap" className="h-4 w-4 text-brand" strokeWidth={2.2} fill="currentColor" />
+          Oferta relámpago
         </label>
         {flashOn && (
           <div className="grid gap-3 sm:grid-cols-2">

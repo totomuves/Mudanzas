@@ -1,8 +1,10 @@
+import { Icon } from "./Icon";
+
 /** Se muestra mientras falten las variables de entorno de Supabase. */
 export function SetupNotice() {
   return (
     <div className="mx-auto max-w-lg rounded-2xl border border-border bg-card p-6 text-center">
-      <div className="text-5xl">🛠️</div>
+      <Icon name="tools" className="mx-auto h-12 w-12 text-muted" strokeWidth={1.4} />
       <h1 className="mt-2 text-xl font-extrabold">Falta conectar Supabase</h1>
       <p className="mt-2 text-sm text-muted">
         Copia <code>.env.example</code> como <code>.env.local</code>, completa las claves de tu
