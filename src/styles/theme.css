@@ -1,0 +1,40 @@
+/*
+ * 🎨 TEMA VISUAL
+ * Todos los colores de la app salen de aquí. Cambia un valor y se
+ * actualiza en todas las pantallas. Usa códigos hex (#ff6b3d) o cualquier
+ * color CSS. Herramienta útil para elegir paletas: https://coolors.co
+ */
+:root {
+  /* Marca */
+  --brand: #ff6b3d;        /* color principal: botones, enlaces, destacados */
+  --brand-dark: #e5532a;   /* principal al pasar el mouse */
+  --brand-2: #f43f5e;      /* segundo color de los degradados (portada, barras) */
+
+  /* Fondo y texto */
+  --background: #fff8f1;
+  --foreground: #1f2433;
+  --muted: #6b7280;        /* textos secundarios */
+  --card: #ffffff;         /* tarjetas y formularios */
+  --border: #f1e4d6;
+
+  /* Acciones del swipe */
+  --accent: #2bb673;       /* me gusta ♥ y descuentos */
+  --pass: #ef4444;         /* paso ✕ y errores */
+  --star: #3b82f6;         /* ¡lo quiero! ★ */
+  --flash: #fde047;        /* etiqueta de oferta relámpago */
+  --flash-text: #422006;
+
+  /* Forma */
+  --card-radius: 1.5rem;   /* esquinas de las tarjetas grandes */
+}
+
+/* Modo oscuro (se activa según la configuración del teléfono) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #14161f;
+    --foreground: #f4f1ec;
+    --muted: #9ca3af;
+    --card: #1e2130;
+    --border: #2c3044;
+  }
+}

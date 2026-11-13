@@ -1,0 +1,33 @@
+import "server-only";
+import { createClient } from "@/lib/supabase/server";
+import type { Category, Product } from "./types";
+import type { MovingSettings, ServiceType } from "./moving";
+
+export async function getCategories(): Promise<Category[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("categories").select("*").order("sort_order");
+  return (data ?? []) as Category[];
+}
+
+export function categoryMap(categories: Category[]) {
+  return Object.fromEntries(categories.map((c) => [c.slug, c])) as Record<string, Category>;
+}
+
+export async function getProduct(id: string): Promise<Product | null> {
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
+  const supabase = await createClient();
+  const { data } = await supabase.from("products").select("*").eq("id", id).maybeSingle();
+  return (data as Product | null) ?? null;
+}
+
+export async function getMovingData() {
+  const supabase = await createClient();
+  const [{ data: services }, { data: settings }] = await Promise.all([
+    supabase.from("service_types").select("*").eq("active", true).order("sort_order"),
+    supabase.from("moving_settings").select("*").eq("id", 1).maybeSingle(),
+  ]);
+  return {
+    services: (services ?? []) as ServiceType[],
+    settings: settings as MovingSettings | null,
+  };
+}

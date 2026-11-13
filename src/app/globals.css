@@ -1,0 +1,46 @@
+@import "tailwindcss";
+/* Los colores se editan en src/styles/theme.css */
+@import "../styles/theme.css";
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-card: var(--card);
+  --color-border: var(--border);
+  --color-brand: var(--brand);
+  --color-brand-dark: var(--brand-dark);
+  --color-accent: var(--accent);
+  --color-pass: var(--pass);
+  --color-star: var(--star);
+  --color-brand-2: var(--brand-2);
+  --color-flash: var(--flash);
+  --color-flash-text: var(--flash-text);
+  --radius-card: var(--card-radius);
+  --font-sans: var(--font-main);
+}
+
+body {
+  overflow-x: clip;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* Evita el "pull to refresh" mientras se hace swipe */
+.no-overscroll {
+  overscroll-behavior: contain;
+  touch-action: none;
+}
+
+@keyframes pop {
+  0% { transform: scale(0.4); opacity: 0; }
+  60% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-pop { animation: pop 0.35s ease-out both; }
+
+@keyframes float-up {
+  0% { transform: translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateY(-120px) scale(1.6); opacity: 0; }
+}
+.animate-float-up { animation: float-up 0.9s ease-out forwards; }
