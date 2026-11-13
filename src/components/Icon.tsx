@@ -7,7 +7,7 @@
 import {
   ArrowDown, ArrowLeft, Bell, BellOff, ArrowRight, ArrowUp, Baby, BadgeCheck, Bike, BookOpen, Box, Briefcase, Building2,
   Calculator, CalendarDays, Camera, Check, CircleCheck, CircleX, Clock, Crown, Dumbbell, Flag, Gift, Heart,
-  House, Image as ImageIcon, ImagePlus, Images, Lamp, Laptop, LayoutGrid, Lock, LogIn, Mail, MapPin, Microwave,
+  House, Image as ImageIcon, ImagePlus, Images, Lamp, Laptop, LayoutGrid, Lock, LogIn, LogOut, Mail, MapPin, Microwave,
   MoveRight, Navigation, NotebookPen, Package, PackageOpen, PartyPopper, PawPrint, Phone, Piano, Plug, RotateCcw,
   RotateCw, Search, Shirt, ShoppingBag, Sofa, Sparkles, Star, Store, Telescope, ThumbsUp, Trash2, Trophy, Truck,
   User, Users, UtensilsCrossed, Wand2, Warehouse, Wrench, X, Zap, BedDouble, Hammer, Frown, Rocket, Sprout,
@@ -17,7 +17,7 @@ import {
 const ICONS = {
   // navegación
   home: House, cards: Images, truck: Truck, heart: Heart, sparkle: Sparkles, search: Search, grid: LayoutGrid,
-  arrow: ArrowRight, back: ArrowLeft, up: ArrowUp, down: ArrowDown, user: User, users: Users, login: LogIn,
+  arrow: ArrowRight, back: ArrowLeft, up: ArrowUp, down: ArrowDown, user: User, users: Users, login: LogIn, logout: LogOut,
   // acciones
   check: Check, x: X, star: Star, undo: RotateCcw, rotate: RotateCw, trash: Trash2, camera: Camera,
   image: ImageIcon, imagePlus: ImagePlus, wand: Wand2, zap: Zap, lock: Lock, mail: Mail, phone: Phone,
