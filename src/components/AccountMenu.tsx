@@ -53,6 +53,7 @@ export function AccountMenu({ account }: Props) {
   if (account.sellerStatus) links.push({ href: "/vendedor", label: "Panel vendedor", icon: "store" });
   if (account.isAdmin) links.push({ href: "/admin", label: "Admin", icon: "tools" });
   if (!account.sellerStatus) links.push({ href: "/vender", label: "Vender en Totomuves", icon: "store" });
+  links.push({ href: "/cuenta/clave", label: "Crear o cambiar contraseña", icon: "lock" });
 
   return (
     <div ref={ref} className="relative">

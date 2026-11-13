@@ -165,6 +165,28 @@ Abre http://localhost:3000. Para probar en tu celular en la misma red WiFi, usa 
 4. En Mercado Pago → tu aplicación → **Webhooks**: URL `https://tu-app.vercel.app/api/mercadopago/webhook`, evento **Pagos**. Copia la **clave secreta** en la variable `MP_WEBHOOK_SECRET` de Vercel y vuelve a desplegar.
 5. Cuando quieras cobrar de verdad: cambia `MP_ACCESS_TOKEN` por el Access Token de **producción** de tu cuenta real de Mercado Pago.
 
+### Ingreso de usuarios: contraseña, enlace al correo y Google
+
+La pantalla **/ingresar** ofrece tres formas de entrar: correo y contraseña (con **Crear cuenta** y **¿Olvidaste tu contraseña?**), un enlace mágico al correo y, opcionalmente, **Continuar con Google**. Quien ya entraba con enlace puede crearse una contraseña desde el menú de su cuenta o desde **¿Olvidaste tu contraseña?**.
+
+**En Supabase → Authentication:**
+
+1. **Sign In / Providers → Email**: deja activado *Enable Email provider* y *Confirm email* (así nadie crea cuentas con correos ajenos). *Minimum password length*: 8.
+2. **URL Configuration**: *Site URL* = tu URL de producción y en *Redirect URLs* agrega `https://TU-DOMINIO/**` (y `http://localhost:3000/**` para desarrollo). Sin esto, los enlaces de confirmación, recuperación y Google fallan.
+3. **Emails → SMTP Settings**: el correo que trae Supabase de fábrica manda muy pocos mensajes por hora y solo sirve para pruebas. Para usuarios reales conecta un proveedor (por ejemplo [Resend](https://resend.com), gratis hasta 3.000 correos al mes) con un remitente como `hola@tu-dominio.cl`.
+4. **Emails → Templates** (opcional): traduce al español los asuntos y textos de *Confirm signup*, *Magic Link* y *Reset Password*. No cambies `{{ .ConfirmationURL }}`.
+
+**Activar "Continuar con Google":**
+
+1. Entra a https://console.cloud.google.com, crea un proyecto (por ejemplo "Totomuves").
+2. Ve a **APIs y servicios → Pantalla de consentimiento de OAuth** (o **Google Auth Platform → Branding**): tipo **Externo**, nombre de la app "Totomuves", tu correo de soporte, y en dominios autorizados agrega `supabase.co` y tu dominio. Publica la app (**Audience → Publish app**) para que cualquiera pueda entrar.
+3. Ve a **Credenciales → Crear credenciales → ID de cliente de OAuth**: tipo **Aplicación web**.
+   - *Orígenes de JavaScript autorizados*: tu URL de producción (ej. `https://mudanzas-theta.vercel.app`).
+   - *URI de redireccionamiento autorizados*: la que muestra Supabase en **Authentication → Sign In / Providers → Google → Callback URL** (tiene la forma `https://TU-PROYECTO.supabase.co/auth/v1/callback`).
+4. Copia el **ID de cliente** y el **Secreto de cliente**.
+5. En Supabase → **Authentication → Sign In / Providers → Google**: actívalo, pega el ID y el secreto, y guarda.
+6. En Vercel → tu proyecto → **Settings → Environment Variables** agrega `NEXT_PUBLIC_GOOGLE_AUTH` = `1` y vuelve a desplegar. Recién ahí aparece el botón de Google.
+
 ### Instalar como app en el celular
 
 - **Android (Chrome):** menú ⋮ → *Instalar aplicación*.
