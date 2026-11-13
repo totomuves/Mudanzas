@@ -8,6 +8,7 @@ import { SetupNotice } from "@/components/SetupNotice";
 import { PriceTag } from "@/components/PriceTag";
 import { FlashCountdown } from "@/components/FlashCountdown";
 import { Gallery } from "./Gallery";
+import { TrackView } from "./TrackView";
 
 export async function generateMetadata({ params }: PageProps<"/producto/[id]">): Promise<Metadata> {
   if (!hasSupabaseEnv()) return {};
@@ -29,6 +30,7 @@ export default async function ProductoPage({ params }: PageProps<"/producto/[id]
 
   return (
     <div className="-mt-4 grid gap-6 md:mt-0 md:grid-cols-2 md:gap-10">
+      <TrackView productId={product.id} />
       <Gallery product={product} category={category} />
       <div className="space-y-4">
         <div className="space-y-1">

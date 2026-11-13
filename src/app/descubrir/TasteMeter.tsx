@@ -71,8 +71,8 @@ export function TasteMeter({
         </div>
       )}
 
-      <Link href="/bienvenida" className="block text-center text-sm font-bold text-brand">
-        Cambiar mis categorías
+      <Link href="/mis-gustos" className="block text-center text-sm font-bold text-brand">
+        Ver y ajustar lo que sé de ti
       </Link>
     </aside>
   );

@@ -9,7 +9,7 @@ const items: { href: string; label: string; icon: IconName }[] = [
   { href: "/descubrir", label: "Descubrir", icon: "cards" },
   { href: "/mudanzas", label: "Mudanzas", icon: "truck" },
   { href: "/favoritos", label: "Favoritos", icon: "heart" },
-  { href: "/bienvenida", label: "Gustos", icon: "sparkle" },
+  { href: "/mis-gustos", label: "Gustos", icon: "sparkle" },
 ];
 
 export function BottomNav() {

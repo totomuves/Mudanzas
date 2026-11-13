@@ -9,6 +9,7 @@ import { CONDITION_LABEL } from "@/lib/format";
 import type { Category, Condition, Product } from "@/lib/types";
 import { compress, rotate, whiteBackground, type BgProvider } from "@/lib/photo";
 import { Icon } from "@/components/Icon";
+import { requestIndexing } from "@/lib/recsys/track";
 
 const MAX_PHOTOS = 6;
 const STORAGE_PREFIX = "/storage/v1/object/public/products/";
@@ -223,6 +224,8 @@ export function ProductForm({
     // Borra del almacenamiento las fotos que se quitaron del producto
     const paths = removedSaved.map(storagePath).filter((x): x is string => Boolean(x));
     if (paths.length) await supabase.storage.from("products").remove(paths);
+    // El recomendador analiza el producto (estilo, material, huella) en segundo plano
+    requestIndexing(product ? [product.id] : undefined);
     router.push(basePath);
     router.refresh();
   }

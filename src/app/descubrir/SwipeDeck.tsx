@@ -10,6 +10,7 @@ import { PriceTag } from "@/components/PriceTag";
 import { FlashCountdown } from "@/components/FlashCountdown";
 import { Icon, CategoryIcon } from "@/components/Icon";
 import { TasteMeter } from "./TasteMeter";
+import { requestIndexing } from "@/lib/recsys/track";
 
 // Mismos valores que el trigger learn_from_swipe en la base de datos
 const DELTA: Record<SwipeAction, number> = { superlike: 2, like: 1, pass: -0.4 };
@@ -25,6 +26,9 @@ const LIKE_MESSAGES = [
 ];
 
 type Exit = { id: string; action: SwipeAction } | null;
+
+/** Lo que devuelve recommend(): el producto y por qué se muestra */
+type Recommendation = { product: Product; reason: string | null; explore: boolean };
 
 export function SwipeDeck({
   userId,
@@ -55,6 +59,11 @@ export function SwipeDeck({
 
   const seen = useRef(new Set<string>());
   const fetching = useRef(false);
+  // Por qué se muestra cada producto ("Parecido a…", "Cerca de ti"…)
+  const [reasons, setReasons] = useState<Record<string, { text: string; explore: boolean }>>({});
+  // Desde cuándo está la tarjeta de arriba a la vista (para medir cuánto la mira)
+  const topSince = useRef<{ id: string; at: number } | null>(null);
+  const hasDwellColumn = useRef(true);
   // Filtro de categorías (chips). Vacío = todas.
   const [filters, setFilters] = useState<string[]>([]);
   const filtersRef = useRef<string[]>([]);
@@ -66,10 +75,23 @@ export function SwipeDeck({
     if (fetching.current) return;
     fetching.current = true;
     const wanted = filtersRef.current;
-    const { data, error } = await supabase.rpc("get_feed", {
+    const p_categories = wanted.length ? wanted : null;
+    // Recomendador inteligente; si aún no está instalado en la base de datos, el feed anterior
+    let recs: Recommendation[] | null = null;
+    let error: unknown = null;
+    const rec = await supabase.rpc("recommend", {
       p_limit: 15,
-      p_categories: wanted.length ? wanted : null,
+      p_categories,
+      p_exclude: seen.current.size ? [...seen.current].slice(-200) : null,
     });
+    if (!rec.error) {
+      recs = (rec.data ?? []) as Recommendation[];
+    } else {
+      const old = await supabase.rpc("get_feed", { p_limit: 15, p_categories });
+      error = old.error;
+      recs = ((old.data ?? []) as Product[]).map((product) => ({ product, reason: null, explore: false }));
+    }
+    const data = recs.map((r) => r.product);
     fetching.current = false;
     // Si cambiaron los filtros mientras cargaba, esta respuesta ya no sirve
     if (wanted !== filtersRef.current) return;
@@ -80,8 +102,13 @@ export function SwipeDeck({
       return;
     }
     setLoadError(false);
-    const fresh = ((data ?? []) as Product[]).filter((p) => !seen.current.has(p.id));
+    const fresh = data.filter((p) => !seen.current.has(p.id));
     fresh.forEach((p) => seen.current.add(p.id));
+    setReasons((r) => {
+      const next = { ...r };
+      for (const x of recs) if (x.reason) next[x.product.id] = { text: x.reason, explore: x.explore };
+      return next;
+    });
     if (fresh.length === 0) setExhausted(true);
     setDeck((d) => [...d, ...fresh]);
   }, [supabase]);
@@ -89,6 +116,8 @@ export function SwipeDeck({
   useEffect(() => {
     // Carga inicial del mazo
     fetchMore();
+    // Que los productos recién subidos queden analizados para el recomendador
+    requestIndexing();
   }, [fetchMore]);
 
   useEffect(() => {
@@ -98,6 +127,11 @@ export function SwipeDeck({
   }, [toast]);
 
   const top = deck[0];
+
+  // Empieza a contar cuando una tarjeta queda arriba
+  useEffect(() => {
+    if (top && topSince.current?.id !== top.id) topSince.current = { id: top.id, at: Date.now() };
+  }, [top]);
 
   const commit = useCallback(
     async (product: Product, action: SwipeAction) => {
@@ -112,9 +146,18 @@ export function SwipeDeck({
       if (action === "like") setToast(LIKE_MESSAGES[Math.floor(Math.random() * LIKE_MESSAGES.length)]);
       if (action === "superlike") setSuperliked(product);
 
-      await supabase
+      // Cuánto rato la miró antes de decidir (pasar rápido ≠ pasar después de mirar harto)
+      const dwell_ms =
+        topSince.current?.id === product.id ? Math.min(600_000, Date.now() - topSince.current.at) : null;
+      const row = { user_id: userId, product_id: product.id, action };
+      let { error } = await supabase
         .from("swipes")
-        .upsert({ user_id: userId, product_id: product.id, action }, { onConflict: "user_id,product_id" });
+        .upsert(hasDwellColumn.current ? { ...row, dwell_ms } : row, { onConflict: "user_id,product_id" });
+      if (error && hasDwellColumn.current && /dwell_ms/.test(error.message)) {
+        hasDwellColumn.current = false; // la migración del recomendador aún no se corre
+        ({ error } = await supabase.from("swipes").upsert(row, { onConflict: "user_id,product_id" }));
+      }
+      if (error) console.error("[swipe]", error);
 
       if (deck.length - 1 <= 3 && !exhausted) fetchMore();
     },
@@ -263,6 +306,7 @@ export function SwipeDeck({
                 <SwipeCard
                   key={p.id}
                   product={p}
+                  reason={reasons[p.id]}
                   category={cats[p.category_slug]}
                   depth={depth}
                   exit={exit?.id === p.id ? exit.action : null}
@@ -353,12 +397,14 @@ function RoundButton({
 
 function SwipeCard({
   product,
+  reason,
   category,
   depth,
   exit,
   onSwipe,
 }: {
   product: Product;
+  reason?: { text: string; explore: boolean };
   category?: Category;
   depth: number;
   exit: SwipeAction | null;
@@ -461,6 +507,12 @@ function SwipeCard({
           {product.comuna && <span className="rounded-full bg-surface px-2 py-0.5"><Icon name="pin" className="mr-0.5 inline h-3 w-3 align-[-1px]" strokeWidth={2.4} />{product.comuna}</span>}
           {product.quantity > 1 && <span className="rounded-full bg-surface px-2 py-0.5">Quedan {product.quantity}</span>}
         </div>
+        {reason && (
+          <p className="mb-1 flex w-fit max-w-full items-center gap-1.5 text-xs font-bold text-brand">
+            <Icon name={reason.explore ? "telescope" : "sparkle"} className="h-3.5 w-3.5 shrink-0" strokeWidth={2.2} />
+            <span className="truncate">{reason.text}</span>
+          </p>
+        )}
         <h2 className="line-clamp-1 text-xl font-black leading-tight">{product.title}</h2>
         <PriceTag product={product} />
         {product.description && <p className="mt-1 line-clamp-1 text-sm text-muted">{product.description}</p>}

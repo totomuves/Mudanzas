@@ -38,6 +38,8 @@ export type Profile = {
   display_name: string | null;
   comuna: string | null;
   budget_max: number | null;
+  /** Situación de mudanza: primer_depa, oficina, ninos… (migración del recomendador) */
+  context?: string[];
   onboarded: boolean;
   is_admin: boolean;
 };
@@ -132,4 +134,22 @@ export type HomeBanner = {
   active: boolean;
   created_at: string;
   updated_at: string;
+};
+
+export type MovingContext = {
+  slug: string;
+  label: string;
+  reason: string;
+  sort_order: number;
+};
+
+/** Lo que el recomendador aprendió de un comprador (tabla user_taste) */
+export type UserTaste = {
+  traits: Record<string, { a: number; s: number; n: number }>;
+  price_mu: number | null;
+  price_sigma: number | null;
+  n_pos: number;
+  n_neg: number;
+  n_events: number;
+  last_event_at: string | null;
 };

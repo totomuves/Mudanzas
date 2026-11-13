@@ -47,7 +47,7 @@ export function AccountMenu({ account }: Props) {
 
   const links: { href: string; label: string; icon: IconName }[] = [
     { href: "/mis-pedidos", label: "Mis pedidos", icon: "bag" },
-    { href: "/bienvenida", label: "Mis gustos", icon: "sparkle" },
+    { href: "/mis-gustos", label: "Mis gustos", icon: "sparkle" },
     { href: "/favoritos", label: "Favoritos", icon: "heart" },
   ];
   if (account.marketplace && account.sellerStatus) links.push({ href: "/vendedor", label: "Panel vendedor", icon: "store" });

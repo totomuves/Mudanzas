@@ -5,7 +5,7 @@
  * Para agregar uno: búscalo en lucide.dev, impórtalo aquí y súmalo a ICONS.
  */
 import {
-  ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Baby, BadgeCheck, Bike, BookOpen, Box, Briefcase, Building2,
+  ArrowDown, ArrowLeft, Bell, BellOff, ArrowRight, ArrowUp, Baby, BadgeCheck, Bike, BookOpen, Box, Briefcase, Building2,
   Calculator, CalendarDays, Camera, Check, CircleCheck, CircleX, Clock, Crown, Dumbbell, Flag, Gift, Heart,
   House, Image as ImageIcon, ImagePlus, Images, Lamp, Laptop, LayoutGrid, Lock, LogIn, LogOut, Mail, MapPin, Microwave,
   MoveRight, Navigation, NotebookPen, Package, PackageOpen, PartyPopper, PawPrint, Phone, Piano, Plug, RotateCcw,
@@ -26,6 +26,7 @@ const ICONS = {
   boxOpen: PackageOpen, piano: Piano, calculator: Calculator, gift: Gift, store: Store, bag: ShoppingBag,
   route: MoveRight, navigation: Navigation, warehouse: Warehouse, tools: Wrench, hammer: Hammer,
   // estados
+  bell: Bell, bellOff: BellOff,
   ok: CircleCheck, fail: CircleX, verified: BadgeCheck, party: PartyPopper, sad: Frown, like: ThumbsUp,
   // niveles
   sprout: Sprout, telescope: Telescope, rocket: Rocket, trophy: Trophy, crown: Crown,

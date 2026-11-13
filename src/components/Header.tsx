@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Logo } from "./Logo";
 import { Icon } from "./Icon";
+import { NotificationBell } from "./NotificationBell";
 import { AccountMenu } from "./AccountMenu";
 import { getAccount } from "@/lib/account";
 
@@ -32,10 +33,11 @@ export async function Header() {
             </Link>
           ))}
         </nav>
+        <NotificationBell className="ml-auto md:ml-0" />
         <Link
           href="/favoritos"
           aria-label="Favoritos"
-          className="ml-auto flex h-10 w-10 items-center justify-center rounded-full hover:bg-surface md:hidden"
+          className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-surface md:hidden"
         >
           <Icon name="heart" className="h-6 w-6" />
         </Link>

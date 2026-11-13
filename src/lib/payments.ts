@@ -4,6 +4,7 @@ import MercadoPagoConfig, { Payment, PaymentRefund, Preference } from "mercadopa
 import { createAdminClient } from "@/lib/supabase/admin";
 import { siteUrl } from "@/lib/env";
 import { brand } from "@/brand";
+import { logServerEvent } from "@/lib/recsys/server";
 
 function mpConfig() {
   const accessToken = process.env.MP_ACCESS_TOKEN;
@@ -74,6 +75,7 @@ export async function syncPayment(paymentId: string) {
       return "amount_mismatch";
     }
     await db.rpc("mark_order_paid", { p_order_id: orderId, p_payment_id: String(payment.id) });
+    await logServerEvent(order.user_id, "purchase", order.product_id);
     return "paid";
   }
 
