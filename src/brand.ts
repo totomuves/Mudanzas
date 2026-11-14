@@ -5,7 +5,7 @@
  */
 export const brand = {
   /** Nombre (se puede sobrescribir con NEXT_PUBLIC_APP_NAME) */
-  name: process.env.NEXT_PUBLIC_APP_NAME || "MÜVEO",
+  name: process.env.NEXT_PUBLIC_APP_NAME || "MUVEO",
   /** Frase corta para buscadores y la app instalada */
   description: "Muebles, electro y tesoros a precios bajísimos. Desliza, elige y compra.",
   /** Textos de la portada */

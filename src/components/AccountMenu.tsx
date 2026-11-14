@@ -52,7 +52,7 @@ export function AccountMenu({ account }: Props) {
   ];
   if (account.marketplace && account.sellerStatus) links.push({ href: "/vendedor", label: "Panel vendedor", icon: "store" });
   if (account.isAdmin) links.push({ href: "/admin", label: "Admin", icon: "tools" });
-  if (account.marketplace && !account.sellerStatus) links.push({ href: "/vender", label: "Vender en MÜVEO", icon: "store" });
+  if (account.marketplace && !account.sellerStatus) links.push({ href: "/vender", label: "Vender en MUVEO", icon: "store" });
   links.push({ href: "/cuenta/clave", label: "Crear o cambiar contraseña", icon: "lock" });
 
   return (

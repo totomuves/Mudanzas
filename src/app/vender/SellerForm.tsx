@@ -134,8 +134,8 @@ export function SellerForm({ seller, defaultEmail }: { seller?: Seller; defaultE
         <label className="flex items-start gap-2 text-sm">
           <input type="checkbox" name="terms" required className="mt-1" />
           <span>
-            Acepto que MÜVEO revise mi tienda antes de publicarla, que mis productos se muestren con la marca MÜVEO y que
-            MÜVEO cobre una comisión por cada venta. El pago de cada venta se libera cuando el comprador recibe conforme o
+            Acepto que MUVEO revise mi tienda antes de publicarla, que mis productos se muestren con la marca MUVEO y que
+            MUVEO cobre una comisión por cada venta. El pago de cada venta se libera cuando el comprador recibe conforme o
             pasa el plazo de revisión sin reclamos.
           </span>
         </label>

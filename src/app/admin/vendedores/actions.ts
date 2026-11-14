@@ -33,7 +33,7 @@ export async function updateSettings(_prev: AdminSellerState, formData: FormData
   return done("Configuración guardada.");
 }
 
-/** Enciende o apaga el marketplace. Apagado: solo vende MÜVEO. */
+/** Enciende o apaga el marketplace. Apagado: solo vende MUVEO. */
 export async function setMarketplaceEnabled(_prev: AdminSellerState, formData: FormData): Promise<AdminSellerState> {
   await requireSection("vendedores");
   const on = formData.get("enabled") === "1";
@@ -43,7 +43,7 @@ export async function setMarketplaceEnabled(_prev: AdminSellerState, formData: F
     .eq("id", 1);
   if (error) return { error: "No se pudo cambiar. ¿Corriste la migración 20261114050000_interruptor_marketplace.sql?" };
   revalidatePath("/", "layout");
-  return { ok: on ? "Marketplace encendido: los vendedores aprobados ya pueden vender." : "Marketplace apagado: solo vende MÜVEO." };
+  return { ok: on ? "Marketplace encendido: los vendedores aprobados ya pueden vender." : "Marketplace apagado: solo vende MUVEO." };
 }
 
 /** Aprobar, rechazar, suspender o reactivar un vendedor; y su comisión propia. */

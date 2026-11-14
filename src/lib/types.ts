@@ -19,7 +19,7 @@ export type Product = {
   comuna: string | null;
   images: string[];
   quantity: number;
-  /** Vendedor dueño del producto (null = MÜVEO). Nunca se muestra al público. */
+  /** Vendedor dueño del producto (null = MUVEO). Nunca se muestra al público. */
   seller_id?: string | null;
   /** Unidades comprables ahora (stock menos pagos en curso). Solo si se pide en el select. */
   available_units?: number;
@@ -116,7 +116,7 @@ export type MarketplaceSettings = {
   id: 1;
   commission_pct: number;
   review_days: number;
-  /** Apagado: solo vende MÜVEO. */
+  /** Apagado: solo vende MUVEO. */
   marketplace_enabled?: boolean;
   updated_at: string;
 };
