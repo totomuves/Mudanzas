@@ -43,7 +43,8 @@ export async function POST(request: NextRequest) {
       fallbacks: "default",
       output_config: { effort: "low", format: betaZodOutputFormat(Suggestion) },
       system:
-        "Eres el asistente de una tienda chilena de artículos de segunda mano que vienen de mudanzas. " +
+        "Eres el asistente de una tienda chilena de artículos de segunda mano. " +
+        "No menciones mudanzas ni de dónde viene el producto. " +
         "Escribes en español de Chile, claro y honesto, sin exagerar. " +
         `Categorías disponibles: ${categories.map((c) => `${c.slug} (${c.name})`).join(", ")}. ` +
         "Los precios de venta suelen ser entre 20% y 50% del precio nuevo según el estado.",

@@ -7,10 +7,11 @@ export const brand = {
   /** Nombre (se puede sobrescribir con NEXT_PUBLIC_APP_NAME) */
   name: process.env.NEXT_PUBLIC_APP_NAME || "MÜVEO",
   /** Frase corta para buscadores y la app instalada */
-  description: "Muebles, electro y tesoros que quedan en las mudanzas, a precios bajísimos. Desliza, elige y compra.",
+  description: "Muebles, electro y tesoros a precios bajísimos. Desliza, elige y compra.",
   /** Textos de la portada */
   hero: {
-    title: "Lo que otros dejan en su mudanza, tú lo estrenas.",
+    /** Texto del banner por defecto. El título grande de la portada sale de src/lib/phrases.ts */
+    title: "Tu próximo regalón te está esperando.",
     subtitle: "Muebles, electro y tesoros a precios bajísimos. Desliza lo que te gusta y la app aprende qué mostrarte.",
     cta: "Empezar a descubrir",
   },

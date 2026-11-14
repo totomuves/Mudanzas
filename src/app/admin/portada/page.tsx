@@ -5,6 +5,9 @@ import { SetupNotice } from "@/components/SetupNotice";
 import type { HomeBanner } from "@/lib/types";
 import { BannerForm } from "./BannerForm";
 import { BannerItem } from "./BannerItem";
+import { Phrases } from "./Phrases";
+import { getCategories } from "@/lib/data";
+import type { SitePhrase } from "@/lib/phrases";
 
 export const metadata: Metadata = { title: "Portada" };
 
@@ -13,14 +16,18 @@ export default async function PortadaAdminPage() {
   const { supabase } = await requireSection("portada");
   const { data, error } = await supabase.from("home_banners").select("*").order("sort_order").order("created_at");
   const banners = (data ?? []) as HomeBanner[];
+  const [categories, phrasesRes] = await Promise.all([
+    getCategories(),
+    supabase.from("site_phrases").select("*").order("sort_order").order("created_at"),
+  ]);
 
   return (
     <div className="space-y-8">
       <div className="space-y-1">
         <h1 className="text-2xl font-black">Banners de la portada</h1>
         <p className="text-muted">
-          Son los recuadros grandes del inicio. Si hay más de uno, se deslizan de lado. Úsalos para anunciar una mudanza
-          con muchos muebles, una categoría o el servicio de mudanzas.
+          Son los recuadros grandes del inicio. Si hay más de uno, se deslizan de lado. Úsalos para anunciar productos nuevos,
+          una categoría o un servicio.
         </p>
       </div>
 
@@ -49,6 +56,12 @@ export default async function PortadaAdminPage() {
         <h2 className="text-lg font-black">Nuevo banner</h2>
         <BannerForm key={banners.length} />
       </section>
+
+      <Phrases
+        phrases={(phrasesRes.data ?? []) as SitePhrase[]}
+        categories={categories}
+        missing={Boolean(phrasesRes.error)}
+      />
     </div>
   );
 }
