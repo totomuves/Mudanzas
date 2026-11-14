@@ -34,7 +34,7 @@ export default async function DespachoAdminPage() {
       {error && (
         <p className="rounded-2xl bg-brand-soft p-4 text-sm font-bold">
           Falta crear la tabla de despacho. En Supabase, abre SQL Editor y corre el archivo
-          supabase/migrations/20261114140000_despacho_comunas.sql.
+          supabase/migrations/20261114150000_despacho_comunas.sql.
         </p>
       )}
 

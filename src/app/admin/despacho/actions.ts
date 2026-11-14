@@ -40,7 +40,7 @@ export async function saveShippingRates(_prev: ShippingState, formData: FormData
     const { error } = await supabase.from("shipping_rates").upsert(upserts, { onConflict: "comuna" });
     if (error) {
       console.error("[despacho]", error);
-      return { error: "No pudimos guardar. ¿Ya corriste la migración 20261114140000_despacho_comunas.sql?" };
+      return { error: "No pudimos guardar. ¿Ya corriste la migración 20261114150000_despacho_comunas.sql?" };
     }
   }
   if (removes.length > 0) {
