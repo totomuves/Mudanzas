@@ -16,10 +16,12 @@ export async function startCheckout(_prev: CheckoutState, formData: FormData): P
   const phone = String(formData.get("phone") ?? "").trim();
   const delivery = formData.get("delivery") === "despacho" ? "despacho" : "retiro";
   const address = String(formData.get("address") ?? "").trim();
+  const comuna = String(formData.get("comuna") ?? "").trim();
 
   if (name.length < 2) return { error: "Escribe tu nombre." };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: "Revisa tu correo." };
   if (phone.replace(/\D/g, "").length < 8) return { error: "Escribe un teléfono de contacto." };
+  if (delivery === "despacho" && !comuna) return { error: "Elige la comuna de despacho." };
   if (delivery === "despacho" && address.length < 5) return { error: "Escribe la dirección de despacho." };
 
   const supabase = await createClient();
@@ -33,6 +35,12 @@ export async function startCheckout(_prev: CheckoutState, formData: FormData): P
   if (!user) return { error: "No pudimos iniciar tu sesión. Intenta de nuevo." };
 
   const db = createAdminClient();
+
+  if (delivery === "despacho") {
+    const { data: rate } = await db.from("shipping_rates").select("price").eq("comuna", comuna).eq("active", true).maybeSingle();
+    if (!rate) return { error: `Por ahora no despachamos a ${comuna}. Puedes elegir retiro.` };
+  }
+
   const quantity = Math.max(1, Math.min(50, parseInt(String(formData.get("quantity") ?? "1"), 10) || 1));
 
   // Crea el pedido y aparta las unidades 15 minutos (atómico, en la base de datos)
@@ -45,7 +53,8 @@ export async function startCheckout(_prev: CheckoutState, formData: FormData): P
       buyer_email: email,
       buyer_phone: phone,
       delivery,
-      address: delivery === "despacho" ? address : "",
+      address: delivery === "despacho" ? `${address}, ${comuna}` : "",
+      comuna: delivery === "despacho" ? comuna : "",
     },
   });
   const order = placed as Order | null;
@@ -71,7 +80,8 @@ export async function startCheckout(_prev: CheckoutState, formData: FormData): P
       productId,
       title: product?.title ?? "Producto",
       quantity,
-      unitPrice: Math.round(order.amount / quantity),
+      unitPrice: Math.round((order.amount - (order.shipping_amount ?? 0)) / quantity),
+      shipping: order.shipping_amount ?? 0,
       pictureUrl: product?.images?.[0],
       buyer: { name, email },
       expiresAt: new Date(order.reserved_until ?? Date.now() + 15 * 60_000),

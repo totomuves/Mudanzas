@@ -67,6 +67,8 @@ export type Order = {
   buyer_phone: string | null;
   delivery: "retiro" | "despacho";
   address: string | null;
+  comuna?: string | null;
+  shipping_amount?: number | null;
   mp_preference_id: string | null;
   mp_payment_id: string | null;
   seller_id?: string | null;
@@ -156,4 +158,11 @@ export type UserTaste = {
   n_neg: number;
   n_events: number;
   last_event_at: string | null;
+};
+
+export type ShippingRate = {
+  comuna: string;
+  price: number;
+  active: boolean;
+  updated_at: string;
 };

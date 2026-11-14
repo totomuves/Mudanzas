@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { hasSupabaseEnv } from "@/lib/env";
-import { getCategories, getProduct } from "@/lib/data";
+import { getCategories, getProduct, getShippingRates } from "@/lib/data";
 import { SetupNotice } from "@/components/SetupNotice";
 import { ProductImage } from "@/components/ProductImage";
 import { PriceTag } from "@/components/PriceTag";
@@ -15,7 +15,7 @@ export const metadata: Metadata = { title: "Comprar" };
 export default async function ComprarPage({ params }: PageProps<"/comprar/[id]">) {
   if (!hasSupabaseEnv()) return <SetupNotice />;
   const { id } = await params;
-  const [product, categories] = await Promise.all([getProduct(id), getCategories()]);
+  const [product, categories, shippingRates] = await Promise.all([getProduct(id), getCategories(), getShippingRates()]);
   if (!product) notFound();
   const category = categories.find((c) => c.slug === product.category_slug);
 
@@ -47,6 +47,7 @@ export default async function ComprarPage({ params }: PageProps<"/comprar/[id]">
         productId={product.id}
         unitPrice={currentPrice(product)}
         maxQuantity={Math.min(10, product.available_units ?? product.quantity)}
+        shippingRates={shippingRates}
       />
     </div>
   );

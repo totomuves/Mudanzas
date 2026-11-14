@@ -9,14 +9,23 @@ export function CheckoutForm({
   productId,
   unitPrice,
   maxQuantity,
+  shippingRates,
 }: {
   productId: string;
   unitPrice: number;
   maxQuantity: number;
+  shippingRates: { comuna: string; price: number }[];
 }) {
   const [state, action, pending] = useActionState<CheckoutState, FormData>(startCheckout, {});
   const [delivery, setDelivery] = useState<"retiro" | "despacho">("retiro");
   const [quantity, setQuantity] = useState(1);
+  const [comuna, setComuna] = useState("");
+  const canShip = shippingRates.length > 0;
+  const rate = shippingRates.find((r) => r.comuna === comuna);
+  const shipping = delivery === "despacho" && rate ? rate.price : 0;
+  const subtotal = unitPrice * quantity;
+  const total = subtotal + shipping;
+  const minShipping = canShip ? Math.min(...shippingRates.map((r) => r.price)) : 0;
 
   return (
     <form action={action} className="space-y-4">
@@ -42,18 +51,26 @@ export function CheckoutForm({
           {(
             [
               ["retiro", "Retiro en bodega", "Gratis", "warehouse"],
-              ["despacho", "Despacho", "Se coordina y cotiza aparte", "truck"],
+              [
+                "despacho",
+                "Despacho",
+                canShip ? `Desde ${formatCLP(minShipping)} según comuna` : "Por ahora no disponible",
+                "truck",
+              ],
             ] as const
-          ).map(([value, label, hint, icon]) => (
+          ).map(([value, label, hint, icon]) => {
+            const disabled = value === "despacho" && !canShip;
+            return (
             <label
               key={value}
-              className={`cursor-pointer rounded-2xl border-2 p-3 ${delivery === value ? "border-foreground bg-surface" : "border-border bg-background"}`}
+              className={`rounded-2xl border-2 p-3 ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"} ${delivery === value ? "border-foreground bg-surface" : "border-border bg-background"}`}
             >
               <input
                 type="radio"
                 name="delivery"
                 value={value}
                 checked={delivery === value}
+                disabled={disabled}
                 onChange={() => setDelivery(value)}
                 className="sr-only"
               />
@@ -61,18 +78,60 @@ export function CheckoutForm({
               <span className="block font-bold">{label}</span>
               <span className="text-xs text-muted">{hint}</span>
             </label>
-          ))}
+            );
+          })}
         </div>
       </fieldset>
-      {delivery === "despacho" && <Field label="Dirección y comuna" name="address" autoComplete="street-address" required />}
+      {delivery === "despacho" && (
+        <>
+          <label className="block space-y-1">
+            <span className="font-bold">Comuna</span>
+            <select
+              name="comuna"
+              value={comuna}
+              onChange={(e) => setComuna(e.target.value)}
+              required
+              className="w-full rounded-xl border border-border bg-card px-4 py-3"
+            >
+              <option value="">Elige tu comuna</option>
+              {shippingRates.map((r) => (
+                <option key={r.comuna} value={r.comuna}>
+                  {r.comuna} · {r.price === 0 ? "Gratis" : formatCLP(r.price)}
+                </option>
+              ))}
+            </select>
+            <span className="block text-xs text-muted">
+              ¿No aparece tu comuna? Por ahora no despachamos ahí, pero puedes elegir retiro.
+            </span>
+          </label>
+          <Field label="Dirección (calle, número, depto)" name="address" autoComplete="street-address" required />
+        </>
+      )}
+
+      <dl className="space-y-1 rounded-2xl border border-border bg-card p-4 text-sm">
+        <div className="flex justify-between">
+          <dt className="text-muted">Productos</dt>
+          <dd className="font-semibold">{formatCLP(subtotal)}</dd>
+        </div>
+        <div className="flex justify-between">
+          <dt className="text-muted">Despacho</dt>
+          <dd className="font-semibold">
+            {delivery === "retiro" ? "Gratis (retiro)" : rate ? (rate.price === 0 ? "Gratis" : formatCLP(rate.price)) : "Elige tu comuna"}
+          </dd>
+        </div>
+        <div className="flex justify-between border-t border-border pt-2 text-base">
+          <dt className="font-black">Total</dt>
+          <dd className="font-black">{formatCLP(total)}</dd>
+        </div>
+      </dl>
 
       {state.error && <p className="rounded-xl bg-pass/10 p-3 text-sm font-bold text-pass">{state.error}</p>}
 
       <button
-        disabled={pending}
+        disabled={pending || (delivery === "despacho" && !rate)}
         className="w-full rounded-full bg-[#009ee3] py-4 text-lg font-extrabold text-white shadow-lg disabled:opacity-60"
       >
-        {pending ? "Conectando con Mercado Pago…" : `Pagar ${formatCLP(unitPrice * quantity)} con Mercado Pago`}
+        {pending ? "Conectando con Mercado Pago…" : `Pagar ${formatCLP(total)} con Mercado Pago`}
       </button>
       <p className="text-center text-xs text-muted">
         Te lo apartamos 15 minutos mientras completas el pago.

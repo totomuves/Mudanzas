@@ -25,7 +25,7 @@ export const PAYOUT_LABEL: Record<PayoutState, { tone: StatusTone; label: string
   reembolsado: { tone: "off", label: "Reembolsado" },
 };
 
-/** Lo que le corresponde al vendedor (venta menos comisión). */
-export function sellerNet(o: Pick<Order, "amount" | "commission_amount">) {
-  return Math.max(0, o.amount - (o.commission_amount ?? 0));
+/** Lo que le corresponde al vendedor (venta menos comisión; el despacho lo cobra la tienda). */
+export function sellerNet(o: Pick<Order, "amount" | "commission_amount" | "shipping_amount">) {
+  return Math.max(0, o.amount - (o.shipping_amount ?? 0) - (o.commission_amount ?? 0));
 }

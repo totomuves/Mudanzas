@@ -11,6 +11,7 @@ const NAV: NavItem[] = [
   { href: "/admin/pedidos", label: "Pedidos", section: "pedidos" },
   { href: "/admin/vendedores", label: "Vendedores", section: "vendedores" },
   { href: "/admin/portada", label: "Portada", section: "portada" },
+  { href: "/admin/despacho", label: "Despacho", section: "despacho" },
   { href: "/admin/recomendador", label: "Recomendador", section: "recomendador" },
   { href: "/admin/mudanzas", label: "Agenda mudanzas", section: "mudanzas" },
   { href: "/admin/equipo", label: "Equipo", section: "equipo" },
