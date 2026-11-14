@@ -119,7 +119,9 @@ export type MarketplaceSettings = {
   updated_at: string;
 };
 
-export type BannerStyle = "suave" | "marca" | "oscuro";
+export type BannerStyle = "aurora" | "laguna" | "pastel" | "suave" | "marca" | "oscuro";
+
+export type BannerImageLayout = "media" | "completa";
 
 export type HomeBanner = {
   id: string;
@@ -129,6 +131,8 @@ export type HomeBanner = {
   cta_label: string;
   href: string;
   image_url: string | null;
+  /** Con foto: "media" (foto a un lado) o "completa" (foto de fondo con el texto encima) */
+  image_layout?: BannerImageLayout;
   style: BannerStyle;
   sort_order: number;
   active: boolean;

@@ -4,10 +4,13 @@ import { useActionState, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { compress } from "@/lib/photo";
 import { BannerCard } from "@/components/BannerCard";
-import type { BannerStyle, HomeBanner } from "@/lib/types";
+import type { BannerImageLayout, BannerStyle, HomeBanner } from "@/lib/types";
 import { saveBanner, type BannerState } from "./actions";
 
 const STYLE_LABEL: Record<BannerStyle, string> = {
+  aurora: "Degradado morado y rosado",
+  laguna: "Degradado turquesa y morado",
+  pastel: "Degradado pastel",
   suave: "Suave (fondo claro)",
   marca: "Color de la marca",
   oscuro: "Oscuro",
@@ -28,8 +31,9 @@ export function BannerForm({ banner, onDone }: { banner?: HomeBanner; onDone?: (
     subtitle: banner?.subtitle ?? "",
     cta_label: banner?.cta_label ?? "Ver todo",
     href: banner?.href ?? "/catalogo",
-    style: (banner?.style ?? "suave") as BannerStyle,
+    style: (banner?.style ?? "aurora") as BannerStyle,
     image_url: banner?.image_url ?? "",
+    image_layout: (banner?.image_layout ?? "media") as BannerImageLayout,
   });
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -64,6 +68,7 @@ export function BannerForm({ banner, onDone }: { banner?: HomeBanner; onDone?: (
     <form action={action} className="grid gap-5 md:grid-cols-2">
       {banner && <input type="hidden" name="id" value={banner.id} />}
       <input type="hidden" name="image_url" value={draft.image_url} />
+      <input type="hidden" name="image_layout" value={draft.image_layout} />
 
       <div className="space-y-3">
         <Field label="Texto chico (opcional)" id={`eyebrow-${uid}`}>
@@ -105,6 +110,29 @@ export function BannerForm({ banner, onDone }: { banner?: HomeBanner; onDone?: (
             Visible en la portada
           </label>
         </div>
+        {draft.image_url && (
+          <div className="space-y-1">
+            <p className="text-sm font-bold">Cómo se ve la foto</p>
+            <div className="flex gap-2">
+              {([["media", "Medio banner"], ["completa", "Banner completo"]] as const).map(([v, label]) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setDraft((d) => ({ ...d, image_layout: v }))}
+                  aria-pressed={draft.image_layout === v}
+                  className={`rounded-full border px-4 py-2 text-sm font-bold ${
+                    draft.image_layout === v ? "border-foreground bg-foreground text-background" : "border-border"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {draft.image_layout === "completa" && (
+              <p className="text-xs text-muted">La foto cubre todo el banner y el texto va en blanco encima. Con foto completa el estilo de color no se usa.</p>
+            )}
+          </div>
+        )}
         {uploadError && <p className="text-sm font-bold text-pass">{uploadError}</p>}
       </div>
 

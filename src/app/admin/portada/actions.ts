@@ -2,11 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/admin";
-import type { BannerStyle } from "@/lib/types";
+import type { BannerImageLayout, BannerStyle } from "@/lib/types";
+
+const FALTA_DEGRADADOS =
+  "Para usar los degradados y la foto completa falta correr la migración 20261114120000_banners_degradados.sql en Supabase.";
+/** Errores que aparecen si todavía no se corre la migración de degradados */
+const sinMigracion = (code?: string) => code === "23514" || code === "42703" || code === "PGRST204";
 
 export type BannerState = { ok?: string; error?: string };
 
-const STYLES: BannerStyle[] = ["suave", "marca", "oscuro"];
+const STYLES: BannerStyle[] = ["aurora", "laguna", "pastel", "suave", "marca", "oscuro"];
 const STORAGE_PREFIX = "/storage/v1/object/public/products/";
 
 function text(formData: FormData, name: string, max: number) {
@@ -49,13 +54,14 @@ export async function saveBanner(_prev: BannerState, formData: FormData): Promis
     href,
     style,
     image_url: imageUrl,
+    image_layout: (text(formData, "image_layout", 10) === "completa" ? "completa" : "media") as BannerImageLayout,
     active: formData.get("active") === "on",
   };
 
   if (id) {
     const { data: before } = await supabase.from("home_banners").select("image_url").eq("id", id).maybeSingle();
     const { error } = await supabase.from("home_banners").update(row).eq("id", id);
-    if (error) return { error: "No se pudo guardar. Intenta de nuevo." };
+    if (error) return { error: sinMigracion(error.code) ? FALTA_DEGRADADOS : "No se pudo guardar. Intenta de nuevo." };
     // Si se cambió o quitó la foto, borra la anterior del almacenamiento
     const old = bannerPath(before?.image_url ?? null);
     if (old && before?.image_url !== imageUrl) await supabase.storage.from("products").remove([old]);
@@ -71,7 +77,9 @@ export async function saveBanner(_prev: BannerState, formData: FormData): Promis
       return {
         error: error.code === "42P01"
           ? "Falta crear la tabla de banners: corre la migración 20261113140000_banners_portada.sql en Supabase."
-          : "No se pudo crear el banner. Intenta de nuevo.",
+          : sinMigracion(error.code)
+            ? FALTA_DEGRADADOS
+            : "No se pudo crear el banner. Intenta de nuevo.",
       };
     }
   }
