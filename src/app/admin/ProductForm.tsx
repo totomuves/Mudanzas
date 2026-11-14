@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { COMUNAS } from "@/lib/comunas";
 import { CONDITION_LABEL } from "@/lib/format";
 import type { Category, Condition, Product } from "@/lib/types";
-import { compress, rotate, whiteBackground, type BgProvider } from "@/lib/photo";
+import { compress, photoExt, rotate, whiteBackground, type BgProvider } from "@/lib/photo";
 import { Icon } from "@/components/Icon";
 import { requestIndexing } from "@/lib/recsys/track";
 
@@ -44,6 +44,8 @@ export function ProductForm({
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
   const [whiteBg, setWhiteBg] = useState(true);
+  // Aviso de la IA de fondo blanco, se muestra junto a las fotos
+  const [bgError, setBgError] = useState<string | null>(null);
   const [suggesting, setSuggesting] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -72,6 +74,7 @@ export function ProductForm({
     if (files.length === 0) return;
     setUploading(true);
     setError(null);
+    setBgError(null);
     try {
       for (const [i, file] of files.entries()) {
         const label = files.length > 1 ? `Foto ${i + 1}/${files.length}: ` : "";
@@ -81,7 +84,8 @@ export function ProductForm({
             blob = await whiteBackground(file, ai.bgProvider, (m) => setProgress(label + m));
           } catch (err) {
             console.error(err);
-            setError("No se pudo quitar el fondo, subimos la foto original.");
+            const why = err instanceof Error ? err.message : "";
+            setBgError(`${why ? why + " " : ""}Por ahora subimos la foto original.`);
             blob = await compress(file);
           }
         } else {
@@ -132,9 +136,9 @@ export function ProductForm({
   }
 
   async function uploadBlob(blob: Blob) {
-    const path = `${sellerId ? `sellers/${sellerId}/` : ""}${crypto.randomUUID()}.webp`;
+    const path = `${sellerId ? `sellers/${sellerId}/` : ""}${crypto.randomUUID()}.${photoExt(blob)}`;
     const { error } = await supabase.storage.from("products").upload(path, blob, {
-      contentType: "image/webp",
+      contentType: blob.type || "image/webp",
       cacheControl: "31536000",
     });
     if (error) throw error;
@@ -280,6 +284,9 @@ export function ProductForm({
         </label>
         {progress && (
           <p className="animate-pulse rounded-xl bg-brand/10 p-3 text-sm font-bold text-brand">{progress}</p>
+        )}
+        {bgError && !progress && (
+          <p className="rounded-xl bg-pass/10 p-3 text-sm font-bold text-pass">{bgError}</p>
         )}
 
         {images.length > 0 && (

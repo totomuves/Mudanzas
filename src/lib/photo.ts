@@ -32,10 +32,26 @@ async function loadBitmap(src: Blob): Promise<Decoded> {
   }
 }
 
-function canvasToBlob(canvas: HTMLCanvasElement, type = "image/webp", quality = 0.85) {
+function encode(canvas: HTMLCanvasElement, type: string, quality: number) {
   return new Promise<Blob>((resolve, reject) =>
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("No se pudo procesar la foto"))), type, quality),
   );
+}
+
+/**
+ * Convierte el dibujo en una foto liviana (WebP). Safari (iPhone/iPad/Mac)
+ * no sabe crear WebP y en silencio entrega un PNG que pesa 5 a 10 veces más:
+ * en ese caso se usa JPEG, que pesa casi lo mismo que WebP.
+ */
+async function canvasToBlob(canvas: HTMLCanvasElement, type = "image/webp", quality = 0.85) {
+  const blob = await encode(canvas, type, quality);
+  if (blob.type === type) return blob;
+  return encode(canvas, "image/jpeg", Math.min(quality, 0.85));
+}
+
+/** Extensión de archivo según el tipo real de la foto procesada. */
+export function photoExt(blob: Blob) {
+  return blob.type === "image/jpeg" ? "jpg" : blob.type === "image/png" ? "png" : "webp";
 }
 
 /** Reduce la foto al tamaño máximo y la convierte a WebP. */
@@ -106,9 +122,52 @@ export async function placeOnWhite(cutout: Blob, size = 1400, margin = 0.08): Pr
   return canvasToBlob(out, "image/webp", 0.88);
 }
 
+/** En celulares se usa el modelo liviano (~45 MB en vez de ~90 MB) para que descargue rápido y no se cuelgue. */
+function isPhone() {
+  if (typeof navigator === "undefined") return false;
+  const uaData = (navigator as Navigator & { userAgentData?: { mobile?: boolean } }).userAgentData;
+  if (uaData?.mobile) return true;
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
+}
+
+const MB = 1024 * 1024;
+
+/**
+ * Corre una tarea con un "perro guardián": si pasan `ms` sin novedades
+ * (avance de la descarga o del cálculo), se corta con un mensaje claro en
+ * vez de quedarse pegado para siempre.
+ */
+function withWatchdog<T>(run: (kick: () => void) => Promise<T>, ms: number, message: () => string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    let timer: ReturnType<typeof setTimeout>;
+    const kick = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => reject(new Error(message())), ms);
+    };
+    kick();
+    run(kick).then(
+      (v) => { clearTimeout(timer); resolve(v); },
+      (e) => { clearTimeout(timer); reject(e); },
+    );
+  });
+}
+
+/** Traduce los errores técnicos de la IA a algo entendible. */
+function friendlyAiError(err: unknown): Error {
+  const raw = err instanceof Error ? err.message : String(err);
+  if (/fetch|network|Failed to fetch|Load failed|resources\.json|publicPath/i.test(raw)) {
+    return new Error("No se pudo descargar la IA de fondo blanco. Revisa tu conexión (mejor con Wi-Fi) e inténtalo de nuevo.");
+  }
+  if (/memory|allocation|Aborted|out of bounds/i.test(raw)) {
+    return new Error("Este dispositivo se quedó sin memoria para la IA. Prueba desde un computador o cierra otras apps.");
+  }
+  return err instanceof Error ? err : new Error(raw);
+}
+
 /**
  * Quita el fondo y lo deja blanco.
- * - "local": IA en el navegador, gratis (la primera vez descarga el modelo, ~40 MB).
+ * - "local": IA en el navegador, gratis (la primera vez descarga el modelo:
+ *   ~45 MB en celular, ~90 MB en computador; después queda guardado).
  * - "removebg": servicio remove.bg (requiere REMOVE_BG_API_KEY en el servidor).
  */
 export async function whiteBackground(
@@ -129,17 +188,40 @@ export async function whiteBackground(
   }
 
   onProgress?.("Preparando IA…");
-  const { removeBackground } = await import("@imgly/background-removal");
-  const cutout = await removeBackground(small, {
-    model: "isnet_fp16",
-    output: { format: "image/png" },
-    progress: (key: string, current: number, total: number) => {
-      if (key.startsWith("fetch") && total > 0) {
-        onProgress?.(`Descargando IA (solo la primera vez)… ${Math.round((current / total) * 100)}%`);
-      } else if (key.startsWith("compute")) {
-        onProgress?.("Quitando fondo…");
-      }
+  const model = isPhone() ? "isnet_quint8" : "isnet_fp16";
+  // Avance total de la descarga (modelo + motor), en un solo porcentaje
+  const files = new Map<string, { current: number; total: number }>();
+  let downloading = false;
+
+  const cutout = await withWatchdog(
+    async (kick) => {
+      const { removeBackground } = await import("@imgly/background-removal");
+      kick();
+      return removeBackground(small, {
+        model,
+        output: { format: "image/png" },
+        progress: (key: string, current: number, total: number) => {
+          kick();
+          if (key.startsWith("fetch") && total > 0) {
+            downloading = true;
+            files.set(key, { current, total });
+            let cur = 0, tot = 0;
+            for (const f of files.values()) { cur += f.current; tot += f.total; }
+            onProgress?.(`Descargando IA (solo la primera vez)… ${Math.round(cur / MB)} de ${Math.round(tot / MB)} MB`);
+          } else if (key.startsWith("compute")) {
+            onProgress?.("Quitando fondo…");
+          }
+        },
+      });
     },
+    // Una parte de la descarga puede tardar en llegar con internet lento
+    90_000,
+    () =>
+      downloading
+        ? "La descarga de la IA se quedó pegada. Revisa tu conexión (mejor con Wi-Fi) e inténtalo de nuevo."
+        : "La IA de fondo blanco no alcanzó a descargarse. Revisa tu conexión (mejor con Wi-Fi) e inténtalo de nuevo.",
+  ).catch((err) => {
+    throw friendlyAiError(err);
   });
   onProgress?.("Dejando fondo blanco…");
   return placeOnWhite(cutout);

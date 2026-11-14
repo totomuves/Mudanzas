@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { compress } from "@/lib/photo";
+import { compress, photoExt } from "@/lib/photo";
 import { BannerCard } from "@/components/BannerCard";
 import type { BannerImageLayout, BannerStyle, HomeBanner } from "@/lib/types";
 import { saveBanner, type BannerState } from "./actions";
@@ -49,9 +49,9 @@ export function BannerForm({ banner, onDone }: { banner?: HomeBanner; onDone?: (
     try {
       const blob = await compress(file, 1600);
       const supabase = createClient();
-      const path = `banners/${crypto.randomUUID()}.webp`;
+      const path = `banners/${crypto.randomUUID()}.${photoExt(blob)}`;
       const { error } = await supabase.storage.from("products").upload(path, blob, {
-        contentType: "image/webp",
+        contentType: blob.type || "image/webp",
         cacheControl: "31536000",
       });
       if (error) throw error;
