@@ -71,7 +71,12 @@ export default async function PedidosPage() {
                       )}
                     </td>
                     <td className="p-3">{o.delivery === "retiro" ? "Retiro" : `Despacho: ${o.address}`}</td>
-                    <td className="whitespace-nowrap p-3 font-bold">{formatCLP(o.amount)}</td>
+                    <td className="whitespace-nowrap p-3 font-bold">
+                      {formatCLP(o.amount)}
+                      {(o.shipping_amount ?? 0) > 0 && (
+                        <div className="text-xs font-normal text-muted">incluye despacho {formatCLP(o.shipping_amount ?? 0)}</div>
+                      )}
+                    </td>
                     <td className="whitespace-nowrap p-3"><StatusDot {...LABEL[o.status]} /></td>
                   </tr>
                 );

@@ -1,6 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import type { Category, HomeBanner, Product } from "./types";
+import type { Category, HomeBanner, Product, ShippingRate } from "./types";
 import type { MovingSettings, ServiceType } from "./moving";
 
 export async function getCategories(): Promise<Category[]> {
@@ -35,6 +35,18 @@ export async function getHomeBanners(): Promise<HomeBanner[]> {
     .order("created_at");
   if (error) return [];
   return (data ?? []) as HomeBanner[];
+}
+
+/** Comunas con despacho activo y su precio (vacío si aún no se corre la migración). */
+export async function getShippingRates(): Promise<Pick<ShippingRate, "comuna" | "price">[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("shipping_rates")
+    .select("comuna, price")
+    .eq("active", true)
+    .order("comuna");
+  if (error) return [];
+  return ((data ?? []) as Pick<ShippingRate, "comuna" | "price">[]).sort((a, b) => a.comuna.localeCompare(b.comuna, "es"));
 }
 
 export async function getMovingData() {

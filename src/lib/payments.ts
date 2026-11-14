@@ -19,6 +19,8 @@ export async function createPreference(input: {
   title: string;
   quantity: number;
   unitPrice: number;
+  /** Costo del despacho (0 si retira) */
+  shipping?: number;
   pictureUrl?: string;
   buyer: { name: string; email: string };
   expiresAt: Date;
@@ -38,6 +40,9 @@ export async function createPreference(input: {
           currency_id: "CLP",
           picture_url: input.pictureUrl,
         },
+        ...(input.shipping && input.shipping > 0
+          ? [{ id: "despacho", title: "Despacho", quantity: 1, unit_price: input.shipping, currency_id: "CLP" }]
+          : []),
       ],
       payer: { name: input.buyer.name, email: input.buyer.email },
       external_reference: input.orderId,

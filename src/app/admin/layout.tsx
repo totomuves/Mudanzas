@@ -11,6 +11,7 @@ export default function AdminLayout({ children }: LayoutProps<"/admin">) {
         <Link href="/admin/pedidos" className="rounded-xl px-3 py-1.5 hover:bg-white/10">Pedidos</Link>
         <Link href="/admin/vendedores" className="rounded-xl px-3 py-1.5 hover:bg-white/10">Vendedores</Link>
         <Link href="/admin/portada" className="rounded-xl px-3 py-1.5 hover:bg-white/10">Portada</Link>
+        <Link href="/admin/despacho" className="rounded-xl px-3 py-1.5 hover:bg-white/10">Despacho</Link>
         <Link href="/admin/recomendador" className="rounded-xl px-3 py-1.5 hover:bg-white/10">Recomendador</Link>
         <Link href="/admin/mudanzas" className="rounded-xl px-3 py-1.5 hover:bg-white/10">Agenda mudanzas</Link>
         <Link href="/admin/equipo" className="rounded-xl px-3 py-1.5 hover:bg-white/10">Equipo</Link>

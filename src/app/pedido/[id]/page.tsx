@@ -65,7 +65,7 @@ export default async function PedidoPage({ params, searchParams }: PageProps<"/p
           {order.products?.title}
           {order.quantity > 1 ? ` × ${order.quantity}` : ""}
         </p>
-        <p>Total: {formatCLP(order.amount)}</p>
+        <p>Total: {formatCLP(order.amount)}{(order.shipping_amount ?? 0) > 0 ? ` (incluye despacho ${formatCLP(order.shipping_amount ?? 0)})` : ""}</p>
         <p>Entrega: {order.delivery === "retiro" ? (order.seller_id ? "Retiro (te contactamos para coordinar)" : "Retiro en bodega") : `Despacho a ${order.address}`}</p>
         <p className="text-xs text-muted">Pedido #{order.id.slice(0, 8)}</p>
       </div>
