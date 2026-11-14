@@ -6,7 +6,7 @@ export function Logo() {
   return (
     <span className="flex items-center gap-2.5">
       {brand.logoImage ? (
-        <Image src={brand.logoImage} alt="" width={56} height={56} className="h-12 w-12 md:h-14 md:w-14" priority unoptimized />
+        <Image src={brand.logoImage} alt="" width={50} height={50} className="h-[43px] w-[43px] md:h-[50px] md:w-[50px]" priority unoptimized />
       ) : (
         // Caja de mudanza dibujada (se reemplaza al poner logoImage en src/brand.ts)
         <span aria-hidden className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand">
