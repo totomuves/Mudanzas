@@ -1,13 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/admin";
+import { requireSection } from "@/lib/admin";
 
 export type ShippingState = { ok?: string; error?: string };
 
 /** Guarda todos los precios de una vez. Precio vacío = sin despacho en esa comuna. */
 export async function saveShippingRates(_prev: ShippingState, formData: FormData): Promise<ShippingState> {
-  const { supabase } = await requireAdmin();
+  const { supabase } = await requireSection("despacho");
   const comunas = formData.getAll("comuna").map((c) => String(c).trim().slice(0, 60)).filter(Boolean);
 
   const extra = String(formData.get("nueva_comuna") ?? "").trim().slice(0, 60);

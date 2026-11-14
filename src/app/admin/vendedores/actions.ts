@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/admin";
+import { requireSection } from "@/lib/admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { refundOrder } from "@/lib/payments";
 import type { SellerStatus } from "@/lib/types";
@@ -21,7 +21,7 @@ function done(msg: string): AdminSellerState {
 
 /** Comisión general y días de revisión. */
 export async function updateSettings(_prev: AdminSellerState, formData: FormData): Promise<AdminSellerState> {
-  await requireAdmin();
+  await requireSection("vendedores");
   const pct = Number(String(formData.get("commission_pct") ?? "").replace(",", "."));
   const days = parseInt(String(formData.get("review_days") ?? ""), 10);
   if (!Number.isFinite(pct) || pct < 0 || pct > 50) return { error: "La comisión debe estar entre 0 y 50%." };
@@ -35,7 +35,7 @@ export async function updateSettings(_prev: AdminSellerState, formData: FormData
 
 /** Enciende o apaga el marketplace. Apagado: solo vende MÜVEO. */
 export async function setMarketplaceEnabled(_prev: AdminSellerState, formData: FormData): Promise<AdminSellerState> {
-  await requireAdmin();
+  await requireSection("vendedores");
   const on = formData.get("enabled") === "1";
   const { error } = await createAdminClient()
     .from("marketplace_settings")
@@ -48,7 +48,7 @@ export async function setMarketplaceEnabled(_prev: AdminSellerState, formData: F
 
 /** Aprobar, rechazar, suspender o reactivar un vendedor; y su comisión propia. */
 export async function updateSeller(_prev: AdminSellerState, formData: FormData): Promise<AdminSellerState> {
-  await requireAdmin();
+  await requireSection("vendedores");
   const id = uuid(formData.get("sellerId"));
   if (!id) return { error: "Vendedor inválido." };
   const status = String(formData.get("status") ?? "") as SellerStatus;
@@ -76,7 +76,7 @@ export async function updateSeller(_prev: AdminSellerState, formData: FormData):
 
 /** Marca como transferidas todas las ventas liberadas de un vendedor. */
 export async function markPaidOut(_prev: AdminSellerState, formData: FormData): Promise<AdminSellerState> {
-  await requireAdmin();
+  await requireSection("vendedores");
   const id = uuid(formData.get("sellerId"));
   if (!id) return { error: "Vendedor inválido." };
   const db = createAdminClient();
@@ -95,7 +95,7 @@ export async function markPaidOut(_prev: AdminSellerState, formData: FormData): 
 
 /** Resolver un reclamo: liberar el pago al vendedor o devolverle el dinero al comprador. */
 export async function resolveIssue(_prev: AdminSellerState, formData: FormData): Promise<AdminSellerState> {
-  await requireAdmin();
+  await requireSection("vendedores");
   const id = uuid(formData.get("orderId"));
   if (!id) return { error: "Pedido inválido." };
   if (formData.get("decision") === "refund") {

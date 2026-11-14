@@ -155,7 +155,7 @@ Abre http://localhost:3000. Para probar en tu celular en la misma red WiFi, usa 
    ```
 
 3. Entra a http://localhost:3000/admin y sube tu primer producto.
-4. Para sumar a otra persona como admin: pídele que entre una vez en `/ingresar` con su correo, y luego agrégala en **/admin/equipo**. Desde ahí también puedes quitar permisos (siempre queda al menos un admin). Desde el celular puedes sacar la foto directo con la cámara.
+4. Para sumar a tu equipo: en **/admin/equipo** crea un rol marcando las secciones que puede modificar (Productos, Pedidos, Vendedores, Portada, Recomendador, Agenda mudanzas) e invita a la persona por correo con ese rol, o como **Administrador total**. Si nunca ha entrado, su acceso se activa solo cuando entre en `/ingresar` con ese correo. Cada persona ve en el menú solo sus secciones y la base de datos también le limita el resto. Solo los administradores totales ven **Equipo** (siempre queda al menos uno). Requiere la migración `20261114130000_roles_equipo.sql`. Desde el celular puedes sacar la foto directo con la cámara.
 
 ---
 

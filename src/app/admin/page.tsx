@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { hasSupabaseEnv } from "@/lib/env";
-import { requireAdmin } from "@/lib/admin";
+import { requireSection } from "@/lib/admin";
 import { categoryMap, getCategories } from "@/lib/data";
 import { currentPrice, formatCLP, isFlashActive } from "@/lib/format";
 import { SetupNotice } from "@/components/SetupNotice";
@@ -21,7 +21,7 @@ const STATUS_LABEL: Record<Product["status"], { tone: StatusTone; label: string 
 
 export default async function AdminPage() {
   if (!hasSupabaseEnv()) return <SetupNotice />;
-  const { supabase } = await requireAdmin();
+  const { supabase } = await requireSection("productos");
   const [categories, { data }, { data: likes }] = await Promise.all([
     getCategories(),
     supabase.from("products").select("*, sellers(name)").order("created_at", { ascending: false }).limit(200),

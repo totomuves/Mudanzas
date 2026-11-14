@@ -1,21 +1,36 @@
 import Link from "next/link";
 import { Icon } from "@/components/Icon";
+import { getAdminAccess } from "@/lib/admin";
+import { hasSupabaseEnv } from "@/lib/env";
 
-export default function AdminLayout({ children }: LayoutProps<"/admin">) {
+type NavItem = { href: string; label: string; section: string };
+
+const NAV: NavItem[] = [
+  { href: "/admin", label: "Productos", section: "productos" },
+  { href: "/admin/nuevo", label: "+ Subir producto", section: "productos" },
+  { href: "/admin/pedidos", label: "Pedidos", section: "pedidos" },
+  { href: "/admin/vendedores", label: "Vendedores", section: "vendedores" },
+  { href: "/admin/portada", label: "Portada", section: "portada" },
+  { href: "/admin/despacho", label: "Despacho", section: "despacho" },
+  { href: "/admin/recomendador", label: "Recomendador", section: "recomendador" },
+  { href: "/admin/mudanzas", label: "Agenda mudanzas", section: "mudanzas" },
+  { href: "/admin/equipo", label: "Equipo", section: "equipo" },
+];
+
+export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
+  // El menú muestra solo las secciones que la persona tiene permitidas
+  const sections: string[] = hasSupabaseEnv() ? (await getAdminAccess()).sections : [];
+  const links = NAV.filter((n) => sections.includes(n.section));
   return (
     <div className="space-y-6">
-      <nav className="flex flex-wrap items-center gap-2 rounded-2xl bg-foreground p-2 text-sm font-bold text-background">
-        <span className="flex items-center gap-1.5 px-3"><Icon name="tools" className="h-4 w-4" strokeWidth={2.2} />Admin</span>
-        <Link href="/admin" className="rounded-xl px-3 py-1.5 hover:bg-white/10">Productos</Link>
-        <Link href="/admin/nuevo" className="rounded-xl px-3 py-1.5 hover:bg-white/10">+ Subir producto</Link>
-        <Link href="/admin/pedidos" className="rounded-xl px-3 py-1.5 hover:bg-white/10">Pedidos</Link>
-        <Link href="/admin/vendedores" className="rounded-xl px-3 py-1.5 hover:bg-white/10">Vendedores</Link>
-        <Link href="/admin/portada" className="rounded-xl px-3 py-1.5 hover:bg-white/10">Portada</Link>
-        <Link href="/admin/despacho" className="rounded-xl px-3 py-1.5 hover:bg-white/10">Despacho</Link>
-        <Link href="/admin/recomendador" className="rounded-xl px-3 py-1.5 hover:bg-white/10">Recomendador</Link>
-        <Link href="/admin/mudanzas" className="rounded-xl px-3 py-1.5 hover:bg-white/10">Agenda mudanzas</Link>
-        <Link href="/admin/equipo" className="rounded-xl px-3 py-1.5 hover:bg-white/10">Equipo</Link>
-      </nav>
+      {links.length > 0 && (
+        <nav className="flex flex-wrap items-center gap-2 rounded-2xl bg-foreground p-2 text-sm font-bold text-background">
+          <span className="flex items-center gap-1.5 px-3"><Icon name="tools" className="h-4 w-4" strokeWidth={2.2} />Admin</span>
+          {links.map((n) => (
+            <Link key={n.href} href={n.href} className="rounded-xl px-3 py-1.5 hover:bg-white/10">{n.label}</Link>
+          ))}
+        </nav>
+      )}
       {children}
     </div>
   );

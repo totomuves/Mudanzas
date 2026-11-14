@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { hasSupabaseEnv } from "@/lib/env";
-import { requireAdmin } from "@/lib/admin";
+import { requireSection } from "@/lib/admin";
 import { SetupNotice } from "@/components/SetupNotice";
 import { COMUNAS } from "@/lib/comunas";
 import type { ShippingRate } from "@/lib/types";
@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "Despacho" };
 
 export default async function DespachoAdminPage() {
   if (!hasSupabaseEnv()) return <SetupNotice />;
-  const { supabase } = await requireAdmin();
+  const { supabase } = await requireSection("despacho");
   const { data, error } = await supabase.from("shipping_rates").select("*");
   const rates = (data ?? []) as ShippingRate[];
 

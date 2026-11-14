@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { hasSupabaseEnv } from "@/lib/env";
-import { requireAdmin } from "@/lib/admin";
+import { requireSection } from "@/lib/admin";
 import { SetupNotice } from "@/components/SetupNotice";
 import type { HomeBanner } from "@/lib/types";
 import { BannerForm } from "./BannerForm";
@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "Portada" };
 
 export default async function PortadaAdminPage() {
   if (!hasSupabaseEnv()) return <SetupNotice />;
-  const { supabase } = await requireAdmin();
+  const { supabase } = await requireSection("portada");
   const { data, error } = await supabase.from("home_banners").select("*").order("sort_order").order("created_at");
   const banners = (data ?? []) as HomeBanner[];
 

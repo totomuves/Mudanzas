@@ -4,7 +4,33 @@
 -- El checkout lo suma al total; si una comuna no tiene precio
 -- (o está pausada), no se puede despachar ahí.
 -- Se puede correr más de una vez.
+-- Requiere antes 20261114130000_roles_equipo.sql (roles del equipo).
 -- =============================================================
+
+-- -------------------------------------------------------------
+-- Roles del equipo: "despacho" pasa a ser una sección asignable
+-- -------------------------------------------------------------
+alter table public.admin_roles drop constraint if exists admin_roles_sections_check;
+alter table public.admin_roles add constraint admin_roles_sections_check
+  check (sections <@ array['productos','pedidos','vendedores','portada','recomendador','mudanzas','despacho']::text[]);
+
+create or replace function public.admin_sections()
+returns text[]
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select coalesce((
+    select case
+      when p.is_admin then array['productos','pedidos','vendedores','portada','recomendador','mudanzas','despacho','equipo']::text[]
+      else coalesce(r.sections, '{}'::text[])
+    end
+    from public.profiles p
+    left join public.admin_roles r on r.id = p.admin_role_id
+    where p.id = auth.uid()
+  ), '{}'::text[]);
+$$;
 
 create table if not exists public.shipping_rates (
   comuna text primary key,
@@ -22,11 +48,11 @@ alter table public.shipping_rates enable row level security;
 
 drop policy if exists "despacho visible" on public.shipping_rates;
 create policy "despacho visible" on public.shipping_rates
-  for select using (active or public.is_admin());
+  for select using (active or public.can_admin('despacho'));
 
 drop policy if exists "admin gestiona despacho" on public.shipping_rates;
 create policy "admin gestiona despacho" on public.shipping_rates
-  for all to authenticated using (public.is_admin()) with check (public.is_admin());
+  for all to authenticated using (public.can_admin('despacho')) with check (public.can_admin('despacho'));
 
 -- El pedido guarda la comuna y cuánto se cobró por el despacho
 alter table public.orders

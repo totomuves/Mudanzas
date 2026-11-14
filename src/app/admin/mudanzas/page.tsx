@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { hasSupabaseEnv } from "@/lib/env";
-import { requireAdmin } from "@/lib/admin";
+import { requireSection } from "@/lib/admin";
 import { formatCLP } from "@/lib/format";
 import { BOOKING_STATUS, DISTANCES, formatDay } from "@/lib/moving";
 import { SetupNotice } from "@/components/SetupNotice";
@@ -35,7 +35,7 @@ type Row = {
 
 export default async function AdminMudanzasPage({ searchParams }: PageProps<"/admin/mudanzas">) {
   if (!hasSupabaseEnv()) return <SetupNotice />;
-  const { supabase } = await requireAdmin();
+  const { supabase } = await requireSection("mudanzas");
   const sp = await searchParams;
   const showPast = sp.ver === "todas";
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Santiago" });

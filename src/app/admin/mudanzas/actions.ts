@@ -1,12 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/admin";
+import { requireSection } from "@/lib/admin";
 
 const STATUSES = ["requested", "confirmed", "completed", "cancelled"];
 
 export async function setBookingStatus(formData: FormData) {
-  const { supabase } = await requireAdmin();
+  const { supabase } = await requireSection("mudanzas");
   const id = String(formData.get("id"));
   const status = String(formData.get("status"));
   if (!STATUSES.includes(status)) return;
@@ -15,7 +15,7 @@ export async function setBookingStatus(formData: FormData) {
 }
 
 export async function blockDay(formData: FormData) {
-  const { supabase } = await requireAdmin();
+  const { supabase } = await requireSection("mudanzas");
   const day = String(formData.get("day"));
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return;
   await supabase.from("blocked_dates").upsert({ day, reason: String(formData.get("reason") ?? "") || null });
@@ -23,7 +23,7 @@ export async function blockDay(formData: FormData) {
 }
 
 export async function unblockDay(formData: FormData) {
-  const { supabase } = await requireAdmin();
+  const { supabase } = await requireSection("mudanzas");
   await supabase.from("blocked_dates").delete().eq("day", String(formData.get("day")));
   revalidatePath("/admin/mudanzas");
 }
