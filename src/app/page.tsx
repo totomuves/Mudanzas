@@ -50,7 +50,7 @@ export default async function Home() {
           cta_label: brand.hero.cta,
           href: "/bienvenida",
           image_url: null,
-          style: "suave" as const,
+          style: "aurora" as const,
         },
       ];
 
