@@ -285,7 +285,7 @@ export function SwipeDeck({
               <p className="text-sm text-muted">
                 {filters.length > 0
                   ? "No quedan productos en estas categorías. Prueba agregando otras o mira todo."
-                  : "Subimos tesoros nuevos después de cada mudanza. Vuelve pronto."}
+                  : "Subimos tesoros nuevos todas las semanas. Vuelve pronto."}
               </p>
               <div className="flex flex-col gap-2 pt-2">
                 <Link href="/favoritos" className="rounded-full bg-brand px-5 py-2.5 font-extrabold text-white">
