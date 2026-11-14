@@ -39,7 +39,7 @@ export function LogoLoader({ label = "Cargando…", size = 72 }: { label?: strin
           ))}
         </g>
       </svg>
-      <p className="logo-loader-name text-lg font-black tracking-tight">{brand.name}</p>
+      <p className="logo-loader-name font-logo text-lg font-bold tracking-tight">{brand.name}</p>
       <span className="sr-only">{label}</span>
     </div>
   );
