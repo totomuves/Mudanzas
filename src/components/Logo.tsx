@@ -4,9 +4,9 @@ import { brand } from "@/brand";
 /** Logo + nombre. Se configura en src/brand.ts */
 export function Logo() {
   return (
-    <span className="flex items-center gap-2">
+    <span className="flex items-center gap-2.5">
       {brand.logoImage ? (
-        <Image src={brand.logoImage} alt="" width={32} height={32} className="h-8 w-8" priority unoptimized />
+        <Image src={brand.logoImage} alt="" width={56} height={56} className="h-12 w-12 md:h-14 md:w-14" priority unoptimized />
       ) : (
         // Caja de mudanza dibujada (se reemplaza al poner logoImage en src/brand.ts)
         <span aria-hidden className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand">

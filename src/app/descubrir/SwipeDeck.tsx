@@ -258,7 +258,7 @@ export function SwipeDeck({
         })}
       </div>
       <div className="mx-auto w-full max-w-sm">
-        <div className="relative aspect-[3/4.2] max-h-[calc(100svh-17rem)] min-h-80 w-full">
+        <div className="relative aspect-[3/4.2] max-h-[calc(100svh-18rem)] min-h-80 w-full">
           {loading && deck.length === 0 && (
             <div className="absolute inset-0 animate-pulse rounded-card bg-border" />
           )}
