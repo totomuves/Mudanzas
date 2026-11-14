@@ -8,7 +8,6 @@ import { getAccount } from "@/lib/account";
 const links = [
   { href: "/descubrir", label: "Descubrir" },
   { href: "/catalogo", label: "Catálogo" },
-  { href: "/mudanzas", label: "Mudanzas" },
   { href: "/favoritos", label: "Favoritos" },
 ];
 

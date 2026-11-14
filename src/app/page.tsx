@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ProductCard } from "@/components/ProductCard";
 import { getMarketplaceEnabled } from "@/lib/seller";
 import { BannerCard } from "@/components/BannerCard";
+import { getPhrase } from "@/lib/phrases";
 import { CategoryIcon, Icon } from "@/components/Icon";
 import { SetupNotice } from "@/components/SetupNotice";
 import type { Product } from "@/lib/types";
@@ -15,7 +16,7 @@ export default async function Home() {
 
   const supabase = await createClient();
   const nowIso = new Date().toISOString();
-  const [categories, banners, latest, flash, marketplaceOn] = await Promise.all([
+  const [categories, banners, latest, flash, marketplaceOn, headline] = await Promise.all([
     getCategories(),
     getHomeBanners(),
     supabase
@@ -33,6 +34,7 @@ export default async function Home() {
       .order("flash_until")
       .limit(4),
     getMarketplaceEnabled(),
+    getPhrase(undefined, brand.hero.title),
   ]);
   const cats = categoryMap(categories);
   const latestProducts = (latest.data ?? []) as Product[];
@@ -64,7 +66,7 @@ export default async function Home() {
       </form>
 
       <section className="space-y-4">
-        <h1 className="text-[28px] font-black leading-tight md:text-4xl">{brand.hero.title}</h1>
+        <h1 className="text-[28px] font-black leading-tight md:text-4xl">{headline}</h1>
         <div className="scroll-row -mx-4 flex gap-4 overflow-x-auto px-4 pb-1">
           {categories.map((c) => (
             <Link key={c.slug} href={`/catalogo?categoria=${c.slug}`} className="group flex w-[72px] shrink-0 flex-col items-center gap-1.5 text-center md:w-20">
@@ -133,7 +135,7 @@ export default async function Home() {
         </span>
         <span className="flex-1">
           <span className="block text-lg font-black">Vende con nosotros</span>
-          <span className="block text-sm text-muted">¿Te sobran cosas o tienes una empresa de mudanzas? Súbelas y nosotros las vendemos.</span>
+          <span className="block text-sm text-muted">¿Te sobran cosas? Súbelas y nosotros las vendemos.</span>
         </span>
         <Icon name="arrow" className="h-6 w-6 transition group-hover:translate-x-1" />
       </Link>

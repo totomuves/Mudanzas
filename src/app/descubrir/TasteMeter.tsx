@@ -6,7 +6,7 @@ const LEVELS: { min: number; name: string; icon: IconName }[] = [
   { min: 0, name: "Recién llegado", icon: "sprout" },
   { min: 10, name: "Explorador", icon: "telescope" },
   { min: 30, name: "Cazador de tesoros", icon: "gift" },
-  { min: 75, name: "Experto en mudanzas", icon: "trophy" },
+  { min: 75, name: "Ojo de experto", icon: "trophy" },
 ];
 
 /** Muestra en vivo lo que la app está aprendiendo de los gustos del usuario. */
