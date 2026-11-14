@@ -1,6 +1,6 @@
-# MÜVEO
+# MUVEO
 
-Web + app (PWA instalable) de MÜVEO con dos partes:
+Web + app (PWA instalable) de MUVEO con dos partes:
 
 1. **Servicio de mudanzas:** cómo trabajamos, precios, cotizador en línea y reserva de horas.
 2. **Tienda de segunda mano** con los productos que los clientes nos regalan en las mudanzas: la gente elige qué necesita, desliza productos estilo Tinder y la app aprende sus gustos. El pago es con Mercado Pago.
@@ -54,14 +54,14 @@ Cada producto tiene una **cantidad** (1 si es pieza única). El comprador elige 
 
 ### Vendedores (marketplace)
 
-> **Interruptor:** el marketplace parte **apagado** (solo vende MÜVEO). Se enciende o apaga en **Admin → Vendedores**, sin tocar código. Apagado: no se ven ni se pueden comprar productos de otros vendedores, `/vender` no existe, el panel de vendedor muestra "pausado" y desaparecen los enlaces de vender.
+> **Interruptor:** el marketplace parte **apagado** (solo vende MUVEO). Se enciende o apaga en **Admin → Vendedores**, sin tocar código. Apagado: no se ven ni se pueden comprar productos de otros vendedores, `/vender` no existe, el panel de vendedor muestra "pausado" y desaparecen los enlaces de vender.
 
 Con el marketplace encendido, cualquier persona o empresa de mudanzas puede vender en la tienda:
 
 1. Se registra en `/vender` (con su correo). Queda **en revisión** hasta que un admin la aprueba en `/admin/vendedores`.
 2. Ya aprobada, sube productos desde `/vendedor` con las mismas herramientas del admin (fondo blanco, sugerencias con IA). Sus fotos quedan en la carpeta `sellers/<id>/` y solo puede editar lo suyo.
-3. **El cliente solo ve MÜVEO**: el nombre y logo del vendedor aparecen únicamente en su panel y en el admin.
-4. **El pago lo cobra MÜVEO** con su Mercado Pago y queda **retenido**. El vendedor entrega y marca "Entregado"; el comprador tiene unos días (3 por defecto) para confirmar en la página de su pedido o reportar un problema. Si no reclama, el pago se **libera** solo.
+3. **El cliente solo ve MUVEO**: el nombre y logo del vendedor aparecen únicamente en su panel y en el admin.
+4. **El pago lo cobra MUVEO** con su Mercado Pago y queda **retenido**. El vendedor entrega y marca "Entregado"; el comprador tiene unos días (3 por defecto) para confirmar en la página de su pedido o reportar un problema. Si no reclama, el pago se **libera** solo.
 5. En `/admin/vendedores` ves por vendedor lo retenido y lo **por transferir** (venta menos tu comisión, 10% por defecto, editable y con % propio por vendedor). Haces la transferencia a la cuenta que el vendedor dejó y apretas "Ya le transferí".
 6. Si hay un reclamo, lo resuelves ahí: **liberar** al vendedor o **devolver el dinero** al comprador (reembolso por Mercado Pago, repone el stock).
 
@@ -180,8 +180,8 @@ La pantalla **/ingresar** ofrece tres formas de entrar: correo y contraseña (co
 
 **Activar "Continuar con Google":**
 
-1. Entra a https://console.cloud.google.com, crea un proyecto (por ejemplo "MÜVEO").
-2. Ve a **APIs y servicios → Pantalla de consentimiento de OAuth** (o **Google Auth Platform → Branding**): tipo **Externo**, nombre de la app "MÜVEO", tu correo de soporte, y en dominios autorizados agrega `supabase.co` y tu dominio. Publica la app (**Audience → Publish app**) para que cualquiera pueda entrar.
+1. Entra a https://console.cloud.google.com, crea un proyecto (por ejemplo "MUVEO").
+2. Ve a **APIs y servicios → Pantalla de consentimiento de OAuth** (o **Google Auth Platform → Branding**): tipo **Externo**, nombre de la app "MUVEO", tu correo de soporte, y en dominios autorizados agrega `supabase.co` y tu dominio. Publica la app (**Audience → Publish app**) para que cualquiera pueda entrar.
 3. Ve a **Credenciales → Crear credenciales → ID de cliente de OAuth**: tipo **Aplicación web**.
    - *Orígenes de JavaScript autorizados*: tu URL de producción (ej. `https://mudanzas-theta.vercel.app`).
    - *URI de redireccionamiento autorizados*: la que muestra Supabase en **Authentication → Sign In / Providers → Google → Callback URL** (tiene la forma `https://TU-PROYECTO.supabase.co/auth/v1/callback`).

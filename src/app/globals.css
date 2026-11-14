@@ -21,6 +21,7 @@
   --radius-card: var(--card-radius);
   --radius-image: var(--image-radius);
   --font-sans: var(--font-main);
+  --font-logo: var(--font-logo-face);
 }
 
 body {

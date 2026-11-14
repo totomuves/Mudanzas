@@ -13,7 +13,7 @@ export function Logo() {
           <span className="h-3 w-3.5 rounded-[2px] border-2 border-t-4 border-white" />
         </span>
       )}
-      <span className="tracking-tight">{brand.name}</span>
+      <span className="font-logo font-bold tracking-tight">{brand.name}</span>
     </span>
   );
 }

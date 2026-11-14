@@ -60,7 +60,7 @@ export default async function AdminVendedoresPage() {
         <h1 className="text-2xl font-black">Vendedores</h1>
         <p className="text-sm text-muted">
           Personas y empresas que venden en la tienda. Los clientes nunca ven su nombre: todo se muestra como
-          MÜVEO. Tú cobras con tu Mercado Pago, retienes hasta que el comprador revisa y luego les transfieres.
+          MUVEO. Tú cobras con tu Mercado Pago, retienes hasta que el comprador revisa y luego les transfieres.
         </p>
       </div>
 

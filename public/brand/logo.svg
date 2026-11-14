@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="MÜVEO">
-  <!-- Logo provisorio de MÜVEO: una M hecha de rombos y triángulos translúcidos -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="MUVEO">
+  <!-- Logo provisorio de MUVEO: una M hecha de rombos y triángulos translúcidos -->
   <g style="mix-blend-mode:multiply">
     <polygon points="6,22 20,36 6,50" fill="#14d1c6"/>
     <polygon points="58,22 58,50 44,36" fill="#ff8fb3"/>

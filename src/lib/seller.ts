@@ -20,7 +20,7 @@ export async function requireSeller() {
   return { supabase, user, seller };
 }
 
-/** ¿Está encendido el marketplace? (Admin → Vendedores). Apagado = solo vende MÜVEO. */
+/** ¿Está encendido el marketplace? (Admin → Vendedores). Apagado = solo vende MUVEO. */
 export async function getMarketplaceEnabled() {
   try {
     const supabase = await createClient();
