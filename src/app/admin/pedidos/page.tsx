@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { hasSupabaseEnv } from "@/lib/env";
-import { requireAdmin } from "@/lib/admin";
+import { requireSection } from "@/lib/admin";
 import { formatCLP } from "@/lib/format";
 import { SetupNotice } from "@/components/SetupNotice";
 import type { Order, Product } from "@/lib/types";
@@ -19,7 +19,7 @@ const LABEL: Record<Order["status"], { tone: StatusTone; label: string }> = {
 
 export default async function PedidosPage() {
   if (!hasSupabaseEnv()) return <SetupNotice />;
-  const { supabase } = await requireAdmin();
+  const { supabase } = await requireSection("pedidos");
   const { data } = await supabase
     .from("orders")
     .select("*, products(title), sellers(name)")

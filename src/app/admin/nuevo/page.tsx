@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { hasSupabaseEnv } from "@/lib/env";
-import { requireAdmin } from "@/lib/admin";
+import { requireSection } from "@/lib/admin";
 import { getCategories } from "@/lib/data";
 import { SetupNotice } from "@/components/SetupNotice";
 import { ProductForm } from "../ProductForm";
@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "Subir producto" };
 
 export default async function NuevoProductoPage() {
   if (!hasSupabaseEnv()) return <SetupNotice />;
-  await requireAdmin();
+  await requireSection("productos");
   const categories = await getCategories();
   return (
     <div className="space-y-4">

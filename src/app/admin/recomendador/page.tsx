@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { hasSupabaseEnv } from "@/lib/env";
-import { requireAdmin } from "@/lib/admin";
+import { requireSection } from "@/lib/admin";
 import { SetupNotice } from "@/components/SetupNotice";
 import { Icon } from "@/components/Icon";
 import { activeModel, activeProvider, PROVIDER_LABEL } from "@/lib/recsys/embeddings";
@@ -15,7 +15,7 @@ const KIND_LABEL: Record<string, string> = {
 
 export default async function RecomendadorAdminPage() {
   if (!hasSupabaseEnv()) return <SetupNotice />;
-  const { supabase } = await requireAdmin();
+  const { supabase } = await requireSection("recomendador");
   const model = activeModel();
   const since = sevenDaysAgo();
 
