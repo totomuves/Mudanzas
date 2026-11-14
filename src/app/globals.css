@@ -58,3 +58,28 @@ h1, h2, h3 { letter-spacing: -0.02em; text-wrap: balance; }
   100% { transform: translateY(-120px) scale(1.6); opacity: 0; }
 }
 .animate-float-up { animation: float-up 0.9s ease-out forwards; }
+
+/* Animación de carga con el logo armándose (src/components/LogoLoader.tsx).
+   Aparece recién a los 250 ms, así las cargas rápidas no parpadean. */
+.logo-loader { opacity: 0; animation: logo-loader-show 0.2s ease-out 0.25s forwards; }
+.logo-loader-piece {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: logo-loader-build 2.4s cubic-bezier(0.2, 0.8, 0.2, 1) infinite both;
+}
+.logo-loader-name { animation: logo-loader-name 2.4s ease-in-out infinite both; }
+@keyframes logo-loader-show { to { opacity: 1; } }
+@keyframes logo-loader-build {
+  0% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.4) rotate(-25deg); }
+  30%, 78% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: scale(0.85); }
+}
+@keyframes logo-loader-name {
+  0%, 25% { opacity: 0; transform: translateY(4px); }
+  42%, 78% { opacity: 1; transform: none; }
+  100% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .logo-loader-piece, .logo-loader-name { animation: logo-loader-pulse 1.6s ease-in-out infinite; }
+  @keyframes logo-loader-pulse { 50% { opacity: 0.45; } }
+}
