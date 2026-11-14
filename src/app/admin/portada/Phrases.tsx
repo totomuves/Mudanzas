@@ -18,7 +18,7 @@ export function Phrases({ phrases, categories, missing }: { phrases: SitePhrase[
       </div>
       {missing && (
         <p className="rounded-2xl bg-brand-soft p-4 text-sm font-bold">
-          Para editarlas falta correr supabase/migrations/20261114130000_frases_titulo.sql en Supabase. Mientras tanto se
+          Para editarlas falta correr supabase/migrations/20261114140000_frases_titulo.sql en Supabase. Mientras tanto se
           usan las frases por defecto de src/lib/phrases.ts.
         </p>
       )}

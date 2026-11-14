@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/admin";
 
-const FALTA_TABLA = "Falta crear la tabla de frases: corre la migración 20261114130000_frases_titulo.sql en Supabase.";
+const FALTA_TABLA = "Falta crear la tabla de frases: corre la migración 20261114140000_frases_titulo.sql en Supabase.";
 
 function refresh() {
   revalidatePath("/");
