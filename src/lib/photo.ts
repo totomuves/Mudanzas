@@ -32,10 +32,26 @@ async function loadBitmap(src: Blob): Promise<Decoded> {
   }
 }
 
-function canvasToBlob(canvas: HTMLCanvasElement, type = "image/webp", quality = 0.85) {
+function encode(canvas: HTMLCanvasElement, type: string, quality: number) {
   return new Promise<Blob>((resolve, reject) =>
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("No se pudo procesar la foto"))), type, quality),
   );
+}
+
+/**
+ * Convierte el dibujo en una foto liviana (WebP). Safari (iPhone/iPad/Mac)
+ * no sabe crear WebP y en silencio entrega un PNG que pesa 5 a 10 veces más:
+ * en ese caso se usa JPEG, que pesa casi lo mismo que WebP.
+ */
+async function canvasToBlob(canvas: HTMLCanvasElement, type = "image/webp", quality = 0.85) {
+  const blob = await encode(canvas, type, quality);
+  if (blob.type === type) return blob;
+  return encode(canvas, "image/jpeg", Math.min(quality, 0.85));
+}
+
+/** Extensión de archivo según el tipo real de la foto procesada. */
+export function photoExt(blob: Blob) {
+  return blob.type === "image/jpeg" ? "jpg" : blob.type === "image/png" ? "png" : "webp";
 }
 
 /** Reduce la foto al tamaño máximo y la convierte a WebP. */

@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { COMUNAS } from "@/lib/comunas";
 import { CONDITION_LABEL } from "@/lib/format";
 import type { Category, Condition, Product } from "@/lib/types";
-import { compress, rotate, whiteBackground, type BgProvider } from "@/lib/photo";
+import { compress, photoExt, rotate, whiteBackground, type BgProvider } from "@/lib/photo";
 import { Icon } from "@/components/Icon";
 import { requestIndexing } from "@/lib/recsys/track";
 
@@ -136,9 +136,9 @@ export function ProductForm({
   }
 
   async function uploadBlob(blob: Blob) {
-    const path = `${sellerId ? `sellers/${sellerId}/` : ""}${crypto.randomUUID()}.webp`;
+    const path = `${sellerId ? `sellers/${sellerId}/` : ""}${crypto.randomUUID()}.${photoExt(blob)}`;
     const { error } = await supabase.storage.from("products").upload(path, blob, {
-      contentType: "image/webp",
+      contentType: blob.type || "image/webp",
       cacheControl: "31536000",
     });
     if (error) throw error;
