@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/admin";
+import { requireSection } from "@/lib/admin";
 import type { BannerImageLayout, BannerStyle } from "@/lib/types";
 
 const FALTA_DEGRADADOS =
@@ -33,7 +33,7 @@ function refresh() {
 }
 
 export async function saveBanner(_prev: BannerState, formData: FormData): Promise<BannerState> {
-  const { supabase } = await requireAdmin();
+  const { supabase } = await requireSection("portada");
   const id = text(formData, "id", 40);
   const title = text(formData, "title", 90);
   const href = text(formData, "href", 300) || "/catalogo";
@@ -88,7 +88,7 @@ export async function saveBanner(_prev: BannerState, formData: FormData): Promis
 }
 
 export async function deleteBanner(formData: FormData) {
-  const { supabase } = await requireAdmin();
+  const { supabase } = await requireSection("portada");
   const id = String(formData.get("id"));
   const { data } = await supabase.from("home_banners").select("image_url").eq("id", id).maybeSingle();
   await supabase.from("home_banners").delete().eq("id", id);
@@ -99,7 +99,7 @@ export async function deleteBanner(formData: FormData) {
 
 /** Sube o baja un banner en el orden de la portada. */
 export async function moveBanner(formData: FormData) {
-  const { supabase } = await requireAdmin();
+  const { supabase } = await requireSection("portada");
   const id = String(formData.get("id"));
   const dir = formData.get("dir") === "up" ? -1 : 1;
   const { data } = await supabase.from("home_banners").select("id, sort_order").order("sort_order").order("created_at");

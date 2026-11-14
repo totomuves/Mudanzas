@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { hasSupabaseEnv } from "@/lib/env";
-import { requireAdmin } from "@/lib/admin";
+import { requireSection } from "@/lib/admin";
 import { formatCLP } from "@/lib/format";
 import { payoutState, sellerNet } from "@/lib/escrow";
 import { SELLER_STATUS_LABEL } from "@/lib/seller";
@@ -20,7 +20,7 @@ type SellerOrder = Order & { products: Pick<Product, "title"> | null };
 
 export default async function AdminVendedoresPage() {
   if (!hasSupabaseEnv()) return <SetupNotice />;
-  const { supabase } = await requireAdmin();
+  const { supabase } = await requireSection("vendedores");
   await supabase.rpc("release_due_orders");
   const [{ data: sellersData }, { data: settings }, { data: ordersData }, { data: productCounts }] = await Promise.all([
     supabase.from("sellers").select("*").order("created_at", { ascending: false }),

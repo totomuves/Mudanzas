@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { isAdminRequest } from "@/lib/admin-api";
+import { hasAdminSection } from "@/lib/admin-api";
 import { getUser } from "@/lib/supabase/server";
 import { indexPending } from "@/lib/recsys/indexer";
 
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, skipped: "sin SUPABASE_SECRET_KEY" });
   }
   const body = (await request.json().catch(() => ({}))) as { productIds?: unknown; limit?: unknown };
-  const admin = await isAdminRequest();
+  const admin = await hasAdminSection("recomendador", "productos");
 
   try {
     if (admin) {
