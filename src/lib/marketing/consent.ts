@@ -1,7 +1,8 @@
 /**
- * CONSENTIMIENTO DE COOKIES (Ley 21.719): Google Analytics, Meta y TikTok
- * se cargan solo si el visitante elige "Aceptar". La elección se guarda en
- * este navegador por 6 meses; después se vuelve a preguntar.
+ * CONSENTIMIENTO DE COOKIES (Ley 21.719): con el aviso encendido en
+ * Admin → Portada, Google Analytics, Meta y TikTok se cargan solo si el
+ * visitante elige "Aceptar". La elección se guarda en este navegador por
+ * 6 meses; después se vuelve a preguntar. Con el aviso apagado se mide a todos.
  * Las cookies necesarias (sesión, carrito) no dependen de esto.
  */
 
@@ -17,6 +18,12 @@ const OPEN_EVENT = "muveo-cookies-open";
 type Stored = { v: number; c: Consent; t: number };
 
 let cached: Consent | null | undefined;
+/** Lo fija <Analytics> según el interruptor del admin. Parte en true por seguridad. */
+let required = true;
+
+export function setConsentRequired(value: boolean) {
+  required = value;
+}
 
 function read(): Consent | null {
   if (typeof window === "undefined") return null;
@@ -38,8 +45,9 @@ export function getConsent(): Consent | null {
   return cached;
 }
 
+/** ¿Se puede medir? Sí si el aviso está apagado o si el visitante aceptó. */
 export function hasConsent() {
-  return getConsent() === "granted";
+  return !required || getConsent() === "granted";
 }
 
 export function setConsent(c: Consent) {

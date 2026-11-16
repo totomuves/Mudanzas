@@ -35,7 +35,7 @@ const COLUMNS = [
 ];
 
 /** Pie de página con los links de ayuda, legales y redes (oculto en el admin y el panel vendedor). */
-export function Footer() {
+export function Footer({ cookieConsentRequired }: { cookieConsentRequired: boolean }) {
   const pathname = usePathname();
   if (pathname.startsWith("/admin") || pathname.startsWith("/vendedor")) return null;
   return (
@@ -67,9 +67,9 @@ export function Footer() {
                   </Link>
                 </li>
               ))}
-              {col.title === "Legal" && (
+              {col.title === "Legal" && cookieConsentRequired && (
                 <li>
-                  <CookiePreferencesButton className="text-left text-sm font-semibold hover:underline" />
+                  <CookiePreferencesButton required={cookieConsentRequired} className="text-left text-sm font-semibold hover:underline" />
                 </li>
               )}
             </ul>

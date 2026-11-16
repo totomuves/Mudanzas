@@ -9,6 +9,7 @@ import { Analytics } from "@/components/marketing/Analytics";
 import { CookieBanner } from "@/components/marketing/CookieBanner";
 import { JsonLd } from "@/components/marketing/JsonLd";
 import { siteUrl } from "@/lib/env";
+import { getCookieConsentRequired } from "@/lib/site-settings";
 import { siteVerification, socialLinks } from "@/lib/marketing/config";
 import "./globals.css";
 
@@ -48,17 +49,18 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const cookieConsentRequired = await getCookieConsentRequired();
   return (
     <html lang="es-CL" className={`${mainFont.variable} ${logoFont.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col font-sans">
         <Header />
         <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-12 pt-4 md:pb-12">{children}</main>
-        <Footer />
+        <Footer cookieConsentRequired={cookieConsentRequired} />
         <BottomNav />
         <RegisterSW />
-        <Analytics />
-        <CookieBanner />
+        <Analytics consentRequired={cookieConsentRequired} />
+        <CookieBanner required={cookieConsentRequired} />
         <JsonLd
           data={[
             {

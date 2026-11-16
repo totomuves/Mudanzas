@@ -7,6 +7,7 @@ import type { HomeBanner } from "@/lib/types";
 import { BannerForm } from "./BannerForm";
 import { BannerItem } from "./BannerItem";
 import { Phrases } from "./Phrases";
+import { CookieSwitch } from "./CookieSwitch";
 import { getCategories } from "@/lib/data";
 import type { SitePhrase } from "@/lib/phrases";
 
@@ -21,9 +22,10 @@ export default async function PortadaAdminPage() {
   if (res.error && (res.error.code === "42703" || res.error.code === "PGRST204" || res.error.code === "PGRST100")) res = await query();
   const { data, error } = res;
   const banners = (data ?? []) as HomeBanner[];
-  const [categories, phrasesRes] = await Promise.all([
+  const [categories, phrasesRes, siteRes] = await Promise.all([
     getCategories(),
     supabase.from("site_phrases").select("*").order("sort_order").order("created_at"),
+    supabase.from("site_settings").select("cookie_consent_required").eq("id", 1).maybeSingle(),
   ]);
 
   return (
@@ -71,6 +73,8 @@ export default async function PortadaAdminPage() {
         categories={categories}
         missing={Boolean(phrasesRes.error)}
       />
+
+      <CookieSwitch enabled={siteRes.data?.cookie_consent_required === true} missing={Boolean(siteRes.error)} />
     </div>
   );
 }

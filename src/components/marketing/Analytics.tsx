@@ -5,20 +5,24 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { isStaffPath, tracking } from "@/lib/marketing/config";
 import { trackPageView } from "@/lib/marketing/track";
-import { hasConsent, subscribeConsent } from "@/lib/marketing/consent";
+import { hasConsent, setConsentRequired, subscribeConsent } from "@/lib/marketing/consent";
 
 /**
  * Carga Google Analytics / Google Ads, Meta Pixel y TikTok Pixel solo si sus
- * IDs están en las variables de entorno y el visitante aceptó las cookies
- * (ver CookieBanner). No mide las secciones del equipo (admin, vendedor, reparto).
+ * IDs están en las variables de entorno y se puede medir: el aviso de cookies
+ * está apagado en el admin, o está encendido y el visitante aceptó (ver
+ * CookieBanner). No mide las secciones del equipo (admin, vendedor, reparto).
  */
-export function Analytics() {
+export function Analytics({ consentRequired }: { consentRequired: boolean }) {
+  // Se fija durante el render para que los eventos de la página (que corren
+  // en efectos, después del render) ya sepan si pueden medirse.
+  setConsentRequired(consentRequired);
   const pathname = usePathname();
   const first = useRef(true);
   const { gaId, googleAdsId, metaPixelId, tiktokPixelId } = tracking;
   const googleId = gaId || googleAdsId;
   const staff = isStaffPath(pathname);
-  const allowed = useSyncExternalStore(subscribeConsent, hasConsent, () => false);
+  const allowed = useSyncExternalStore(subscribeConsent, hasConsent, () => !consentRequired);
 
   // Cambios de página dentro de la app (la primera la cuentan los scripts al cargar)
   useEffect(() => {
@@ -38,7 +42,7 @@ export function Analytics() {
           <Script src={`https://www.googletagmanager.com/gtag/js?id=${googleId}`} strategy="afterInteractive" />
           <Script id="mk-google" strategy="afterInteractive">
             {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}window.gtag=gtag;` +
-              // Consent Mode v2: todo parte negado y se habilita porque el visitante aceptó
+              // Consent Mode v2: todo parte negado y se habilita porque se puede medir
               `gtag('consent','default',{ad_storage:'denied',analytics_storage:'denied',ad_user_data:'denied',ad_personalization:'denied'});` +
               `gtag('consent','update',{ad_storage:'granted',analytics_storage:'granted',ad_user_data:'granted',ad_personalization:'granted'});` +
               `gtag('js',new Date());` +

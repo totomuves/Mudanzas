@@ -14,15 +14,16 @@ const useConsentState = () =>
  * Aviso de cookies: aparece abajo hasta que el visitante elige.
  * "Aceptar" y "Rechazar" tienen el mismo tamaño y peso, como pide la ley.
  * Se puede volver a abrir desde "Preferencias de cookies" en el pie de página.
+ * Solo aparece con el interruptor encendido en Admin → Portada.
  */
-export function CookieBanner() {
+export function CookieBanner({ required }: { required: boolean }) {
   const pathname = usePathname();
   const consent = useConsentState();
   const [reopened, setReopened] = useState(false);
 
   useEffect(() => subscribeOpenBanner(() => setReopened(true)), []);
 
-  if (!anyTracking || isStaffPath(pathname) || consent === "server") return null;
+  if (!required || !anyTracking || isStaffPath(pathname) || consent === "server") return null;
   if (consent !== "none" && !reopened) return null;
 
   const choose = (c: "granted" | "denied") => {
@@ -68,8 +69,8 @@ export function CookieBanner() {
 }
 
 /** Link del pie de página para volver a elegir. */
-export function CookiePreferencesButton({ className }: { className?: string }) {
-  if (!anyTracking) return null;
+export function CookiePreferencesButton({ className, required }: { className?: string; required: boolean }) {
+  if (!required || !anyTracking) return null;
   return (
     <button
       type="button"
