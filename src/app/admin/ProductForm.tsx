@@ -142,6 +142,15 @@ export function ProductForm({
     }
   }
 
+  // Producto nuevo: al subir la primera foto, la IA completa sola los datos, medidas y peso
+  const autoSuggested = useRef(false);
+  useEffect(() => {
+    if (product || !ai.suggest || autoSuggested.current || uploading || !images[0]) return;
+    autoSuggested.current = true;
+    void suggest();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [images, uploading]);
+
   async function uploadBlob(blob: Blob) {
     const path = `${sellerId ? `sellers/${sellerId}/` : ""}${crypto.randomUUID()}.${photoExt(blob)}`;
     const { error } = await supabase.storage.from("products").upload(path, blob, {
@@ -348,7 +357,7 @@ export function ProductForm({
                 className="flex w-full items-center justify-center gap-2 rounded-full border-2 border-foreground py-3 font-extrabold disabled:opacity-50"
               >
                 <Icon name="sparkle" className="h-5 w-5" strokeWidth={2} />
-                {suggesting ? "Mirando la foto…" : "Completar título, descripción y precio con IA"}
+                {suggesting ? "Mirando la foto y estimando medidas…" : "Completar datos, medidas y precio con IA"}
               </button>
             )}
           </>
