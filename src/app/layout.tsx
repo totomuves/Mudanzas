@@ -4,6 +4,10 @@ import { logoFont, mainFont } from "./fonts";
 import { Header } from "@/components/Header";
 import { BottomNav } from "@/components/BottomNav";
 import { RegisterSW } from "@/components/RegisterSW";
+import { Analytics } from "@/components/marketing/Analytics";
+import { JsonLd } from "@/components/marketing/JsonLd";
+import { siteUrl } from "@/lib/env";
+import { siteVerification, socialLinks } from "@/lib/marketing/config";
 import "./globals.css";
 
 // Todo depende de la sesión y del stock en vivo: siempre render por request.
@@ -11,9 +15,26 @@ export const dynamic = "force-dynamic";
 
 
 export const metadata: Metadata = {
-  title: { default: brand.name, template: `%s · ${brand.name}` },
+  metadataBase: new URL(siteUrl()),
+  title: { default: `${brand.name} · ${brand.seoTitle}`, template: `%s · ${brand.name}` },
   description: brand.description,
   applicationName: brand.name,
+  keywords: brand.keywords,
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    locale: "es_CL",
+    siteName: brand.name,
+    title: `${brand.name} · ${brand.seoTitle}`,
+    description: brand.description,
+    url: "/",
+    images: [{ url: "/og", width: 1200, height: 630, alt: brand.name }],
+  },
+  twitter: { card: "summary_large_image", title: `${brand.name} · ${brand.seoTitle}`, description: brand.description, images: ["/og"] },
+  verification: {
+    google: siteVerification.google || undefined,
+    other: siteVerification.meta ? { "facebook-domain-verification": siteVerification.meta } : undefined,
+  },
   appleWebApp: { capable: true, title: brand.name, statusBarStyle: "default" },
   icons: { apple: "/icons/apple-touch-icon.png" },
 };
@@ -33,6 +54,31 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-24 pt-4 md:pb-10">{children}</main>
         <BottomNav />
         <RegisterSW />
+        <Analytics />
+        <JsonLd
+          data={[
+            {
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              name: brand.name,
+              url: siteUrl(),
+              logo: `${siteUrl()}/icons/icon-512.png`,
+              ...(socialLinks.length ? { sameAs: socialLinks.map((s) => s.url) } : {}),
+            },
+            {
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              name: brand.name,
+              url: siteUrl(),
+              inLanguage: "es-CL",
+              potentialAction: {
+                "@type": "SearchAction",
+                target: `${siteUrl()}/catalogo?q={search_term_string}`,
+                "query-input": "required name=search_term_string",
+              },
+            },
+          ]}
+        />
       </body>
     </html>
   );

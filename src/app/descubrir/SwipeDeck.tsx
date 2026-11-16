@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { CONDITION_LABEL, isFlashActive } from "@/lib/format";
+import { CONDITION_LABEL, currentPrice, isFlashActive } from "@/lib/format";
 import type { Category, Product, SwipeAction, UserCategory } from "@/lib/types";
 import { ProductImage } from "@/components/ProductImage";
 import { PriceTag } from "@/components/PriceTag";
@@ -12,6 +12,7 @@ import { Icon, CategoryIcon } from "@/components/Icon";
 import { TasteMeter } from "./TasteMeter";
 import { requestIndexing } from "@/lib/recsys/track";
 import { addToCart } from "@/lib/cart";
+import { trackEvent } from "@/lib/marketing/track";
 
 // Mismos valores que el trigger learn_from_swipe en la base de datos
 const DELTA: Record<SwipeAction, number> = { superlike: 2, like: 1, pass: -0.4 };
@@ -366,6 +367,9 @@ export function SwipeDeck({
               <button
                 onClick={() => {
                   addToCart(superliked.id, 1, superliked.quantity);
+                  trackEvent("add_to_cart", {
+                    items: [{ id: superliked.id, name: superliked.title, price: currentPrice(superliked), quantity: 1, category: categories.find((c) => c.slug === superliked.category_slug)?.name }],
+                  });
                   setSuperliked(null);
                 }}
                 className="flex items-center justify-center gap-2 rounded-full bg-brand py-3 font-extrabold text-white"

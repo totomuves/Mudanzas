@@ -5,13 +5,18 @@ import { useRouter } from "next/navigation";
 import { Icon } from "@/components/Icon";
 import { addToCart } from "@/lib/cart";
 import { useCart } from "./useCart";
+import { trackEvent, type TrackItem } from "@/lib/marketing/track";
 
 /**
  * Botones de la ficha del producto: agregar al carrito (para pagar varios
  * productos juntos) o comprar solo este.
  */
-export function AddToCart({ productId, maxQuantity }: { productId: string; maxQuantity: number }) {
+export function AddToCart({ productId, maxQuantity, item }: { productId: string; maxQuantity: number; item?: TrackItem }) {
   const router = useRouter();
+  const add = () => {
+    addToCart(productId, 1, maxQuantity);
+    if (item) trackEvent("add_to_cart", { items: [{ ...item, quantity: 1 }] });
+  };
   const inCart = useCart().find((i) => i.id === productId);
   const full = Boolean(inCart && inCart.qty >= maxQuantity);
 
@@ -29,7 +34,7 @@ export function AddToCart({ productId, maxQuantity }: { productId: string; maxQu
               Ir a pagar
             </Link>
             {maxQuantity > 1 && !full ? (
-              <button type="button" onClick={() => addToCart(productId, 1, maxQuantity)} className="rounded-full border-2 border-foreground py-4 font-extrabold">
+              <button type="button" onClick={add} className="rounded-full border-2 border-foreground py-4 font-extrabold">
                 Sumar otro
               </button>
             ) : (
@@ -43,7 +48,7 @@ export function AddToCart({ productId, maxQuantity }: { productId: string; maxQu
         <>
           <button
             type="button"
-            onClick={() => addToCart(productId, 1, maxQuantity)}
+            onClick={add}
             className="flex w-full items-center justify-center gap-2 rounded-full bg-brand py-4 text-lg font-extrabold text-white transition hover:bg-brand-dark"
           >
             <Icon name="bag" className="h-5 w-5" />
