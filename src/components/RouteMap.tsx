@@ -5,10 +5,11 @@ import { useEffect, useRef } from "react";
 import type { Map as LeafletMap } from "leaflet";
 
 export type MapStop = { lat: number; lng: number; seq: number; title: string; status?: string };
-export type MapRoute = { id: string; color: string; stops: MapStop[] };
+/** noLine: puntos sueltos (sin ruta todavía), sin línea ni bodega. */
+export type MapRoute = { id: string; color: string; stops: MapStop[]; noLine?: boolean };
 
 /**
- * Mapa de rutas (Leaflet + mapa claro de CARTO/OpenStreetMap).
+ * Mapa de rutas (Leaflet + OpenStreetMap, gratis y sin clave).
  * Bodega en negro, paradas numeradas con el color de su ruta.
  * Las entregadas se ven con check y las fallidas con una X.
  */
@@ -35,10 +36,30 @@ export function RouteMap({
       mapRef.current?.remove();
       const map = L.map(ref.current, { zoomControl: true, attributionControl: true, scrollWheelZoom: false });
       mapRef.current = map;
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-        maxZoom: 19,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
-      }).addTo(map);
+      // Mapa gratis y sin clave. CARTO empezó a exigir clave (sus mosaicos salían
+      // con "API KEY REQUIRED"), así que usamos OpenStreetMap y, si sus mosaicos
+      // fallan, cambiamos solos a otro servidor gratuito.
+      const osm = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+      const sources = [
+        { url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png", attribution: osm },
+        { url: "https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png", attribution: `${osm} · HOT` },
+      ];
+      const addTiles = (i: number) => {
+        const src = sources[i];
+        let errors = 0;
+        const layer = L.tileLayer(src.url, { maxZoom: 19, attribution: src.attribution }).addTo(map);
+        // Tono suave para que destaquen las rutas de colores
+        const el = layer.getContainer();
+        if (el) el.style.filter = "grayscale(0.55) contrast(0.95) brightness(1.03)";
+        layer.on("tileerror", () => {
+          errors += 1;
+          if (errors === 4 && i + 1 < sources.length && mapRef.current === map) {
+            map.removeLayer(layer);
+            addTiles(i + 1);
+          }
+        });
+      };
+      addTiles(0);
 
       const bounds = L.latLngBounds([]);
       const icon = (html: string) => L.divIcon({ html, className: "", iconSize: [28, 28], iconAnchor: [14, 14] });
@@ -52,7 +73,7 @@ export function RouteMap({
       }
       for (const r of routes) {
         const line: [number, number][] = [];
-        if (depot) line.push([depot.lat, depot.lng]);
+        if (depot && !r.noLine) line.push([depot.lat, depot.lng]);
         for (const s of r.stops) {
           line.push([s.lat, s.lng]);
           bounds.extend([s.lat, s.lng]);
@@ -69,8 +90,8 @@ export function RouteMap({
             .bindTooltip(`${s.seq}. ${s.title.replace(/</g, "&lt;")}`)
             .addTo(map);
         }
-        if (depot) line.push([depot.lat, depot.lng]);
-        if (line.length > 1) L.polyline(line, { color: r.color, weight: 4, opacity: 0.75 }).addTo(map);
+        if (depot && !r.noLine) line.push([depot.lat, depot.lng]);
+        if (line.length > 1 && !r.noLine) L.polyline(line, { color: r.color, weight: 4, opacity: 0.75 }).addTo(map);
       }
       if (me) {
         L.circleMarker([me.lat, me.lng], { radius: 8, color: "#fff", weight: 3, fillColor: "#2f7fd8", fillOpacity: 1 }).addTo(map);
