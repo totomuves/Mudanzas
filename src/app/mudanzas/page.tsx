@@ -38,9 +38,14 @@ export default async function MudanzasPage() {
           <p className="text-sm font-bold uppercase tracking-widest opacity-70">Mudanzas {brand.name}</p>
           <h1 className="text-4xl font-black leading-tight md:text-5xl">Tu mudanza, sin estrés y con precio claro.</h1>
           <p className="text-lg opacity-85">Cotiza en un minuto, elige tu hora y nosotros nos encargamos del resto.</p>
-          <Link href="/mudanzas/cotizar" className="inline-block rounded-full bg-brand px-6 py-3 font-extrabold text-white transition hover:bg-brand-dark">
-            Cotizar y reservar
-          </Link>
+          <div className="flex flex-wrap items-center gap-4">
+            <Link href="/mudanzas/cotizar" className="inline-block rounded-full bg-brand px-6 py-3 font-extrabold text-white transition hover:bg-brand-dark">
+              Cotizar y reservar
+            </Link>
+            <Link href="/mudanzas/conocenos" className="inline-flex items-center gap-1 font-bold underline underline-offset-4 opacity-90 hover:opacity-100">
+              Conoce al equipo <Icon name="arrow" className="h-4 w-4" strokeWidth={2.2} />
+            </Link>
+          </div>
         </div>
         <div className="pointer-events-none absolute -bottom-6 right-6 hidden opacity-90 md:block" aria-hidden>
           <Icon name="truck" className="h-56 w-56" strokeWidth={0.9} />
