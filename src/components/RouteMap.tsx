@@ -13,23 +13,39 @@ export type MapRoute = { id: string; color: string; stops: MapStop[]; noLine?: b
  * Bodega en negro, paradas numeradas con el color de su ruta.
  * Las entregadas se ven con check y las fallidas con una X.
  */
+/** Rutas en curso cuyo vehículo se muestra en vivo (posición que manda el celular del chofer). */
+export type LiveVehicle = { routeId: string; name: string; color: string };
+
+const TRUCK_SVG =
+  '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg>';
+
+function ago(iso: string) {
+  const m = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000));
+  if (m < 1) return "recién";
+  if (m < 60) return `hace ${m} min`;
+  return `hace ${Math.floor(m / 60)} h ${m % 60} min`;
+}
+
 export function RouteMap({
   depot,
   routes,
   me,
+  live = [],
   className = "h-80",
 }: {
   depot: { lat: number; lng: number } | null;
   routes: MapRoute[];
   me?: { lat: number; lng: number } | null;
+  live?: LiveVehicle[];
   className?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
-  const key = JSON.stringify({ depot, routes, me });
+  const key = JSON.stringify({ depot, routes, me, live });
 
   useEffect(() => {
     let cancelled = false;
+    let timer: ReturnType<typeof setInterval> | null = null;
     (async () => {
       const L = (await import("leaflet")).default;
       if (cancelled || !ref.current) return;
@@ -116,9 +132,41 @@ export function RouteMap({
       }
       if (bounds.isValid()) map.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 });
       else map.setView([-33.45, -70.66], 11);
+
+      // Vehículos en vivo: se piden cada 30 s y solo se mueven sus íconos
+      if (live.length) {
+        const layer = L.layerGroup().addTo(map);
+        const byId = new Map(live.map((v) => [v.routeId, v]));
+        const draw = async () => {
+          const res = await fetch(`/api/rutas/posicion?ids=${live.map((v) => v.routeId).join(",")}`, { cache: "no-store" }).catch(() => null);
+          const d = res?.ok ? ((await res.json()) as { positions: { routeId: string; lat: number; lng: number; seenAt: string }[] }) : null;
+          if (cancelled || !d || mapRef.current !== map) return;
+          layer.clearLayers();
+          for (const p of d.positions) {
+            const v = byId.get(p.routeId);
+            if (!v) continue;
+            const stale = Date.now() - new Date(p.seenAt).getTime() > 10 * 60_000;
+            L.marker([p.lat, p.lng], {
+              zIndexOffset: 1000,
+              opacity: stale ? 0.55 : 1,
+              icon: L.divIcon({
+                className: "",
+                iconSize: [34, 34],
+                iconAnchor: [17, 17],
+                html: `<div style="width:34px;height:34px;border-radius:10px;background:${v.color};color:#fff;display:flex;align-items:center;justify-content:center;border:3px solid #fff;box-shadow:0 2px 6px #0006">${TRUCK_SVG}</div>`,
+              }),
+            })
+              .bindTooltip(`${v.name.replace(/</g, "&lt;")} · ${stale ? "sin señal " : ""}${ago(p.seenAt)}`, { direction: "top", offset: [0, -16] })
+              .addTo(layer);
+          }
+        };
+        void draw();
+        timer = setInterval(draw, 30_000);
+      }
     })();
     return () => {
       cancelled = true;
+      if (timer) clearInterval(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);

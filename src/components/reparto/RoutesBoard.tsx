@@ -170,6 +170,7 @@ export async function RoutesBoard({
         <RouteMap
           className="h-[420px]"
           depot={depot}
+          live={routes.filter((r) => r.status === "en_curso").map((r) => ({ routeId: r.id, name: r.vehicles?.name ?? "Vehículo", color: r.color }))}
           routes={routes.map((r) => ({
             id: r.id,
             color: r.color,

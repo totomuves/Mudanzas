@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { completePickup, completeStop, failStop, loadRoute, startRoute } from "@/lib/routing/operations";
 import { reoptimizeRoute } from "@/lib/routing/planner";
+import { savePosition, savePositionChecked } from "@/lib/routing/position";
 
 type Here = { lat: number; lng: number } | null;
 const point = (lat: unknown, lng: unknown): Here => {
@@ -13,12 +14,14 @@ const point = (lat: unknown, lng: unknown): Here => {
 
 export async function startRouteAction(routeId: string, lat?: number, lng?: number) {
   await startRoute(routeId, point(lat, lng));
+  await savePosition(routeId, point(lat, lng));
   revalidatePath(`/reparto/${routeId}`);
 }
 
 export async function reoptimizeFromHere(routeId: string, lat?: number, lng?: number) {
   await loadRoute(routeId); // valida acceso
   const r = await reoptimizeRoute(routeId, point(lat, lng));
+  await savePosition(routeId, point(lat, lng));
   revalidatePath(`/reparto/${routeId}`);
   return r.changed;
 }
@@ -45,6 +48,7 @@ export async function deliverAction(_prev: DeliverState, f: FormData): Promise<D
     photo: photo instanceof File && photo.size > 0 ? photo : null,
   });
   if (!r.ok) return { error: r.error };
+  await savePositionChecked(routeId, here);
   revalidatePath(`/reparto/${routeId}`);
   redirect(`/reparto/${routeId}?entregado=${stopId}`);
 }
@@ -53,7 +57,9 @@ export async function failAction(f: FormData) {
   const stopId = String(f.get("stopId") ?? "");
   const routeId = String(f.get("routeId") ?? "");
   const reason = String(f.get("reason") ?? "").trim().slice(0, 140) || "Sin motivo";
-  await failStop(stopId, reason, point(f.get("lat"), f.get("lng")));
+  const here = point(f.get("lat"), f.get("lng"));
+  await failStop(stopId, reason, here);
+  await savePositionChecked(routeId, here);
   revalidatePath(`/reparto/${routeId}`);
   redirect(`/reparto/${routeId}`);
 }
@@ -78,6 +84,7 @@ export async function pickupAction(_prev: DeliverState, f: FormData): Promise<De
     photos: f.getAll("photos").filter((x): x is File => x instanceof File && x.size > 0),
   });
   if (!r.ok) return { error: r.error };
+  await savePositionChecked(routeId, here);
   revalidatePath(`/reparto/${routeId}`);
   redirect(`/reparto/${routeId}?retirado=${stopId}`);
 }
