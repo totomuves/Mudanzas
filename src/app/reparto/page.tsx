@@ -18,7 +18,7 @@ const LABEL: Record<RouteRow["status"], string> = {
 
 export default async function RepartoPage() {
   if (!hasSupabaseEnv()) return <SetupNotice />;
-  const { user, canManage } = await requireDriver();
+  const { user, canManage, sellerId } = await requireDriver();
   const db = createAdminClient();
   const today = santiagoParts(new Date()).date;
   let q = db
@@ -28,7 +28,11 @@ export default async function RepartoPage() {
     .neq("status", "borrador")
     .order("delivery_date")
     .order("created_at");
-  if (!canManage) q = q.eq("driver_id", user.id);
+  // Despacho ve las rutas de MUVEO; el vendedor, las suyas; el chofer, las asignadas
+  const mine = [`driver_id.eq.${user.id}`];
+  if (canManage) mine.push("seller_id.is.null");
+  if (sellerId) mine.push(`seller_id.eq.${sellerId}`);
+  q = q.or(mine.join(","));
   const { data, error } = await q;
   const routes = (data ?? []) as (RouteRow & { vehicles: { name: string; plate: string | null } | null; route_stops: { status: string }[] })[];
 
@@ -36,7 +40,7 @@ export default async function RepartoPage() {
     <div className="mx-auto max-w-lg space-y-5">
       <div>
         <h1 className="text-3xl font-black">Reparto</h1>
-        <p className="text-muted">{canManage ? "Todas las rutas publicadas." : "Tus rutas asignadas."}</p>
+        <p className="text-muted">{canManage ? "Todas las rutas publicadas." : sellerId ? "Las rutas de tu tienda." : "Tus rutas asignadas."}</p>
       </div>
       {error && <p className="rounded-2xl bg-brand-soft p-4 text-sm font-bold">Falta correr la migración de rutas en Supabase.</p>}
       {routes.length === 0 ? (

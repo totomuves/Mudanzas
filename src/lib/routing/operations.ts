@@ -1,6 +1,7 @@
 import "server-only";
 import { notFound, redirect } from "next/navigation";
 import { getAdminAccess } from "@/lib/admin";
+import { getMarketplaceEnabled } from "@/lib/seller";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatTime, santiagoParts } from "@/lib/delivery";
 import { haversine, trafficFactor } from "./optimizer";
@@ -8,17 +9,34 @@ import { notifyOrder } from "./notify";
 
 type Db = ReturnType<typeof createAdminClient>;
 
-/** Choferes (sección Reparto) y quienes administran Despacho. */
+/**
+ * Choferes (sección Reparto), quienes administran Despacho y los vendedores
+ * aprobados (reparten sus propios pedidos).
+ */
 export async function requireDriver(next = "/reparto") {
   const access = await getAdminAccess();
   if (!access.user || access.user.is_anonymous) redirect(`/ingresar?next=${encodeURIComponent(next)}`);
-  if (!access.sections.includes("reparto") && !access.sections.includes("despacho")) redirect("/admin/sin-permiso");
-  return { ...access, user: access.user, canManage: access.sections.includes("despacho") };
+  // Vendedor aprobado con el marketplace encendido
+  const { data: seller } = await createAdminClient().from("sellers").select("id, status").eq("owner_id", access.user.id).maybeSingle();
+  const sellerId = seller?.status === "approved" && (await getMarketplaceEnabled()) ? (seller.id as string) : null;
+  if (!access.sections.includes("reparto") && !access.sections.includes("despacho") && !sellerId) redirect("/admin/sin-permiso");
+  return { ...access, user: access.user, canManage: access.sections.includes("despacho"), sellerId };
+}
+
+/** ¿Puede esta persona ver y operar la ruta? */
+export function canAccessRoute(
+  access: { user: { id: string }; canManage: boolean; sellerId: string | null },
+  route: { driver_id: string | null; seller_id?: string | null },
+) {
+  if (route.driver_id === access.user.id) return true;
+  if (route.seller_id) return route.seller_id === access.sellerId || access.canManage;
+  return access.canManage;
 }
 
 export type RouteRow = {
   id: string;
   delivery_date: string;
+  seller_id?: string | null;
   vehicle_id: string | null;
   driver_id: string | null;
   status: "borrador" | "publicada" | "en_curso" | "terminada";
@@ -86,7 +104,7 @@ export async function loadRoute(routeId: string) {
   const access = await requireDriver(`/reparto/${routeId}`);
   const db = createAdminClient();
   const { data: route } = await db.from("delivery_routes").select("*, vehicles(*)").eq("id", routeId).maybeSingle();
-  if (!route || (!access.canManage && route.driver_id !== access.user.id)) notFound();
+  if (!route || !canAccessRoute(access, route)) notFound();
   const { data: stops } = await db.from("route_stops").select(STOP_SELECT).eq("route_id", routeId).order("seq");
   return { access, db, route: route as RouteRow & { vehicles: { name: string; kind: string; plate: string | null } | null }, stops: (stops ?? []) as unknown as StopRow[] };
 }
@@ -97,7 +115,7 @@ export async function loadStop(stopId: string) {
   const db = createAdminClient();
   const { data } = await db.from("route_stops").select(`${STOP_SELECT}, delivery_routes(*)`).eq("id", stopId).maybeSingle();
   const stop = data as (StopRow & { delivery_routes: RouteRow }) | null;
-  if (!stop || (!access.canManage && stop.delivery_routes.driver_id !== access.user.id)) notFound();
+  if (!stop || !canAccessRoute(access, stop.delivery_routes)) notFound();
   return { access, db, stop };
 }
 

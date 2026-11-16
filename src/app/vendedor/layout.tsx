@@ -35,6 +35,7 @@ export default async function VendedorLayout({ children }: LayoutProps<"/vendedo
           <Link href="/vendedor" className="shrink-0 rounded-full bg-surface px-4 py-2 hover:bg-border">Mis productos</Link>
           <Link href="/vendedor/nuevo" className="shrink-0 rounded-full bg-brand px-4 py-2 text-white">+ Subir producto</Link>
           <Link href="/vendedor/pedidos" className="shrink-0 rounded-full bg-surface px-4 py-2 hover:bg-border">Ventas y pagos</Link>
+          <Link href="/vendedor/reparto" className="shrink-0 rounded-full bg-surface px-4 py-2 hover:bg-border">Reparto</Link>
           <Link href="/vendedor/tienda" className="shrink-0 rounded-full bg-surface px-4 py-2 hover:bg-border">Mis datos</Link>
         </nav>
       )}

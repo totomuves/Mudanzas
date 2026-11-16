@@ -1,16 +1,22 @@
 import Link from "next/link";
 import { Icon, type IconName } from "@/components/Icon";
 
-const TABS: { href: string; label: string; icon: IconName }[] = [
+type Tab = { href: string; label: string; icon: IconName };
+const TABS: Tab[] = [
   { href: "/admin/despacho/rutas", label: "Rutas del día", icon: "route" },
   { href: "/admin/despacho/ajustes", label: "Vehículos y horarios", icon: "truck" },
   { href: "/admin/despacho", label: "Precios por comuna", icon: "pin" },
 ];
 
-export function DespachoTabs({ active }: { active: string }) {
+export const SELLER_TABS: Tab[] = [
+  { href: "/vendedor/reparto", label: "Rutas del día", icon: "route" },
+  { href: "/vendedor/reparto/ajustes", label: "Vehículos y horarios", icon: "truck" },
+];
+
+export function DespachoTabs({ active, tabs = TABS }: { active: string; tabs?: Tab[] }) {
   return (
     <nav className="flex gap-1 overflow-x-auto rounded-full bg-surface p-1 text-sm font-bold">
-      {TABS.map((t) => (
+      {tabs.map((t) => (
         <Link
           key={t.href}
           href={t.href}

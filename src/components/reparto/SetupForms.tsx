@@ -6,7 +6,10 @@ import {
   SIZES, SIZE_KEYS, VEHICLE_KINDS, VEHICLE_KEYS, WEEKDAYS, hhmm,
   type DeliverySettings, type ItemSize, type Vehicle, type VehicleKind,
 } from "@/lib/delivery";
-import { deleteVehicle, saveDeliverySettings, saveVehicle, type FormState } from "./actions";
+import type { FormState } from "@/lib/routing/manage";
+
+type FormAction = (prev: FormState, f: FormData) => Promise<FormState>;
+export type SetupActions = { saveSettings: FormAction; saveVehicle: FormAction; deleteVehicle: (f: FormData) => Promise<void> };
 
 export type Driver = { id: string; email: string; name: string };
 
@@ -18,8 +21,8 @@ function Msg({ state }: { state: FormState }) {
   return null;
 }
 
-export function SettingsForm({ settings: s }: { settings: DeliverySettings }) {
-  const [state, action, pending] = useActionState<FormState, FormData>(saveDeliverySettings, {});
+export function SettingsForm({ settings: s, saveAction }: { settings: DeliverySettings; saveAction: FormAction }) {
+  const [state, action, pending] = useActionState<FormState, FormData>(saveAction, {});
   return (
     <form action={action} className="space-y-4 rounded-2xl border border-border bg-card p-4">
       <fieldset className="space-y-2">
@@ -88,9 +91,9 @@ export function SettingsForm({ settings: s }: { settings: DeliverySettings }) {
   );
 }
 
-export function VehicleForm({ vehicle, drivers, onDone }: { vehicle?: Vehicle; drivers: Driver[]; onDone?: () => void }) {
+export function VehicleForm({ vehicle, drivers, saveAction, onDone }: { vehicle?: Vehicle; drivers: Driver[]; saveAction: FormAction; onDone?: () => void }) {
   const [state, action, pending] = useActionState<FormState, FormData>(async (p, f) => {
-    const r = await saveVehicle(p, f);
+    const r = await saveAction(p, f);
     if (r.ok) onDone?.();
     return r;
   }, {});
@@ -206,13 +209,13 @@ export function VehicleForm({ vehicle, drivers, onDone }: { vehicle?: Vehicle; d
   );
 }
 
-export function VehicleItem({ vehicle: v, drivers }: { vehicle: Vehicle; drivers: Driver[] }) {
+export function VehicleItem({ vehicle: v, drivers, actions }: { vehicle: Vehicle; drivers: Driver[]; actions: SetupActions }) {
   const [editing, setEditing] = useState(false);
   const driver = drivers.find((d) => d.id === v.driver_id);
   if (editing) {
     return (
       <li className="rounded-2xl border border-border bg-card p-4 sm:col-span-2">
-        <VehicleForm vehicle={v} drivers={drivers} onDone={() => setEditing(false)} />
+        <VehicleForm vehicle={v} drivers={drivers} saveAction={actions.saveVehicle} onDone={() => setEditing(false)} />
         <button onClick={() => setEditing(false)} className="mt-2 text-sm font-bold text-muted">Cancelar</button>
       </li>
     );
@@ -232,7 +235,7 @@ export function VehicleItem({ vehicle: v, drivers }: { vehicle: Vehicle; drivers
       </div>
       <div className="flex flex-col gap-1">
         <button onClick={() => setEditing(true)} className="rounded-full border border-border px-3 py-1 text-xs font-bold">Editar</button>
-        <form action={deleteVehicle}>
+        <form action={actions.deleteVehicle}>
           <input type="hidden" name="id" value={v.id} />
           <button className="rounded-full px-3 py-1 text-xs font-bold text-pass">Borrar</button>
         </form>

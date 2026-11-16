@@ -19,7 +19,7 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/entregas/[order
   const db = createAdminClient();
   const { data } = await db
     .from("route_stops")
-    .select("*, delivery_routes(driver_id, delivery_date, vehicles(name, plate)), orders(id, user_id, quantity, amount, buyer_name, buyer_email, address, products(title))")
+    .select("*, delivery_routes(driver_id, delivery_date, vehicles(name, plate)), orders(id, user_id, seller_id, quantity, amount, buyer_name, buyer_email, address, products(title))")
     .eq("order_id", orderId)
     .maybeSingle();
   const stop = data as null | {
@@ -27,13 +27,18 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/entregas/[order
     signature_path: string | null; photo_path: string | null; delivered_lat: number | null; delivered_lng: number | null;
     delivered_accuracy_m: number | null; window_start: string | null; window_end: string | null;
     delivery_routes: { driver_id: string | null; delivery_date: string; vehicles: { name: string; plate: string | null } | null } | null;
-    orders: { id: string; user_id: string | null; quantity: number; amount: number; buyer_name: string; buyer_email: string; address: string | null; products: { title: string } | null } | null;
+    orders: { id: string; user_id: string | null; seller_id: string | null; quantity: number; amount: number; buyer_name: string; buyer_email: string; address: string | null; products: { title: string } | null } | null;
   };
   if (!stop || !stop.orders || stop.status !== "entregado" || !stop.delivered_at) {
     return new NextResponse("Este pedido aún no tiene comprobante de entrega", { status: 404 });
   }
 
   let allowed = stop.orders.user_id === user.id || stop.delivery_routes?.driver_id === user.id;
+  // El vendedor que despachó su propia venta
+  if (!allowed && stop.orders.seller_id) {
+    const { data: s } = await db.from("sellers").select("owner_id").eq("id", stop.orders.seller_id).maybeSingle();
+    allowed = s?.owner_id === user.id;
+  }
   if (!allowed) {
     const { sections } = await getAdminSections(supabase, user.id);
     allowed = sections.includes("pedidos") || sections.includes("despacho");

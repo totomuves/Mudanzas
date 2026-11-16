@@ -2,10 +2,10 @@
 
 import { useActionState } from "react";
 import { Icon } from "@/components/Icon";
-import { planDay, type PlanState } from "./actions";
+import type { PlanState } from "@/lib/routing/manage";
 
-export function PlanForm({ date, hasRoutes, disabled }: { date: string; hasRoutes: boolean; disabled?: boolean }) {
-  const [state, action, pending] = useActionState<PlanState, FormData>(planDay, {});
+export function PlanForm({ date, hasRoutes, disabled, planAction }: { date: string; hasRoutes: boolean; disabled?: boolean; planAction: (p: PlanState, f: FormData) => Promise<PlanState> }) {
+  const [state, action, pending] = useActionState<PlanState, FormData>(planAction, {});
   return (
     <form action={action} className="space-y-2">
       <input type="hidden" name="date" value={date} />

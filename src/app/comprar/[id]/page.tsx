@@ -34,7 +34,7 @@ export default async function ComprarPage({ params }: PageProps<"/comprar/[id]">
   }
 
   // Fecha de entrega si el comprador elige despacho (null si el reparto aún no está configurado)
-  const plan = await deliveryDateFor(orderLoad(product)).catch(() => null);
+  const plan = await deliveryDateFor(orderLoad(product), product.seller_id ?? null).catch(() => null);
   const delivery = plan
     ? {
         dateLabel: formatDeliveryDate(plan.date),

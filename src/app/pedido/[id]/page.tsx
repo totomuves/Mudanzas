@@ -70,7 +70,7 @@ export default async function PedidoPage({ params, searchParams }: PageProps<"/p
       // El comprador no lee las rutas directamente: el estado se consulta desde el servidor
       const routeStatus = stop ? (await db.from("delivery_routes").select("status").eq("id", stop.route_id).maybeSingle()).data?.status : null;
       const proof = stop?.status === "entregado" ? await proofUrls(db, stop) : { photo: null, signature: null };
-      const settings = await getDeliverySettings(db);
+      const settings = await getDeliverySettings(db, order.seller_id ?? null);
       tracker = (
         <DeliveryTracker
           orderId={order.id}

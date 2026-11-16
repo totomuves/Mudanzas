@@ -76,8 +76,8 @@ export async function startCheckout(_prev: CheckoutState, formData: FormData): P
   // Despacho: fecha de entrega (el próximo día con espacio en la flota) y franja elegida
   if (delivery === "despacho") {
     try {
-      const { data: p } = await db.from("products").select("size, category_slug, weight_kg, volume_m3").eq("id", productId).single();
-      const plan = await deliveryDateFor(orderLoad(p ?? {}, quantity));
+      const { data: p } = await db.from("products").select("size, category_slug, weight_kg, volume_m3, seller_id").eq("id", productId).single();
+      const plan = await deliveryDateFor(orderLoad(p ?? {}, quantity), p?.seller_id ?? null);
       if (plan) {
         await db.from("orders").update({ delivery_date: plan.date, delivery_slot: slot, address_notes: addressNotes || null }).eq("id", order.id);
       }

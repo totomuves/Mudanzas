@@ -10,25 +10,38 @@ import { notifyOrder } from "./notify";
 
 type Db = ReturnType<typeof createAdminClient>;
 
-export async function getDeliverySettings(db: Db = createAdminClient()): Promise<DeliverySettings> {
-  const { data } = await db.from("delivery_settings").select("*").eq("id", 1).maybeSingle();
-  return { ...DEFAULT_DELIVERY_SETTINGS, ...((data ?? {}) as Partial<DeliverySettings>) };
+/** null = MUVEO; id = el reparto propio de ese vendedor. */
+export type SellerScope = string | null;
+
+/** Ajustes de reparto de MUVEO o de un vendedor (null si aún no existen). */
+export async function readDeliverySettings(db: Db, sellerId: SellerScope = null) {
+  const { data, error } = sellerId
+    ? await db.from("seller_delivery_settings").select("*").eq("seller_id", sellerId).maybeSingle()
+    : await db.from("delivery_settings").select("*").eq("id", 1).maybeSingle();
+  if (error) return { settings: null, error };
+  return { settings: data ? ({ ...DEFAULT_DELIVERY_SETTINGS, ...(data as Partial<DeliverySettings>) } as DeliverySettings) : null, error: null };
 }
 
-export async function getVehicles(db: Db = createAdminClient(), onlyActive = true): Promise<Vehicle[]> {
+export async function getDeliverySettings(db: Db = createAdminClient(), sellerId: SellerScope = null): Promise<DeliverySettings> {
+  return (await readDeliverySettings(db, sellerId)).settings ?? DEFAULT_DELIVERY_SETTINGS;
+}
+
+export async function getVehicles(db: Db = createAdminClient(), onlyActive = true, sellerId: SellerScope = null): Promise<Vehicle[]> {
   let q = db.from("vehicles").select("*").order("created_at");
+  q = sellerId ? q.eq("seller_id", sellerId) : q.is("seller_id", null);
   if (onlyActive) q = q.eq("active", true);
   const { data } = await q;
   return (data ?? []) as Vehicle[];
 }
 
 /** Bodega de salida (si no tiene coordenadas, se buscan con la dirección y se guardan). */
-async function depotPoint(db: Db, s: DeliverySettings): Promise<Point> {
+async function depotPoint(db: Db, s: DeliverySettings, sellerId: SellerScope = null): Promise<Point> {
   if (s.depot_lat != null && s.depot_lng != null) return { lat: s.depot_lat, lng: s.depot_lng };
   if (s.depot_address) {
     const p = await geocode(s.depot_address);
     if (p.source !== "comuna") {
-      await db.from("delivery_settings").update({ depot_lat: p.lat, depot_lng: p.lng }).eq("id", 1);
+      if (sellerId) await db.from("seller_delivery_settings").update({ depot_lat: p.lat, depot_lng: p.lng }).eq("seller_id", sellerId);
+      else await db.from("delivery_settings").update({ depot_lat: p.lat, depot_lng: p.lng }).eq("id", 1);
       return p;
     }
   }
@@ -91,18 +104,20 @@ export type PlanSummary = {
  * Planifica (o vuelve a planificar) las rutas de un día de despacho.
  * Las rutas que ya salieron (en curso o terminadas) no se tocan.
  */
-export async function planDeliveryDay(date: string): Promise<PlanSummary> {
+export async function planDeliveryDay(date: string, sellerId: SellerScope = null): Promise<PlanSummary> {
   const db = createAdminClient();
-  const [settings, vehicles] = await Promise.all([getDeliverySettings(db), getVehicles(db)]);
+  const [settings, vehicles] = await Promise.all([getDeliverySettings(db, sellerId), getVehicles(db, true, sellerId)]);
 
-  const { data: existing } = await db.from("delivery_routes").select("id, status, vehicle_id, route_stops(order_id)").eq("delivery_date", date);
+  let routesQ = db.from("delivery_routes").select("id, status, vehicle_id, route_stops(order_id)").eq("delivery_date", date);
+  routesQ = sellerId ? routesQ.eq("seller_id", sellerId) : routesQ.is("seller_id", null);
+  const { data: existing } = await routesQ;
   const locked = (existing ?? []).filter((r) => r.status === "en_curso" || r.status === "terminada");
   const lockedOrders = new Set(locked.flatMap((r) => (r.route_stops as { order_id: string }[]).map((s) => s.order_id)));
   const busyVehicles = new Set(locked.map((r) => r.vehicle_id).filter(Boolean));
   const replace = (existing ?? []).filter((r) => r.status === "borrador" || r.status === "publicada").map((r) => r.id);
 
   // Pedidos pagados sin fecha que ya podrían salir: se suman a este día
-  await db
+  let backlogQ = db
     .from("orders")
     .update({ delivery_date: date })
     .eq("status", "paid")
@@ -110,14 +125,18 @@ export async function planDeliveryDay(date: string): Promise<PlanSummary> {
     .is("delivery_date", null)
     .is("delivered_at", null)
     .lt("paid_at", santiagoToDate(date, 0).toISOString());
+  backlogQ = sellerId ? backlogQ.eq("seller_id", sellerId) : backlogQ.is("seller_id", null);
+  await backlogQ;
 
-  const { data: rows } = await db
+  let ordersQ = db
     .from("orders")
     .select(ORDER_FIELDS)
     .eq("status", "paid")
     .eq("delivery", "despacho")
     .eq("delivery_date", date)
     .is("delivered_at", null);
+  ordersQ = sellerId ? ordersQ.eq("seller_id", sellerId) : ordersQ.is("seller_id", null);
+  const { data: rows } = await ordersQ;
   const orders = ((rows ?? []) as unknown as PlanOrder[]).filter((o) => !lockedOrders.has(o.id));
 
   // Las paradas viejas de estos pedidos (de otro día o de un intento fallido) se reemplazan
@@ -132,7 +151,7 @@ export async function planDeliveryDay(date: string): Promise<PlanSummary> {
   }
 
   await locateOrders(db, orders);
-  const depot = await depotPoint(db, settings);
+  const depot = await depotPoint(db, settings, sellerId);
   const points: Point[] = [depot, ...orders.map((o) => ({ lat: o.lat!, lng: o.lng! }))];
   const startSec = toSeconds(settings.start_time);
   const endSec = toSeconds(settings.end_time);
@@ -175,6 +194,7 @@ export async function planDeliveryDay(date: string): Promise<PlanSummary> {
       .from("delivery_routes")
       .insert({
         delivery_date: date,
+        seller_id: sellerId,
         vehicle_id: v.id,
         driver_id: v.driver_id,
         status: "borrador",
@@ -221,9 +241,11 @@ export async function planDeliveryDay(date: string): Promise<PlanSummary> {
 }
 
 /** Publica las rutas del día: avisa a cada comprador su ventana de entrega. */
-export async function publishDay(date: string) {
+export async function publishDay(date: string, sellerId: SellerScope = null) {
   const db = createAdminClient();
-  const { data: routes } = await db.from("delivery_routes").select("id").eq("delivery_date", date).eq("status", "borrador");
+  let q = db.from("delivery_routes").select("id").eq("delivery_date", date).eq("status", "borrador");
+  q = sellerId ? q.eq("seller_id", sellerId) : q.is("seller_id", null);
+  const { data: routes } = await q;
   const ids = (routes ?? []).map((r) => r.id);
   if (!ids.length) return 0;
   await db.from("delivery_routes").update({ status: "publicada", published_at: new Date().toISOString() }).in("id", ids);
@@ -261,9 +283,10 @@ type StopRow = {
  */
 export async function reoptimizeRoute(routeId: string, from: Point | null) {
   const db = createAdminClient();
-  const settings = await getDeliverySettings(db);
   const { data: route } = await db.from("delivery_routes").select("*, vehicles(*)").eq("id", routeId).single();
   if (!route) throw new Error("Ruta no encontrada");
+  const sellerId = (route.seller_id as string | null) ?? null;
+  const settings = await getDeliverySettings(db, sellerId);
   const { data: rows } = await db
     .from("route_stops")
     .select(`id, seq, status, window_start, window_end, delivered_lat, delivered_lng, delivered_at, orders(${ORDER_FIELDS}, delivery_date)`)
@@ -276,7 +299,7 @@ export async function reoptimizeRoute(routeId: string, from: Point | null) {
 
   await locateOrders(db, pending.map((s) => s.orders));
   const lastDone = [...done].reverse().find((s) => s.delivered_lat != null);
-  const depot = await depotPoint(db, settings);
+  const depot = await depotPoint(db, settings, sellerId);
   const start: Point = from ?? (lastDone ? { lat: lastDone.delivered_lat!, lng: lastDone.delivered_lng! } : depot);
 
   const date = route.delivery_date as string;
@@ -337,8 +360,8 @@ export async function reoptimizeRoute(routeId: string, from: Point | null) {
 }
 
 /** Próximo día de despacho para mover un pedido que no se pudo entregar. */
-export async function nextDeliveryDateAfter(date: string) {
-  const s = await getDeliverySettings();
+export async function nextDeliveryDateAfter(date: string, sellerId: SellerScope = null) {
+  const s = await getDeliverySettings(createAdminClient(), sellerId);
   return upcomingDeliveryDates(s, new Date(), 8).find((d) => d > date) ?? null;
 }
 
@@ -347,12 +370,11 @@ export async function nextDeliveryDateAfter(date: string) {
  * espacio en la flota (si un día ya va lleno, pasa al siguiente).
  * null = el reparto aún no está configurado (sin tablas o sin vehículos).
  */
-export async function deliveryDateFor(load: { kg: number; m3: number; rank: number }) {
+export async function deliveryDateFor(load: { kg: number; m3: number; rank: number }, sellerId: SellerScope = null) {
   const db = createAdminClient();
-  const { data: s, error } = await db.from("delivery_settings").select("*").eq("id", 1).maybeSingle();
-  if (error || !s) return null;
-  const settings = { ...DEFAULT_DELIVERY_SETTINGS, ...(s as Partial<DeliverySettings>) };
-  const vehicles = await getVehicles(db);
+  const { settings } = await readDeliverySettings(db, sellerId);
+  if (!settings) return null;
+  const vehicles = await getVehicles(db, true, sellerId);
   if (!vehicles.length) return null;
   const dates = upcomingDeliveryDates(settings, new Date(), 6);
   if (!dates.length) return null;
@@ -363,13 +385,15 @@ export async function deliveryDateFor(load: { kg: number; m3: number; rank: numb
   const capM3 = able.reduce((a, v) => a + Number(v.capacity_m3), 0) * 0.9;
   const capKg = able.reduce((a, v) => a + Number(v.capacity_kg), 0) * 0.9;
 
-  const { data: rows } = await db
+  let usedQ = db
     .from("orders")
     .select("delivery_date, quantity, products(size, category_slug, weight_kg, volume_m3)")
     .eq("delivery", "despacho")
     .in("status", ["paid", "pending"])
     .in("delivery_date", dates)
     .is("delivered_at", null);
+  usedQ = sellerId ? usedQ.eq("seller_id", sellerId) : usedQ.is("seller_id", null);
+  const { data: rows } = await usedQ;
   const used = new Map<string, { kg: number; m3: number }>();
   for (const r of (rows ?? []) as unknown as { delivery_date: string; quantity: number; products: Parameters<typeof orderLoad>[0] | null }[]) {
     const l = orderLoad(r.products ?? {}, r.quantity);
