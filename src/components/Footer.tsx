@@ -21,6 +21,7 @@ const COLUMNS = [
       { href: "/envios", label: "Envíos y retiro" },
       { href: "/devoluciones", label: "Cambios y devoluciones" },
       { href: "/contacto", label: "Contacto" },
+      { href: "/mudanzas/conocenos", label: "Conócenos" },
     ],
   },
   {
