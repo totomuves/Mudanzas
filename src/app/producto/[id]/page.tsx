@@ -146,6 +146,10 @@ export default async function ProductoPage({ params }: PageProps<"/producto/[id]
           <Row label="Entrega" value="Retiro en bodega o despacho coordinado" />
           <Row label="Pago" value="Seguro con Mercado Pago" />
         </dl>
+        <p className="text-sm text-muted">
+          <Link href="/envios" className="font-semibold underline underline-offset-4">Envíos</Link> ·{" "}
+          <Link href="/devoluciones" className="font-semibold underline underline-offset-4">{brand.legal.returnDays} días para devoluciones</Link>
+        </p>
       </div>
     </div>
   );

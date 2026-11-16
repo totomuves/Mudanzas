@@ -3,6 +3,7 @@ import { brand } from "@/brand";
 import { logoFont, mainFont } from "./fonts";
 import { Header } from "@/components/Header";
 import { BottomNav } from "@/components/BottomNav";
+import { Footer } from "@/components/Footer";
 import { RegisterSW } from "@/components/RegisterSW";
 import { Analytics } from "@/components/marketing/Analytics";
 import { JsonLd } from "@/components/marketing/JsonLd";
@@ -51,7 +52,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="es-CL" className={`${mainFont.variable} ${logoFont.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col font-sans">
         <Header />
-        <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-24 pt-4 md:pb-10">{children}</main>
+        <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-12 pt-4 md:pb-12">{children}</main>
+        <Footer />
         <BottomNav />
         <RegisterSW />
         <Analytics />
