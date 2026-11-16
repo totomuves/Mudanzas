@@ -91,7 +91,24 @@ export function RouteMap({
             .addTo(map);
         }
         if (depot && !r.noLine) line.push([depot.lat, depot.lng]);
-        if (line.length > 1 && !r.noLine) L.polyline(line, { color: r.color, weight: 4, opacity: 0.75 }).addTo(map);
+        if (line.length > 1 && !r.noLine) {
+          // Primero una línea punteada; cuando llega el camino por calles, se reemplaza
+          const pl = L.polyline(line, { color: r.color, weight: 3, opacity: 0.5, dashArray: "6 8" }).addTo(map);
+          fetch("/api/rutas/trazado", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ points: line.map(([lat, lng]) => ({ lat, lng })) }),
+          })
+            .then((res) => (res.ok ? res.json() : null))
+            .then((d: { path?: [number, number][] | null } | null) => {
+              if (cancelled || mapRef.current !== map || !d?.path || d.path.length < 2) return;
+              pl.setLatLngs(d.path);
+              pl.setStyle({ weight: 5, opacity: 0.8, dashArray: undefined });
+              // Leaflet no borra el punteado con undefined: se quita a mano
+              pl.getElement()?.removeAttribute("stroke-dasharray");
+            })
+            .catch(() => {});
+        }
       }
       if (me) {
         L.circleMarker([me.lat, me.lng], { radius: 8, color: "#fff", weight: 3, fillColor: "#2f7fd8", fillOpacity: 1 }).addTo(map);
