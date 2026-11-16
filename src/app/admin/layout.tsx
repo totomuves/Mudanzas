@@ -3,7 +3,7 @@ import { Icon } from "@/components/Icon";
 import { getAdminAccess } from "@/lib/admin";
 import { hasSupabaseEnv } from "@/lib/env";
 
-type NavItem = { href: string; label: string; section: string };
+type NavItem = { href: string; label: string; section: string | string[] };
 
 const NAV: NavItem[] = [
   { href: "/admin", label: "Productos", section: "productos" },
@@ -16,14 +16,14 @@ const NAV: NavItem[] = [
   { href: "/reparto", label: "Reparto", section: "reparto" },
   { href: "/admin/recomendador", label: "Recomendador", section: "recomendador" },
   { href: "/admin/mudanzas", label: "Agenda mudanzas", section: "mudanzas" },
-  { href: "/admin/mudanzas/trabajos", label: "Trabajos realizados", section: "mudanzas" },
+  { href: "/admin/paginas", label: "Banners y fotos", section: ["portada", "mudanzas"] },
   { href: "/admin/equipo", label: "Equipo", section: "equipo" },
 ];
 
 export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   // El menú muestra solo las secciones que la persona tiene permitidas
   const sections: string[] = hasSupabaseEnv() ? (await getAdminAccess()).sections : [];
-  const links = NAV.filter((n) => sections.includes(n.section));
+  const links = NAV.filter((n) => [n.section].flat().some((s) => sections.includes(s)));
   return (
     <div className="space-y-6">
       {links.length > 0 && (

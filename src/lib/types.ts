@@ -150,7 +150,13 @@ export type MarketplaceSettings = {
   updated_at: string;
 };
 
-export type BannerStyle = "aurora" | "laguna" | "pastel" | "suave" | "marca" | "oscuro";
+export type BannerStyle = "aurora" | "laguna" | "pastel" | "plano" | "suave" | "marca" | "oscuro";
+
+/** Páginas donde puede ir un banner */
+export type BannerPage = "portada" | "mudanzas" | "conocenos";
+
+/** Lugar del banner dentro de las páginas Mudanzas y Conócenos */
+export type BannerPlacement = "arriba" | "abajo";
 
 export type BannerImageLayout = "media" | "completa";
 
@@ -159,12 +165,17 @@ export type HomeBanner = {
   eyebrow: string | null;
   title: string;
   subtitle: string | null;
-  cta_label: string;
-  href: string;
+  /** Sin texto de botón, el banner no lleva botón */
+  cta_label: string | null;
+  href: string | null;
   image_url: string | null;
   /** Con foto: "media" (foto a un lado) o "completa" (foto de fondo con el texto encima) */
   image_layout?: BannerImageLayout;
   style: BannerStyle;
+  /** Color del estilo "plano" (#rrggbb) */
+  bg_color?: string | null;
+  page?: BannerPage;
+  placement?: BannerPlacement;
   sort_order: number;
   active: boolean;
   created_at: string;

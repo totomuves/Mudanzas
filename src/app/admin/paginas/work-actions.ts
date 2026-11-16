@@ -7,6 +7,12 @@ export type WorkState = { ok?: string; error?: string };
 
 const STORAGE_PREFIX = "/storage/v1/object/public/products/";
 const FALTA_TABLA = "Falta crear la tabla: corre la migración 20261116130000_trabajos_mudanzas.sql en Supabase.";
+const FALTA_PAGINA = "Para poner fotos en la página Mudanzas falta correr la migración 20261116140000_banners_paginas.sql en Supabase.";
+
+/** Página de la galería: conocenos (por defecto) o mudanzas */
+function pageOf(formData: FormData) {
+  return formData.get("page") === "mudanzas" ? "mudanzas" : "conocenos";
+}
 
 function text(formData: FormData, name: string, max: number) {
   return String(formData.get(name) ?? "").trim().slice(0, max);
@@ -22,14 +28,16 @@ function workPath(url: string | null) {
 }
 
 function refresh() {
+  revalidatePath("/mudanzas");
   revalidatePath("/mudanzas/conocenos");
-  revalidatePath("/admin/mudanzas/trabajos");
+  revalidatePath("/admin/paginas");
 }
 
 export async function addWork(_prev: WorkState, formData: FormData): Promise<WorkState> {
   const { supabase } = await requireSection("mudanzas");
   const imageUrl = text(formData, "image_url", 500);
   if (!imageUrl) return { error: "Sube una foto." };
+  const page = pageOf(formData);
   const { data: last } = await supabase
     .from("moving_works")
     .select("sort_order")
@@ -37,12 +45,18 @@ export async function addWork(_prev: WorkState, formData: FormData): Promise<Wor
     .limit(1)
     .maybeSingle();
   const { error } = await supabase.from("moving_works").insert({
+    // Sin la migración de páginas no existe la columna: las fotos de Conócenos se guardan igual
+    ...(page === "mudanzas" ? { page } : {}),
     image_url: imageUrl,
     title: text(formData, "title", 80) || null,
     caption: text(formData, "caption", 140) || null,
     sort_order: (last?.sort_order ?? -1) + 1,
   });
-  if (error) return { error: error.code === "42P01" || error.code === "PGRST205" ? FALTA_TABLA : "No se pudo guardar. Intenta de nuevo." };
+  if (error) {
+    if (error.code === "42P01" || error.code === "PGRST205") return { error: FALTA_TABLA };
+    if (error.code === "42703" || error.code === "PGRST204") return { error: FALTA_PAGINA };
+    return { error: "No se pudo guardar. Intenta de nuevo." };
+  }
   refresh();
   return { ok: "Foto agregada." };
 }
@@ -63,13 +77,15 @@ export async function deleteWork(formData: FormData) {
   refresh();
 }
 
-/** Sube o baja una foto en el orden de la galería (la primera sale grande). */
+/** Sube o baja una foto en el orden de la galería de su página (la primera sale grande). */
 export async function moveWork(formData: FormData) {
   const { supabase } = await requireSection("mudanzas");
   const id = String(formData.get("id"));
   const dir = formData.get("dir") === "up" ? -1 : 1;
-  const { data } = await supabase.from("moving_works").select("id, sort_order").order("sort_order").order("created_at");
-  const list = data ?? [];
+  const query = () => supabase.from("moving_works").select("id, sort_order").order("sort_order").order("created_at");
+  let res = await query().eq("page", pageOf(formData));
+  if (res.error) res = await query();
+  const list = res.data ?? [];
   const i = list.findIndex((w) => w.id === id);
   const j = i + dir;
   if (i < 0 || j < 0 || j >= list.length) return;

@@ -5,6 +5,10 @@ import { brand } from "@/brand";
 import { hasSupabaseEnv } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import { Icon } from "@/components/Icon";
+import { PageBanners } from "@/components/PageBanners";
+import { PhotoGallery, type GalleryPhoto } from "@/components/PhotoGallery";
+import { getPagePhotos, getPageBanners } from "@/lib/data";
+import type { HomeBanner } from "@/lib/types";
 import { FOUNDER, GOOGLE_RATING, GOOGLE_REVIEWS_URL, PROMISES, REVIEWS, SERVICES, VEHICLE } from "@/lib/conocenos";
 
 export const metadata: Metadata = {
@@ -13,21 +17,21 @@ export const metadata: Metadata = {
     "Fletes y mudanzas en Santiago con atención directa, precio conversado antes de salir y una Sprinter cerrada de 10 m³. 5,0 en Google.",
 };
 
-// Se rehace cada 10 minutos (por las fotos de trabajos realizados)
+// Se rehace cada 10 minutos (por las fotos y banners que se editan en /admin/paginas)
 export const revalidate = 600;
 
-type MovingWork = { id: string; image_url: string; title: string | null; caption: string | null };
-
 async function getPageData() {
-  if (!hasSupabaseEnv()) return { works: [] as MovingWork[], whatsapp: null as string | null };
+  if (!hasSupabaseEnv()) return { works: [] as GalleryPhoto[], banners: [] as HomeBanner[], whatsapp: null as string | null };
   const supabase = await createClient();
-  const [works, settings] = await Promise.all([
-    supabase.from("moving_works").select("id, image_url, title, caption").eq("active", true).order("sort_order").order("created_at"),
+  // Si todavía no se corren las migraciones, las tablas no existen: esas secciones simplemente no se muestran
+  const [works, banners, settings] = await Promise.all([
+    getPagePhotos("conocenos"),
+    getPageBanners("conocenos"),
     supabase.from("moving_settings").select("whatsapp").eq("id", 1).maybeSingle(),
   ]);
-  // Si todavía no se corre la migración, la tabla no existe: la sección simplemente no se muestra
   return {
-    works: (works.data ?? []) as MovingWork[],
+    works,
+    banners,
     whatsapp: settings.data?.whatsapp?.replace(/\D/g, "") || null,
   };
 }
@@ -43,7 +47,7 @@ function Stars({ className = "h-4 w-4", color = "text-star" }: { className?: str
 }
 
 export default async function ConocenosPage() {
-  const { works, whatsapp } = await getPageData();
+  const { works, banners, whatsapp } = await getPageData();
   const waHref = whatsapp
     ? `https://wa.me/${whatsapp}?text=${encodeURIComponent(`Hola ${brand.name}, quiero cotizar una mudanza.`)}`
     : null;
@@ -77,6 +81,9 @@ export default async function ConocenosPage() {
           <Image src={VEHICLE.photo} alt={`${VEHICLE.name} de ${brand.name}`} fill priority sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" />
         </div>
       </section>
+
+      {/* Banners de arriba (se editan en /admin/paginas) */}
+      <PageBanners banners={banners} placement="arriba" />
 
       {/* Compromisos */}
       <section className="space-y-5">
@@ -130,36 +137,8 @@ export default async function ConocenosPage() {
         </ul>
       </section>
 
-      {/* Trabajos realizados (se llena desde /admin/mudanzas/trabajos) */}
-      {works.length > 0 && (
-        <section className="space-y-5">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-muted">Trabajos realizados</p>
-            <h2 className="text-2xl font-black">Así trabajamos</h2>
-          </div>
-          <ul className="grid grid-cols-2 gap-3 md:grid-cols-3">
-            {works.map((w, i) => (
-              <li key={w.id} className={i === 0 && works.length > 2 ? "col-span-2 row-span-2" : ""}>
-                <figure className="group relative h-full min-h-40 overflow-hidden rounded-card bg-surface">
-                  <Image
-                    src={w.image_url}
-                    alt={w.title ?? "Trabajo realizado"}
-                    fill
-                    sizes="(max-width: 768px) 50vw, 33vw"
-                    className="object-cover transition duration-500 group-hover:scale-[1.03]"
-                  />
-                  {(w.title || w.caption) && (
-                    <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent p-3 pt-10 text-white">
-                      {w.title && <p className="text-sm font-extrabold">{w.title}</p>}
-                      {w.caption && <p className="text-xs text-white/85">{w.caption}</p>}
-                    </figcaption>
-                  )}
-                </figure>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      {/* Trabajos realizados (se llena desde /admin/paginas) */}
+      <PhotoGallery photos={works} eyebrow="Trabajos realizados" title="Así trabajamos" />
 
       {/* Servicios */}
       <section className="space-y-5">
@@ -233,6 +212,9 @@ export default async function ConocenosPage() {
           Ver la tienda <Icon name="arrow" className="h-4 w-4" strokeWidth={2.2} />
         </Link>
       </section>
+
+      {/* Banners de abajo (se editan en /admin/paginas) */}
+      <PageBanners banners={banners} placement="abajo" />
 
       {/* Cierre */}
       <section className="rounded-card bg-[linear-gradient(120deg,#0b8f86_0%,#3f6fd8_55%,#5b3fe0_100%)] p-6 text-center text-white md:p-12">

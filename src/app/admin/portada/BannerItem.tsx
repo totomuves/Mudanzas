@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import { BannerCard } from "@/components/BannerCard";
-import type { HomeBanner } from "@/lib/types";
+import type { BannerPage, HomeBanner } from "@/lib/types";
 import { BannerForm } from "./BannerForm";
 import { Icon } from "@/components/Icon";
 import { deleteBanner, moveBanner } from "./actions";
 
-export function BannerItem({ banner, first, last }: { banner: HomeBanner; first: boolean; last: boolean }) {
+export function BannerItem({ banner, first, last, page = "portada" }: { banner: HomeBanner; first: boolean; last: boolean; page?: BannerPage }) {
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   return (
@@ -16,14 +16,21 @@ export function BannerItem({ banner, first, last }: { banner: HomeBanner; first:
         <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${banner.active ? "bg-accent/12 text-accent" : "bg-surface text-muted"}`}>
           {banner.active ? "Visible" : "Oculto"}
         </span>
+        {page !== "portada" && (
+          <span className="rounded-full bg-surface px-2.5 py-0.5 text-xs font-bold text-muted">
+            {banner.placement === "abajo" ? "Abajo" : "Arriba"}
+          </span>
+        )}
         <div className="ml-auto flex flex-wrap items-center gap-1 text-sm font-bold">
           <form action={moveBanner}>
             <input type="hidden" name="id" value={banner.id} />
+            <input type="hidden" name="page" value={page} />
             <input type="hidden" name="dir" value="up" />
             <button disabled={first} className="rounded-full px-3 py-1.5 hover:bg-surface disabled:opacity-30" aria-label="Subir"><Icon name="up" className="h-4 w-4" strokeWidth={2.2} /></button>
           </form>
           <form action={moveBanner}>
             <input type="hidden" name="id" value={banner.id} />
+            <input type="hidden" name="page" value={page} />
             <input type="hidden" name="dir" value="down" />
             <button disabled={last} className="rounded-full px-3 py-1.5 hover:bg-surface disabled:opacity-30" aria-label="Bajar"><Icon name="down" className="h-4 w-4" strokeWidth={2.2} /></button>
           </form>
@@ -33,6 +40,7 @@ export function BannerItem({ banner, first, last }: { banner: HomeBanner; first:
           {confirmDelete ? (
             <form action={deleteBanner} className="flex items-center gap-1">
               <input type="hidden" name="id" value={banner.id} />
+              <input type="hidden" name="page" value={page} />
               <button className="rounded-full bg-pass px-3 py-1.5 text-white">Sí, eliminar</button>
               <button type="button" onClick={() => setConfirmDelete(false)} className="rounded-full px-3 py-1.5 hover:bg-surface">No</button>
             </form>
@@ -42,7 +50,7 @@ export function BannerItem({ banner, first, last }: { banner: HomeBanner; first:
         </div>
       </div>
       {editing ? (
-        <BannerForm banner={banner} onDone={() => setEditing(false)} />
+        <BannerForm banner={banner} page={page} onDone={() => setEditing(false)} />
       ) : (
         <div className={banner.active ? "" : "opacity-50"}>
           <BannerCard banner={banner} />

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { hasSupabaseEnv } from "@/lib/env";
 import { requireSection } from "@/lib/admin";
 import { SetupNotice } from "@/components/SetupNotice";
@@ -14,7 +15,11 @@ export const metadata: Metadata = { title: "Portada" };
 export default async function PortadaAdminPage() {
   if (!hasSupabaseEnv()) return <SetupNotice />;
   const { supabase } = await requireSection("portada");
-  const { data, error } = await supabase.from("home_banners").select("*").order("sort_order").order("created_at");
+  const query = () => supabase.from("home_banners").select("*").order("sort_order").order("created_at");
+  let res = await query().eq("page", "portada");
+  // Sin la migración de páginas no existe la columna: todos los banners son de la portada
+  if (res.error && (res.error.code === "42703" || res.error.code === "PGRST204" || res.error.code === "PGRST100")) res = await query();
+  const { data, error } = res;
   const banners = (data ?? []) as HomeBanner[];
   const [categories, phrasesRes] = await Promise.all([
     getCategories(),
@@ -28,6 +33,10 @@ export default async function PortadaAdminPage() {
         <p className="text-muted">
           Son los recuadros grandes del inicio. Si hay más de uno, se deslizan de lado. Úsalos para anunciar productos nuevos,
           una categoría o un servicio.
+        </p>
+        <p className="text-sm text-muted">
+          Los banners y fotos de las páginas Mudanzas y Conócenos se editan en{" "}
+          <Link href="/admin/paginas" className="font-bold underline underline-offset-4">Banners y fotos de páginas</Link>.
         </p>
       </div>
 
