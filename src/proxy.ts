@@ -7,7 +7,7 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Todo menos archivos estáticos, imágenes y el webhook de pagos
-    "/((?!_next/static|_next/image|favicon.ico|icons/|sw.js|manifest.webmanifest|api/mercadopago|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // Todo menos archivos estáticos, imágenes, el webhook de pagos y lo que leen buscadores y catálogos
+    "/((?!_next/static|_next/image|favicon.ico|icons/|sw.js|manifest.webmanifest|robots.txt|sitemap.xml|feeds/|og$|api/mercadopago|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

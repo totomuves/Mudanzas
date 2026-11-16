@@ -3,16 +3,19 @@
 import { useActionState, useState } from "react";
 import { formatCLP } from "@/lib/format";
 import { Icon } from "@/components/Icon";
+import { trackEvent } from "@/lib/marketing/track";
 import { startCheckout, type CheckoutState } from "./actions";
 
 export function CheckoutForm({
   productId,
+  productTitle,
   unitPrice,
   maxQuantity,
   shippingRates,
   deliveryInfo,
 }: {
   productId: string;
+  productTitle?: string;
   unitPrice: number;
   maxQuantity: number;
   shippingRates: { comuna: string; price: number }[];
@@ -32,7 +35,16 @@ export function CheckoutForm({
   const minShipping = canShip ? Math.min(...shippingRates.map((r) => r.price)) : 0;
 
   return (
-    <form action={action} className="space-y-4">
+    <form
+      action={action}
+      onSubmit={() =>
+        trackEvent("begin_checkout", {
+          items: [{ id: productId, name: productTitle ?? "Producto", price: unitPrice, quantity }],
+          value: total,
+        })
+      }
+      className="space-y-4"
+    >
       <input type="hidden" name="productId" value={productId} />
       <input type="hidden" name="quantity" value={quantity} />
       {maxQuantity > 1 && (

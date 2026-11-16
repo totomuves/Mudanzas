@@ -14,6 +14,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { proofUrls } from "@/lib/routing/operations";
 import { getDeliverySettings } from "@/lib/routing/planner";
 import { slotLabel } from "@/lib/delivery";
+import { TrackPurchase } from "@/components/marketing/TrackEvent";
 
 export const metadata: Metadata = { title: "Tu pedido" };
 
@@ -87,6 +88,22 @@ export default async function PedidoPage({ params, searchParams }: PageProps<"/p
 
   return (
     <div className="mx-auto max-w-md space-y-5 text-center">
+      {/* Compras del carrito se miden en /compra (una vez por pago) */}
+      {order.status === "paid" && !order.checkout_id && (
+        <TrackPurchase
+          transactionId={order.id}
+          value={order.amount}
+          shipping={order.shipping_amount ?? 0}
+          items={[
+            {
+              id: order.product_id,
+              name: order.products?.title ?? "Producto",
+              quantity: order.quantity,
+              price: Math.round((order.amount - (order.shipping_amount ?? 0)) / Math.max(1, order.quantity)),
+            },
+          ]}
+        />
+      )}
       <div className={`animate-pop flex justify-center ${s.color}`}>
         <Icon name={s.icon} className="h-16 w-16" strokeWidth={1.4} />
       </div>

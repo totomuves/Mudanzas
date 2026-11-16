@@ -8,6 +8,10 @@ export const brand = {
   name: process.env.NEXT_PUBLIC_APP_NAME || "MUVEO",
   /** Frase corta para buscadores y la app instalada */
   description: "Muebles, electro y tesoros a precios bajísimos. Desliza, elige y compra.",
+  /** Segunda parte del título en Google y al compartir el link: "MUVEO · …" */
+  seoTitle: "Muebles y electro a precios bajísimos en Santiago",
+  /** Palabras clave (pesan poco en Google, pero ayudan a otros buscadores) */
+  keywords: ["muebles baratos", "muebles usados", "electrodomésticos baratos", "outlet muebles", "segunda mano Santiago", "decoración barata", "MUVEO"],
   /** Textos de la portada */
   hero: {
     /** Texto del banner por defecto. El título grande de la portada sale de src/lib/phrases.ts */

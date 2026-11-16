@@ -7,6 +7,7 @@ import { Icon } from "@/components/Icon";
 import { ProductImage } from "@/components/ProductImage";
 import { removeFromCart, setCartQty, writeCart } from "@/lib/cart";
 import { useCart } from "@/components/cart/useCart";
+import { trackEvent } from "@/lib/marketing/track";
 import { loadCart, startCartCheckout, type CartCheckoutState, type CartView } from "./actions";
 
 const noop = () => () => {};
@@ -138,7 +139,16 @@ export function CartScreen({ shippingRates }: { shippingRates: { comuna: string;
       )}
 
       {ready.length > 0 && (
-        <form action={action} className="space-y-4">
+        <form
+          action={action}
+          onSubmit={() =>
+            trackEvent("begin_checkout", {
+              items: ready.map((l) => ({ id: l.id, name: l.title, price: l.unitPrice, quantity: l.qty })),
+              value: total,
+            })
+          }
+          className="space-y-4"
+        >
           <input type="hidden" name="items" value={payload} />
           <h2 className="text-xl font-black">Tus datos</h2>
           <Field label="Nombre" name="name" autoComplete="name" required />

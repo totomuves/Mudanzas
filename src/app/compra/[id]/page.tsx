@@ -11,6 +11,7 @@ import { Icon, type IconName } from "@/components/Icon";
 import { formatDeliveryDate } from "@/lib/delivery";
 import type { Checkout, Order, Product } from "@/lib/types";
 import { ClearPurchased } from "./ClearPurchased";
+import { TrackPurchase } from "@/components/marketing/TrackEvent";
 
 export const metadata: Metadata = { title: "Tu compra" };
 
@@ -62,6 +63,19 @@ export default async function CompraPage({ params, searchParams }: PageProps<"/c
   return (
     <div className="mx-auto max-w-md space-y-5">
       {checkout.status === "paid" && <ClearPurchased productIds={orders.map((o) => o.product_id)} />}
+      {checkout.status === "paid" && (
+        <TrackPurchase
+          transactionId={checkout.id}
+          value={checkout.amount}
+          shipping={checkout.shipping_amount}
+          items={orders.map((o) => ({
+            id: o.product_id,
+            name: o.products?.title ?? "Producto",
+            quantity: o.quantity,
+            price: Math.round((o.amount - (o.shipping_amount ?? 0)) / Math.max(1, o.quantity)),
+          }))}
+        />
+      )}
       <div className="space-y-3 text-center">
         <div className={`animate-pop flex justify-center ${s.color}`}>
           <Icon name={s.icon} className="h-16 w-16" strokeWidth={1.4} />

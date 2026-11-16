@@ -56,6 +56,7 @@ export default async function ComprarPage({ params }: PageProps<"/comprar/[id]">
       </div>
       <CheckoutForm
         productId={product.id}
+        productTitle={product.title}
         unitPrice={currentPrice(product)}
         maxQuantity={Math.min(10, product.available_units ?? product.quantity)}
         shippingRates={shippingRates}
