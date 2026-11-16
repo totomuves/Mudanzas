@@ -34,4 +34,26 @@ export const brand = {
    */
   themeColor: "#ffffff",
   backgroundColor: "#ffffff",
+  /**
+   * Datos de la empresa para las páginas de ayuda y legales (/contacto,
+   * /privacidad, /terminos, /devoluciones, /envios). Lo que quede vacío no se muestra.
+   */
+  legal: {
+    /** Razón social, ej. "Muveo SpA" */
+    companyName: "",
+    /** RUT de la empresa, ej. "77.123.456-7" */
+    rut: "",
+    /** Dirección de la bodega u oficina (para retiros y avisos legales) */
+    address: "",
+    city: "Santiago",
+    email: "hola@muveo.cl",
+    /** WhatsApp con código de país, ej. "+56912345678". Vacío = se usa el del admin. */
+    whatsapp: "",
+    /** Horario de atención */
+    hours: "Lunes a sábado, 9:00 a 18:00",
+    /** Días corridos para arrepentirse de una compra (derecho a retracto) */
+    returnDays: 10,
+    /** Fecha de la última actualización de las políticas */
+    updatedAt: "16 de noviembre de 2026",
+  },
 };
