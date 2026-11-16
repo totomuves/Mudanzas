@@ -10,6 +10,7 @@ import { PICKUP_FIELDS, signedPaths, type PickupRow } from "@/lib/routing/operat
 import { brand } from "@/brand";
 import { acceptRequest, cancelPickup, movePickup, rejectRequest } from "@/app/reparto/retiros/actions";
 import { PickupForm, PlanMineForm } from "./PickupForms";
+import { RouteMap, type MapRoute, type MapStop } from "@/components/RouteMap";
 
 const STATUS: Record<PickupRow["status"], { tone: StatusTone; label: string }> = {
   solicitado: { tone: "warn", label: "Por revisar" },
@@ -73,6 +74,22 @@ export async function PickupsBoard({ fecha, tabs, driverMode, canReview }: { fec
     const l = orderLoad(p);
     return { kg: a.kg + l.kg, m3: a.m3 + l.m3 };
   }, { kg: 0, m3: 0 });
+  // Mapa del día: retiros con ruta en su orden y color; los sin ruta, en gris y sin línea
+  const mapPoints = pickups.filter((p) => p.lat != null && p.lng != null && p.status !== "rechazado" && p.status !== "solicitado");
+  const byRoute = new Map<string, { color: string; stops: MapStop[] }>();
+  const loose: MapStop[] = [];
+  mapPoints.forEach((p, i) => {
+    const st = stopOf.get(p.id);
+    const stop: MapStop = { lat: p.lat!, lng: p.lng!, seq: st?.seq ?? i + 1, title: `${p.items} · ${p.comuna ?? ""}`, status: p.status === "retirado" ? "entregado" : p.status };
+    if (!st) return void loose.push(stop);
+    const r = byRoute.get(st.route_id) ?? { color: st.delivery_routes.color, stops: [] };
+    r.stops.push(stop);
+    byRoute.set(st.route_id, r);
+  });
+  const mapRoutes: MapRoute[] = [
+    ...[...byRoute].map(([id, r]) => ({ id, color: r.color, stops: r.stops.sort((a, b) => a.seq - b.seq) })),
+    ...(loose.length ? [{ id: "sin-ruta", color: "#8a8a8a", stops: loose, noLine: true }] : []),
+  ];
   const slots = (["cualquiera", "manana", "tarde"] as DeliverySlot[]).map((v) => ({ value: v, label: slotLabel(v, settings) }));
 
   return (
@@ -162,6 +179,14 @@ export async function PickupsBoard({ fecha, tabs, driverMode, canReview }: { fec
             <Stat label="Volumen" value={`${load.m3.toFixed(1)} m³`} />
             <Stat label="Peso" value={`${Math.round(load.kg)} kg`} />
           </section>
+
+          {mapPoints.length > 0 && (
+            <RouteMap
+              className="h-72"
+              depot={settings.depot_lat != null && settings.depot_lng != null ? { lat: settings.depot_lat, lng: settings.depot_lng } : null}
+              routes={mapRoutes}
+            />
+          )}
 
           {driverMode && (
             <PlanMineForm
