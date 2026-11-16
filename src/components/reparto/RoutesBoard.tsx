@@ -10,7 +10,7 @@ import {
   whatsappLink, type DeliverySlot, type Vehicle,
 } from "@/lib/delivery";
 import { getDeliverySettings } from "@/lib/routing/planner";
-import { STOP_SELECT, type RouteRow, type StopOrder, type StopRow } from "@/lib/routing/operations";
+import { STOP_SELECT, normalizeStops, type RouteRow, type StopOrder, type StopRow } from "@/lib/routing/operations";
 import { SANTIAGO_CENTER } from "@/lib/routing/geo";
 import type { PlanState } from "@/lib/routing/manage";
 import { PlanForm } from "./PlanForm";
@@ -92,8 +92,14 @@ export async function RoutesBoard({
   const { data: stopsData } = routes.length
     ? await db.from("route_stops").select(STOP_SELECT).in("route_id", routes.map((r) => r.id)).order("seq")
     : { data: [] };
-  const stops = (stopsData ?? []) as unknown as StopRow[];
+  const stops = normalizeStops<StopRow>(stopsData);
   const planned = new Set(stops.map((s) => s.order_id));
+  // Retiros del día (lo que regalan los clientes): solo en las rutas de MUVEO
+  const { data: dayPickups } = sellerId
+    ? { data: [] }
+    : await db.from("pickups").select("id").eq("pickup_date", selected).in("status", ["pendiente", "fallido"]);
+  const plannedPickups = new Set(stops.map((s) => s.pickup_id).filter(Boolean));
+  const pickupsWithoutRoute = (dayPickups ?? []).filter((p) => !plannedPickups.has(p.id as string)).length;
   const pendingOrders = ((dayOrders ?? []) as unknown as Order[]).filter((o) => !planned.has(o.id));
   const backlog = (noDate ?? []) as unknown as Order[];
 
@@ -144,7 +150,7 @@ export async function RoutesBoard({
         <Stat label="Pedidos del día" value={String((dayOrders ?? []).length + backlog.length)} hint={backlog.length ? `${backlog.length} sin fecha se suman` : `${pendingOrders.length} sin ruta`} />
         <Stat label="Volumen" value={`${load.m3.toFixed(1)} m³`} hint={fleet.m3 ? `${Math.round((load.m3 / fleet.m3) * 100)}% de la flota` : "Sin vehículos"} />
         <Stat label="Peso" value={`${Math.round(load.kg)} kg`} hint={fleet.kg ? `${Math.round((load.kg / fleet.kg) * 100)}% de la flota` : ""} />
-        <Stat label="Rutas" value={String(routes.length)} hint={`${stops.filter((s) => s.status === "entregado").length} de ${stops.length} entregados`} />
+        <Stat label="Rutas" value={String(routes.length)} hint={`${stops.filter((s) => s.status === "entregado").length} de ${stops.length} listas${(dayPickups ?? []).length ? ` · ${(dayPickups ?? []).length} retiros` : ""}`} />
       </section>
 
       <div className="flex flex-wrap items-start gap-3">
@@ -189,7 +195,7 @@ export async function RoutesBoard({
                     {v?.name ?? "Vehículo borrado"} <span className="text-sm font-bold text-muted">{v ? VEHICLE_KINDS[v.kind]?.label : ""}{v?.plate ? ` · ${v.plate}` : ""}</span>
                   </p>
                   <p className="text-sm text-muted">
-                    {rs.length} entregas · {(r.planned_distance_m / 1000).toFixed(1)} km · {r.planned_start ? formatTime(r.planned_start) : "—"} a {r.planned_end ? formatTime(r.planned_end) : "—"}
+                    {rs.filter((s) => s.kind === "entrega").length} entregas{rs.some((s) => s.kind === "retiro") ? ` y ${rs.filter((s) => s.kind === "retiro").length} retiros` : ""} · {(r.planned_distance_m / 1000).toFixed(1)} km · {r.planned_start ? formatTime(r.planned_start) : "—"} a {r.planned_end ? formatTime(r.planned_end) : "—"}
                   </p>
                   <p className="text-sm"><StatusDot {...ROUTE_STATUS[r.status]} /></p>
                 </div>
@@ -223,12 +229,15 @@ export async function RoutesBoard({
               <ol className="divide-y divide-border">
                 {rs.map((s) => {
                   const o = s.orders;
-                  const wa = whatsappLink(o.buyer_phone, `Hola ${o.buyer_name.split(" ")[0]}, te escribimos de ${brand.name}: tu pedido "${o.products?.title}" llega el ${formatDeliveryDate(selected)} entre las ${s.window_start ? formatTime(s.window_start) : ""} y las ${s.window_end ? formatTime(s.window_end) : ""}.`);
+                  const pickup = s.kind === "retiro";
+                  const wa = pickup
+                    ? whatsappLink(o.buyer_phone, `Hola ${o.buyer_name.split(" ")[0]}, te escribimos de ${brand.name}: pasamos a retirar ${o.products?.title} el ${formatDeliveryDate(selected)} entre las ${s.window_start ? formatTime(s.window_start) : ""} y las ${s.window_end ? formatTime(s.window_end) : ""}.`)
+                    : whatsappLink(o.buyer_phone, `Hola ${o.buyer_name.split(" ")[0]}, te escribimos de ${brand.name}: tu pedido "${o.products?.title}" llega el ${formatDeliveryDate(selected)} entre las ${s.window_start ? formatTime(s.window_start) : ""} y las ${s.window_end ? formatTime(s.window_end) : ""}.`);
                   return (
                     <li key={s.id} className="flex gap-3 py-2 text-sm">
                       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-black text-white" style={{ background: s.status === "fallido" ? "var(--pass)" : r.color }}>{s.seq}</span>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate font-bold">{o.products?.title}{o.quantity > 1 ? ` × ${o.quantity}` : ""} <span className="font-normal text-muted">· {SIZES[orderLoad(o.products ?? {}).size].label}</span></p>
+                        <p className="truncate font-bold">{pickup && <span className="mr-1 rounded bg-foreground px-1.5 py-0.5 text-[10px] font-black uppercase text-background">Retiro</span>}{o.products?.title}{o.quantity > 1 ? ` × ${o.quantity}` : ""} <span className="font-normal text-muted">· {SIZES[orderLoad(o.products ?? {}).size].label}</span></p>
                         <p className="truncate text-muted">{o.buyer_name} · {o.address}</p>
                         <p className="text-xs text-muted">
                           Llega {s.eta ? formatTime(s.eta) : "—"} · ventana {s.window_start ? formatTime(s.window_start) : ""}–{s.window_end ? formatTime(s.window_end) : ""} · {slotLabel((o.delivery_slot ?? "cualquiera") as DeliverySlot, settings).split(" (")[0]}
@@ -236,8 +245,10 @@ export async function RoutesBoard({
                         {s.failure_reason && <p className="text-xs font-bold text-pass">{s.failure_reason}</p>}
                       </div>
                       <div className="flex shrink-0 flex-col items-end gap-1 text-xs">
-                        <StatusDot {...STOP_STATUS[s.status]} />
-                        {s.status === "entregado" ? (
+                        <StatusDot {...(pickup && s.status === "entregado" ? { tone: "ok" as const, label: "Retirado" } : pickup && s.status === "fallido" ? { tone: "bad" as const, label: "No retirado" } : STOP_STATUS[s.status])} />
+                        {pickup ? (
+                          <Link href={`/reparto/parada/${s.id}`} className="font-bold text-brand">{s.status === "entregado" ? "Fotos y firma" : "Ver"}</Link>
+                        ) : s.status === "entregado" ? (
                           <a href={`/api/entregas/${o.id}/comprobante`} className="font-bold text-brand">PDF</a>
                         ) : (
                           <>
@@ -258,6 +269,12 @@ export async function RoutesBoard({
           );
         })}
       </div>
+
+      {pickupsWithoutRoute > 0 && (
+        <p className="rounded-2xl bg-surface p-4 text-sm">
+          <b>{pickupsWithoutRoute} retiro{pickupsWithoutRoute === 1 ? "" : "s"} sin ruta.</b> Se suman al planificar este día (mezclados con las entregas si conviene). <Link href={`/admin/despacho/retiros?fecha=${selected}`} className="font-bold underline">Ver retiros</Link>
+        </p>
+      )}
 
       {(pendingOrders.length > 0 || backlog.length > 0) && (
         <section className="space-y-2">

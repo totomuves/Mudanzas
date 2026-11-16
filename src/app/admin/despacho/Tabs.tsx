@@ -4,6 +4,7 @@ import { Icon, type IconName } from "@/components/Icon";
 type Tab = { href: string; label: string; icon: IconName };
 const TABS: Tab[] = [
   { href: "/admin/despacho/rutas", label: "Rutas del día", icon: "route" },
+  { href: "/admin/despacho/retiros", label: "Retiros", icon: "boxOpen" },
   { href: "/admin/despacho/ajustes", label: "Vehículos y horarios", icon: "truck" },
   { href: "/admin/despacho", label: "Precios por comuna", icon: "pin" },
 ];

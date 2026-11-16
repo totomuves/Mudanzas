@@ -61,7 +61,33 @@ type PlanOrder = {
   buyer_name: string;
   checkout_id?: string | null;
   products: { title: string; size: string | null; category_slug: string; weight_kg: number | null; volume_m3: number | null } | null;
+  /** Retiro (lo que regalan los clientes) en vez de pedido. */
+  pickup?: boolean;
 };
+
+const PICKUP_PLAN_FIELDS = "id, address, comuna, slot, lat, lng, contact_name, items, size, weight_kg, volume_m3";
+type PickupPlanRow = {
+  id: string; address: string; comuna: string | null; slot: string; lat: number | null; lng: number | null;
+  contact_name: string; items: string; size: string | null; weight_kg: number | null; volume_m3: number | null;
+};
+/** Un retiro con la forma de un pedido para el planificador. */
+function pickupJob(p: PickupPlanRow): PlanOrder {
+  return {
+    id: p.id, user_id: null, product_id: "", quantity: 1,
+    address: p.comuna && !p.address.includes(p.comuna) ? `${p.address}, ${p.comuna}` : p.address,
+    comuna: p.comuna, delivery_slot: (p.slot as DeliverySlot) ?? "cualquiera", lat: p.lat, lng: p.lng,
+    buyer_name: p.contact_name, checkout_id: null,
+    products: { title: p.items, size: p.size, category_slug: "", weight_kg: p.weight_kg, volume_m3: p.volume_m3 },
+    pickup: true,
+  };
+}
+
+/** Retiros pendientes de un día (solo MUVEO). [] si aún no existe la tabla. */
+async function pickupsOfDay(db: Db, date: string, exclude: Set<string>) {
+  const { data, error } = await db.from("pickups").select(PICKUP_PLAN_FIELDS).eq("pickup_date", date).in("status", ["pendiente", "fallido"]);
+  if (error) return [];
+  return ((data ?? []) as PickupPlanRow[]).filter((p) => !exclude.has(p.id)).map(pickupJob);
+}
 
 const ORDER_FIELDS = "id, user_id, product_id, quantity, address, comuna, delivery_slot, lat, lng, buyer_name, checkout_id, products(title, size, category_slug, weight_kg, volume_m3)";
 
@@ -72,7 +98,7 @@ const ORDER_FIELDS = "id, user_id, product_id, quantity, address, comuna, delive
 function groupByCheckout<T extends { id: string; checkout_id?: string | null }>(orders: T[]) {
   const groups = new Map<string, T[]>();
   for (const o of orders) {
-    const k = o.checkout_id ? `c:${o.checkout_id}` : o.id;
+    const k = o.checkout_id && !(o as { pickup?: boolean }).pickup ? `c:${o.checkout_id}` : o.id;
     const g = groups.get(k);
     if (g) g.push(o);
     else groups.set(k, [o]);
@@ -98,7 +124,7 @@ async function locateOrders(db: Db, orders: PlanOrder[]) {
     const p = await geocode((o.address ?? "").trim() || (o.comuna ?? ""), o.comuna);
     o.lat = p.lat;
     o.lng = p.lng;
-    await db.from("orders").update({ lat: p.lat, lng: p.lng, geo_source: p.source }).eq("id", o.id);
+    await db.from(o.pickup ? "pickups" : "orders").update({ lat: p.lat, lng: p.lng, geo_source: p.source }).eq("id", o.id);
   }
 }
 
@@ -120,6 +146,8 @@ export type PlanSummary = {
   date: string;
   routes: number;
   stops: number;
+  /** Cuántas de las paradas son retiros. */
+  pickups: number;
   unassigned: { orderId: string; title: string; reason: string }[];
   source: "google" | "estimado";
   distanceKm: number;
@@ -135,11 +163,13 @@ export async function planDeliveryDay(date: string, sellerId: SellerScope = null
   const db = createAdminClient();
   const [settings, vehicles] = await Promise.all([getDeliverySettings(db, sellerId), getVehicles(db, true, sellerId)]);
 
-  let routesQ = db.from("delivery_routes").select("id, status, vehicle_id, route_stops(order_id)").eq("delivery_date", date);
+  let routesQ = db.from("delivery_routes").select("id, status, vehicle_id, route_stops(*)").eq("delivery_date", date);
   routesQ = sellerId ? routesQ.eq("seller_id", sellerId) : routesQ.is("seller_id", null);
   const { data: existing } = await routesQ;
   const locked = (existing ?? []).filter((r) => r.status === "en_curso" || r.status === "terminada");
-  const lockedOrders = new Set(locked.flatMap((r) => (r.route_stops as { order_id: string }[]).map((s) => s.order_id)));
+  const lockedStops = locked.flatMap((r) => r.route_stops as { order_id: string | null; pickup_id?: string | null }[]);
+  const lockedOrders = new Set(lockedStops.map((s) => s.order_id).filter(Boolean) as string[]);
+  const lockedPickups = new Set(lockedStops.map((s) => s.pickup_id).filter(Boolean) as string[]);
   const busyVehicles = new Set(locked.map((r) => r.vehicle_id).filter(Boolean));
   const replace = (existing ?? []).filter((r) => r.status === "borrador" || r.status === "publicada").map((r) => r.id);
 
@@ -164,19 +194,95 @@ export async function planDeliveryDay(date: string, sellerId: SellerScope = null
     .is("delivered_at", null);
   ordersQ = sellerId ? ordersQ.eq("seller_id", sellerId) : ordersQ.is("seller_id", null);
   const { data: rows } = await ordersQ;
-  const orders = ((rows ?? []) as unknown as PlanOrder[]).filter((o) => !lockedOrders.has(o.id));
+  const deliveries = ((rows ?? []) as unknown as PlanOrder[]).filter((o) => !lockedOrders.has(o.id));
+  // Los retiros (lo que regalan los clientes) van en las rutas de MUVEO, mezclados si conviene
+  const pickups = sellerId ? [] : await pickupsOfDay(db, date, lockedPickups);
+  const orders = [...deliveries, ...pickups];
 
-  // Las paradas viejas de estos pedidos (de otro día o de un intento fallido) se reemplazan
-  if (orders.length) await db.from("route_stops").delete().in("order_id", orders.map((o) => o.id));
+  // Las paradas viejas (de otro día o de un intento fallido) se reemplazan
+  if (deliveries.length) await db.from("route_stops").delete().in("order_id", deliveries.map((o) => o.id));
+  if (pickups.length) await db.from("route_stops").delete().in("pickup_id", pickups.map((o) => o.id));
   if (replace.length) await db.from("delivery_routes").delete().in("id", replace);
 
   const fleet = vehicles.filter((v) => !busyVehicles.has(v.id));
-  const empty: PlanSummary = { date, routes: 0, stops: 0, unassigned: [], source: "estimado", distanceKm: 0, iterations: 0, ms: 0 };
+  const empty: PlanSummary = { date, routes: 0, stops: 0, pickups: 0, unassigned: [], source: "estimado", distanceKm: 0, iterations: 0, ms: 0 };
   if (!orders.length) return empty;
   if (!fleet.length) {
     return { ...empty, unassigned: orders.map((o) => ({ orderId: o.id, title: o.products?.title ?? "Pedido", reason: "No hay vehículos disponibles" })) };
   }
 
+  return optimizeAndSave(db, {
+    date, sellerId, settings, fleet, orders,
+    fixedCost: (v) => (settings.balance_routes ? 0 : 6000 + v.cost_per_km * 10),
+    balance: settings.balance_routes,
+    status: "borrador",
+    driverFor: (v) => v.driver_id,
+    pickupsOnly: false,
+  });
+}
+
+/**
+ * Ruta de retiros que arma el propio chofer: toma los retiros del día que
+ * aún no van en otra ruta y los ordena para su vehículo. Queda lista para salir.
+ */
+export async function planPickupRoute(date: string, driverId: string, vehicleId?: string | null): Promise<PlanSummary & { routeId?: string }> {
+  const db = createAdminClient();
+  const [settings, vehicles] = await Promise.all([getDeliverySettings(db, null), getVehicles(db, true, null)]);
+  const empty: PlanSummary = { date, routes: 0, stops: 0, pickups: 0, unassigned: [], source: "estimado", distanceKm: 0, iterations: 0, ms: 0 };
+
+  const { data: existing } = await db
+    .from("delivery_routes")
+    .select("id, status, driver_id, pickups_only, vehicle_id, route_stops(pickup_id)")
+    .eq("delivery_date", date)
+    .is("seller_id", null);
+  // Solo rehace su propia ruta de retiros si aún no sale; los demás retiros ya tienen ruta
+  const mine = (existing ?? []).filter((r) => r.pickups_only && r.driver_id === driverId && (r.status === "borrador" || r.status === "publicada"));
+  const mineIds = new Set(mine.map((r) => r.id));
+  const taken = new Set(
+    (existing ?? []).filter((r) => !mineIds.has(r.id)).flatMap((r) => (r.route_stops as { pickup_id: string | null }[]).map((s) => s.pickup_id).filter(Boolean) as string[]),
+  );
+  const pickups = await pickupsOfDay(db, date, taken);
+  if (mine.length) await db.from("delivery_routes").delete().in("id", [...mineIds]);
+  if (!pickups.length) return empty;
+
+  const busy = new Set((existing ?? []).filter((r) => !mineIds.has(r.id) && r.status === "en_curso").map((r) => r.vehicle_id));
+  const free = vehicles.filter((v) => !busy.has(v.id));
+  const vehicle =
+    free.find((v) => v.id === vehicleId) ??
+    free.find((v) => v.driver_id === driverId) ??
+    [...free].sort((a, b) => Number(b.capacity_m3) - Number(a.capacity_m3))[0];
+  if (!vehicle) {
+    return { ...empty, unassigned: pickups.map((o) => ({ orderId: o.id, title: o.products?.title ?? "Retiro", reason: "No hay vehículos disponibles" })) };
+  }
+  await db.from("route_stops").delete().in("pickup_id", pickups.map((o) => o.id));
+
+  return optimizeAndSave(db, {
+    date, sellerId: null, settings, fleet: [vehicle], orders: pickups,
+    fixedCost: () => 0,
+    balance: false,
+    status: "publicada",
+    driverFor: () => driverId,
+    pickupsOnly: true,
+  });
+}
+
+/** Ubica, optimiza y guarda las rutas (compartido por el plan del día y la ruta de retiros). */
+async function optimizeAndSave(
+  db: Db,
+  p: {
+    date: string;
+    sellerId: SellerScope;
+    settings: DeliverySettings;
+    fleet: Vehicle[];
+    orders: PlanOrder[];
+    fixedCost: (v: Vehicle) => number;
+    balance: boolean;
+    status: "borrador" | "publicada";
+    driverFor: (v: Vehicle) => string | null;
+    pickupsOnly: boolean;
+  },
+): Promise<PlanSummary & { routeId?: string }> {
+  const { date, sellerId, settings, fleet, orders } = p;
   await locateOrders(db, orders);
   const depot = await depotPoint(db, settings, sellerId);
   // Una parada por dirección de compra (los productos de un mismo carrito llegan juntos)
@@ -193,6 +299,7 @@ export async function planDeliveryDay(date: string, sellerId: SellerScope = null
     return {
       id: o.id, node: i + 1, kg: load.kg, m3: load.m3, sizeRank: load.rank,
       service: (settings.service_minutes + load.serviceMin) * 60, twStart: tw[0], twEnd: tw[1],
+      pickup: Boolean(o.pickup),
     };
   });
   const optVehicles: OptVehicle[] = fleet.map((v) => ({
@@ -206,18 +313,19 @@ export async function planDeliveryDay(date: string, sellerId: SellerScope = null
     startNode: 0,
     endNode: 0,
     // Usar un vehículo más tiene un costo fijo: prefiere juntar pedidos si alcanza
-    fixedCost: settings.balance_routes ? 0 : 6000 + v.cost_per_km * 10,
+    fixedCost: p.fixedCost(v),
   }));
 
   const result = optimizeRoutes(stops, optVehicles, matrix, {
     timeLimitMs: Math.min(8000, 1500 + groups.length * 120),
-    balance: settings.balance_routes,
+    balance: p.balance,
     seed: Number(date.replace(/-/g, "")),
   });
 
   const byId = new Map(orders.map((o) => [o.id, o]));
   const groupOf = new Map(groups.map((g) => [g[0].id, g]));
   let distance = 0;
+  let routeId: string | undefined;
   for (const [i, r] of result.routes.entries()) {
     const v = fleet.find((x) => x.id === r.vehicleId)!;
     distance += r.distance;
@@ -227,9 +335,11 @@ export async function planDeliveryDay(date: string, sellerId: SellerScope = null
         delivery_date: date,
         seller_id: sellerId,
         vehicle_id: v.id,
-        driver_id: v.driver_id,
-        status: "borrador",
-        color: ROUTE_COLORS[i % ROUTE_COLORS.length],
+        driver_id: p.driverFor(v),
+        status: p.status,
+        ...(p.status === "publicada" ? { published_at: new Date().toISOString() } : {}),
+        ...(p.pickupsOnly ? { pickups_only: true } : {}),
+        color: ROUTE_COLORS[((p.pickupsOnly ? 3 : 0) + i) % ROUTE_COLORS.length],
         planned_start: santiagoToDate(date, r.departure).toISOString(),
         planned_end: santiagoToDate(date, r.end).toISOString(),
         planned_distance_m: Math.round(r.distance),
@@ -241,6 +351,7 @@ export async function planDeliveryDay(date: string, sellerId: SellerScope = null
       .select("id")
       .single();
     if (error || !route) throw new Error(error?.message ?? "No se pudo guardar la ruta");
+    routeId ??= route.id as string;
     const stopRows = r.visits.flatMap((vis, k) => {
       const g = groupOf.get(vis.id)!;
       const tw = slotWindow((g[0].delivery_slot ?? "cualquiera") as DeliverySlot, settings);
@@ -248,7 +359,7 @@ export async function planDeliveryDay(date: string, sellerId: SellerScope = null
       // Todos los pedidos de la compra comparten parada (mismo número, hora y ventana)
       return g.map((o, j) => ({
         route_id: route.id,
-        order_id: o.id,
+        ...(o.pickup ? { pickup_id: o.id } : { order_id: o.id }),
         seq: k + 1,
         eta: santiagoToDate(date, vis.start).toISOString(),
         window_start: santiagoToDate(date, ws).toISOString(),
@@ -260,12 +371,19 @@ export async function planDeliveryDay(date: string, sellerId: SellerScope = null
     if (e2) throw new Error(e2.message);
   }
 
+  const planned = new Set(result.routes.flatMap((r) => r.visits.map((v) => v.id)));
   return {
     date,
+    routeId,
     routes: result.routes.length,
     stops: result.routes.reduce((a, r) => a + r.visits.length, 0),
+    pickups: orders.filter((o) => o.pickup && planned.has(o.id)).length,
     unassigned: result.unassigned.flatMap((u) =>
-      (groupOf.get(u.id) ?? [byId.get(u.id)!]).map((o) => ({ orderId: o.id, title: o?.products?.title ?? "Pedido", reason: u.reason })),
+      (groupOf.get(u.id) ?? [byId.get(u.id)!]).map((o) => ({
+        orderId: o.id,
+        title: `${o?.pickup ? "Retiro: " : ""}${o?.products?.title ?? "Pedido"}`,
+        reason: u.reason,
+      })),
     ),
     source: matrix.source,
     distanceKm: Math.round(distance / 100) / 10,
@@ -331,10 +449,13 @@ export async function reoptimizeRoute(routeId: string, from: Point | null) {
   const settings = await getDeliverySettings(db, sellerId);
   const { data: rows } = await db
     .from("route_stops")
-    .select(`id, seq, status, window_start, window_end, delivered_lat, delivered_lng, delivered_at, orders(${ORDER_FIELDS}, delivery_date)`)
+    .select(`id, seq, status, window_start, window_end, delivered_lat, delivered_lng, delivered_at, orders(${ORDER_FIELDS}, delivery_date), pickups(${PICKUP_PLAN_FIELDS}, pickup_date)`)
     .eq("route_id", routeId)
     .order("seq");
-  const all = (rows ?? []) as unknown as StopRow[];
+  // Los retiros se recalculan igual que las entregas (con la forma de un pedido)
+  const all = ((rows ?? []) as unknown as (StopRow & { pickups: (PickupPlanRow & { pickup_date: string }) | null })[]).map((r) =>
+    r.pickups ? { ...r, orders: { ...pickupJob(r.pickups), delivery_date: r.pickups.pickup_date } } : r,
+  ) as StopRow[];
   const done = all.filter((s) => s.status === "entregado" || s.status === "fallido");
   const pending = all.filter((s) => s.status === "pendiente" || s.status === "en_camino");
   if (!pending.length) return { changed: 0 };
@@ -361,7 +482,7 @@ export async function reoptimizeRoute(routeId: string, from: Point | null) {
     const tw: [number, number] = s.window_start && s.window_end
       ? [santiagoParts(new Date(s.window_start)).seconds, santiagoParts(new Date(s.window_end)).seconds]
       : slotWindow((s.orders.delivery_slot ?? "cualquiera") as DeliverySlot, settings);
-    return { id: s.id, node: i + 2, kg: load.kg, m3: load.m3, sizeRank: 0, service: (settings.service_minutes + load.serviceMin) * 60, twStart: tw[0], twEnd: tw[1] };
+    return { id: s.id, node: i + 2, kg: load.kg, m3: load.m3, sizeRank: 0, service: (settings.service_minutes + load.serviceMin) * 60, twStart: tw[0], twEnd: tw[1], pickup: Boolean(s.orders.pickup) };
   });
   const result = optimizeRoutes(
     stops,
@@ -391,7 +512,7 @@ export async function reoptimizeRoute(routeId: string, from: Point | null) {
       const nwe = new Date(nws.getTime() + W);
       update.window_start = nws.toISOString();
       update.window_end = nwe.toISOString();
-      await notifyOrder(db, old.orders, "entrega_fecha", "Actualizamos el horario de tu entrega",
+      if (!old.orders.pickup) await notifyOrder(db, old.orders, "entrega_fecha", "Actualizamos el horario de tu entrega",
         `${group.length > 1 ? `Tus ${group.length} productos llegan` : `${old.orders.products?.title ?? "Tu compra"} llega`} entre las ${formatTime(nws)} y las ${formatTime(nwe)}.`);
       changed++;
     }

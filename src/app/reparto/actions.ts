@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { completeStop, failStop, loadRoute, startRoute } from "@/lib/routing/operations";
+import { completePickup, completeStop, failStop, loadRoute, startRoute } from "@/lib/routing/operations";
 import { reoptimizeRoute } from "@/lib/routing/planner";
 
 type Here = { lat: number; lng: number } | null;
@@ -56,4 +56,28 @@ export async function failAction(f: FormData) {
   await failStop(stopId, reason, point(f.get("lat"), f.get("lng")));
   revalidatePath(`/reparto/${routeId}`);
   redirect(`/reparto/${routeId}`);
+}
+
+/** Retiro: fotos de lo que se recibe + firma de quien lo entrega, aceptando el texto. */
+export async function pickupAction(_prev: DeliverState, f: FormData): Promise<DeliverState> {
+  const stopId = String(f.get("stopId") ?? "");
+  const routeId = String(f.get("routeId") ?? "");
+  const donorName = String(f.get("donor_name") ?? "").trim().slice(0, 80);
+  const rut = String(f.get("rut") ?? "").trim().slice(0, 14);
+  if (donorName.length < 2) return { error: "Escribe el nombre de quien regala." };
+  if (f.get("accept") !== "on") return { error: "Quien entrega debe aceptar el texto." };
+  const acc = Number(f.get("accuracy"));
+  const here = point(f.get("lat"), f.get("lng"));
+  const r = await completePickup(stopId, {
+    donorName,
+    rut,
+    lat: here?.lat ?? null,
+    lng: here?.lng ?? null,
+    accuracy: Number.isFinite(acc) && acc > 0 ? acc : null,
+    signature: f.get("signature") as File,
+    photos: f.getAll("photos").filter((x): x is File => x instanceof File && x.size > 0),
+  });
+  if (!r.ok) return { error: r.error };
+  revalidatePath(`/reparto/${routeId}`);
+  redirect(`/reparto/${routeId}?retirado=${stopId}`);
 }

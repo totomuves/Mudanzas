@@ -240,6 +240,7 @@ export async function refundOrder(orderId: string) {
   if (!order || order.status !== "paid") return { error: "El pedido no está pagado." };
   if (order.payout_at) return { error: "Ya se le transfirió al vendedor: devuélvelo a mano y pídeselo al vendedor." };
   if (!order.mp_payment_id) return { error: "El pedido no tiene pago de Mercado Pago asociado." };
+  if (order.mp_payment_id.startsWith("manual:")) return { error: "Este pedido se pagó fuera de Mercado Pago: devuelve el dinero a mano." };
 
   if (order.checkout_id) {
     // Compra del carrito: el pago incluye otros productos, se devuelve solo este pedido

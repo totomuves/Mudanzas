@@ -9,6 +9,8 @@
  *  - tráfico según la hora del día (los tramos en hora punta duran más)
  *  - costo por km de cada vehículo: prefiere el más barato que sirva
  *  - jornada de cada vehículo (sale y vuelve a bodega)
+ *  - retiros mezclados con entregas: el vehículo sale con las entregas y va
+ *    sumando lo que retira; en ningún punto de la ruta puede ir sobrecargado
  *
  * Método:
  *  1. Construcción con inserción por "arrepentimiento" (regret-2): primero se
@@ -29,6 +31,8 @@ export type OptStop = {
   service: number; // segundos de atención
   twStart: number; // segundos desde medianoche
   twEnd: number;
+  /** Retiro: la carga se sube en esta parada (las entregas se bajan). */
+  pickup?: boolean;
 };
 
 export type OptVehicle = {
@@ -120,14 +124,32 @@ export function optimizeRoutes(stops: OptStop[], vehicles: OptVehicle[], m: OptM
     if (seq.length === 0) {
       return { cost: 0, feasible: true, detail: detail ? emptyRoute(v) : undefined };
     }
-    let kg = 0, m3 = 0;
+    // Carga al salir = todas las entregas; luego baja con cada entrega y sube con cada retiro
+    let dKg = 0, dM3 = 0, pKg = 0, pM3 = 0;
     for (const si of seq) {
       const s = stops[si];
       if (s.sizeRank > v.maxSizeRank) return { cost: Infinity, feasible: false };
-      kg += s.kg;
-      m3 += s.m3;
+      if (s.pickup) { pKg += s.kg; pM3 += s.m3; } else { dKg += s.kg; dM3 += s.m3; }
     }
-    if (kg > v.capKg + 1e-6 || m3 > v.capM3 + 1e-6) return { cost: Infinity, feasible: false };
+    // Ni las entregas solas ni los retiros solos caben: no cabe en ningún orden
+    if (Math.max(dKg, pKg) > v.capKg + 1e-6 || Math.max(dM3, pM3) > v.capM3 + 1e-6) return { cost: Infinity, feasible: false };
+    let kg = dKg, m3 = dM3;
+    if (pKg > 0 && dKg > 0) {
+      let curKg = dKg, curM3 = dM3;
+      for (const si of seq) {
+        const s = stops[si];
+        const sign = s.pickup ? 1 : -1;
+        curKg += sign * s.kg;
+        curM3 += sign * s.m3;
+        kg = Math.max(kg, curKg);
+        m3 = Math.max(m3, curM3);
+      }
+      // Este orden sobrecarga el vehículo en algún tramo (otro orden quizás sí sirve)
+      if (kg > v.capKg + 1e-6 || m3 > v.capM3 + 1e-6) return { cost: Infinity, feasible: true };
+    } else if (pKg > 0) {
+      kg = pKg;
+      m3 = pM3;
+    }
 
     // Sale lo más tarde posible sin esperar en la primera parada
     const first = stops[seq[0]];

@@ -4,11 +4,12 @@ import Image from "next/image";
 import { hasSupabaseEnv } from "@/lib/env";
 import { SetupNotice } from "@/components/SetupNotice";
 import { Icon } from "@/components/Icon";
-import { loadStop, proofUrls, siblingStops } from "@/lib/routing/operations";
+import { donationTerms, loadStop, proofUrls, siblingStops, signedPaths } from "@/lib/routing/operations";
+import { brand } from "@/brand";
 import { SIZES, formatTime, mapsDirections, orderLoad, wazeLink } from "@/lib/delivery";
-import { DeliveryForm } from "./DeliveryForm";
+import { DeliveryForm, PickupStopForm } from "./DeliveryForm";
 
-export const metadata: Metadata = { title: "Entrega" };
+export const metadata: Metadata = { title: "Parada" };
 
 export default async function ParadaPage({ params }: PageProps<"/reparto/parada/[id]">) {
   if (!hasSupabaseEnv()) return <SetupNotice />;
@@ -20,6 +21,7 @@ export default async function ParadaPage({ params }: PageProps<"/reparto/parada/
   const phone = (o.buyer_phone ?? "").replace(/[^\d+]/g, "");
   // Productos de la misma compra: se entregan juntos en esta parada
   const siblings = await siblingStops(db, stop);
+  if (stop.kind === "retiro" && stop.pickup) return <PickupStop stop={stop} db={db} />;
 
   return (
     <div className="mx-auto max-w-lg space-y-5">
@@ -88,6 +90,65 @@ function Delivered({ stop, urls }: { stop: Awaited<ReturnType<typeof loadStop>>[
       <a href={`/api/entregas/${stop.order_id}/comprobante`} className="flex items-center justify-center gap-2 rounded-full border-2 border-border py-3 font-extrabold">
         <Icon name="down" className="h-5 w-5" /> Descargar comprobante PDF
       </a>
+    </section>
+  );
+}
+
+/** Parada de retiro: dónde ir, qué retirar, y el registro con fotos + firma. */
+async function PickupStop({ stop, db }: Pick<Awaited<ReturnType<typeof loadStop>>, "stop" | "db">) {
+  const p = stop.pickup!;
+  const o = stop.orders;
+  const load = orderLoad(o.products ?? {}, 1);
+  const phone = (p.contact_phone ?? "").replace(/[^\d+]/g, "");
+  const terms = p.donation_terms ?? donationTerms(p.items, brand.name);
+  return (
+    <div className="mx-auto max-w-lg space-y-5">
+      <Link href={`/reparto/${stop.route_id}`} className="inline-flex items-center gap-1 text-sm font-bold text-muted"><Icon name="back" className="h-4 w-4" />Volver a la ruta</Link>
+
+      <div className="space-y-1 rounded-2xl border border-border bg-card p-4">
+        <p className="text-xs font-black uppercase text-muted">Parada {stop.seq} · Retiro</p>
+        <p className="text-lg font-extrabold">{p.items}</p>
+        <p className="text-sm">{o.address}</p>
+        <p className="text-xs text-muted">Regala {p.contact_name} · {SIZES[load.size].label}{load.rank >= 3 ? " (2 personas)" : ""} · ventana {stop.window_start ? formatTime(stop.window_start) : ""}–{stop.window_end ? formatTime(stop.window_end) : ""}</p>
+      </div>
+      {p.address_notes && <p className="rounded-xl bg-surface p-3 text-sm"><b>Indicaciones:</b> {p.address_notes}</p>}
+
+      <div className="grid grid-cols-3 gap-2 text-sm font-bold">
+        <a href={mapsDirections({ lat: o.lat, lng: o.lng, address: o.address })} target="_blank" rel="noreferrer" className="flex flex-col items-center gap-1 rounded-2xl border border-border p-3"><Icon name="navigation" />Maps</a>
+        <a href={wazeLink({ lat: o.lat, lng: o.lng, address: o.address })} target="_blank" rel="noreferrer" className="flex flex-col items-center gap-1 rounded-2xl border border-border p-3"><Icon name="navigation" />Waze</a>
+        {phone ? (
+          <a href={`https://wa.me/${phone.replace(/\D/g, "")}?text=${encodeURIComponent(`Hola ${p.contact_name.split(" ")[0]}, soy de ${brand.name}. Vamos en camino a retirar ${p.items}.`)}`} target="_blank" rel="noreferrer" className="flex flex-col items-center gap-1 rounded-2xl border border-border p-3"><Icon name="phone" />Avisar</a>
+        ) : <span />}
+      </div>
+
+      {stop.status === "entregado" ? (
+        <PickedUp stop={stop} terms={terms} photos={(await signedPaths(db, p.photo_paths)).filter(Boolean) as string[]} signature={(await proofUrls(db, stop)).signature} />
+      ) : (
+        <div className="space-y-3">
+          {stop.status === "fallido" && <p className="rounded-2xl bg-pass/10 p-4 font-bold text-pass">No retirado: {stop.failure_reason}</p>}
+          <PickupStopForm stopId={stop.id} routeId={stop.route_id} defaultName={p.contact_name} terms={terms} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PickedUp({ stop, terms, photos, signature }: { stop: Awaited<ReturnType<typeof loadStop>>["stop"]; terms: string; photos: string[]; signature: string | null }) {
+  return (
+    <section className="space-y-3 rounded-2xl border border-border bg-card p-4">
+      <p className="flex items-center gap-2 font-extrabold text-accent"><Icon name="ok" className="h-5 w-5" />Retirado a las {stop.delivered_at ? formatTime(stop.delivered_at) : ""}</p>
+      <div className="grid grid-cols-2 gap-2">
+        {photos.map((src, i) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img key={i} src={src} alt={`Foto ${i + 1} del retiro`} className="aspect-square w-full rounded-xl object-cover" />
+        ))}
+      </div>
+      <div className="space-y-2 rounded-xl bg-surface p-3 text-sm">
+        <p>{terms}</p>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {signature && <img src={signature} alt="Firma" className="h-28 w-full rounded-lg border border-border bg-white object-contain" />}
+        <p className="text-xs text-muted">Firmó {stop.received_by}{stop.receiver_rut ? ` (RUT ${stop.receiver_rut})` : ""}</p>
+      </div>
     </section>
   );
 }

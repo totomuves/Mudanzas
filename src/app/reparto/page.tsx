@@ -18,12 +18,13 @@ const LABEL: Record<RouteRow["status"], string> = {
 
 export default async function RepartoPage() {
   if (!hasSupabaseEnv()) return <SetupNotice />;
-  const { user, canManage, sellerId } = await requireDriver();
+  const { user, canManage, sellerId, sections } = await requireDriver();
+  const team = sections.includes("reparto") || sections.includes("despacho");
   const db = createAdminClient();
   const today = santiagoParts(new Date()).date;
   let q = db
     .from("delivery_routes")
-    .select("*, vehicles(name, plate), route_stops(status)")
+    .select("*, vehicles(name, plate), route_stops(status, pickup_id)")
     .gte("delivery_date", addDays(today, -3))
     .neq("status", "borrador")
     .order("delivery_date")
@@ -34,7 +35,7 @@ export default async function RepartoPage() {
   if (sellerId) mine.push(`seller_id.eq.${sellerId}`);
   q = q.or(mine.join(","));
   const { data, error } = await q;
-  const routes = (data ?? []) as (RouteRow & { vehicles: { name: string; plate: string | null } | null; route_stops: { status: string }[] })[];
+  const routes = (data ?? []) as (RouteRow & { vehicles: { name: string; plate: string | null } | null; route_stops: { status: string; pickup_id?: string | null }[] })[];
 
   return (
     <div className="mx-auto max-w-lg space-y-5">
@@ -42,6 +43,16 @@ export default async function RepartoPage() {
         <h1 className="text-3xl font-black">Reparto</h1>
         <p className="text-muted">{canManage ? "Todas las rutas publicadas." : sellerId ? "Las rutas de tu tienda." : "Tus rutas asignadas."}</p>
       </div>
+      {team && (
+        <Link href="/reparto/retiros" className="flex items-center gap-3 rounded-2xl border-2 border-foreground p-4">
+          <Icon name="boxOpen" className="h-7 w-7" strokeWidth={1.6} />
+          <span className="flex-1">
+            <span className="block font-extrabold">Retiro de productos</span>
+            <span className="block text-sm text-muted">Anota direcciones de quienes regalan y arma la ruta</span>
+          </span>
+          <Icon name="arrow" className="h-5 w-5" />
+        </Link>
+      )}
       {error && <p className="rounded-2xl bg-brand-soft p-4 text-sm font-bold">Falta correr la migración de rutas en Supabase.</p>}
       {routes.length === 0 ? (
         <div className="rounded-2xl border-2 border-dashed border-border p-8 text-center text-muted">
@@ -53,6 +64,7 @@ export default async function RepartoPage() {
           {routes.map((r) => {
             const done = r.route_stops.filter((s) => s.status === "entregado" || s.status === "fallido").length;
             const total = r.route_stops.length;
+            const pickups = r.route_stops.filter((s) => s.pickup_id).length;
             return (
               <li key={r.id}>
                 <Link href={`/reparto/${r.id}`} className={`block space-y-2 rounded-2xl border border-border bg-card p-4 ${r.delivery_date < today && r.status === "terminada" ? "opacity-60" : ""}`}>
@@ -64,7 +76,7 @@ export default async function RepartoPage() {
                     <span className="text-xs font-bold text-muted">{LABEL[r.status]}</span>
                   </div>
                   <p className="text-sm text-muted">
-                    {r.vehicles?.name ?? "Vehículo"} · {total} entregas · {(r.planned_distance_m / 1000).toFixed(0)} km · sale {r.planned_start ? formatTime(r.planned_start) : "—"}
+                    {r.vehicles?.name ?? "Vehículo"} · {pickups === 0 ? `${total} entregas` : pickups === total ? `${total} retiros` : `${total - pickups} entregas y ${pickups} retiros`} · {(r.planned_distance_m / 1000).toFixed(0)} km · sale {r.planned_start ? formatTime(r.planned_start) : "—"}
                   </p>
                   <div className="h-2 overflow-hidden rounded-full bg-surface">
                     <div className="h-full rounded-full" style={{ width: `${total ? (done / total) * 100 : 0}%`, background: r.color }} />

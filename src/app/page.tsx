@@ -128,6 +128,17 @@ export default async function Home() {
         <Icon name="arrow" className="h-6 w-6 transition group-hover:translate-x-1" />
       </Link>
 
+      <Link href="/retiramos" className="group -mt-4 flex items-center gap-4 rounded-card bg-surface p-5 md:-mt-6 md:p-8">
+        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-background">
+          <Icon name="boxOpen" className="h-7 w-7" />
+        </span>
+        <span className="flex-1">
+          <span className="block text-lg font-black">¿Quieres que retiremos algo?</span>
+          <span className="block text-sm text-muted">Mándanos fotos de lo que ya no usas y pasamos a buscarlo sin costo.</span>
+        </span>
+        <Icon name="arrow" className="h-6 w-6 transition group-hover:translate-x-1" />
+      </Link>
+
       {marketplaceOn && (
       <Link href="/vender" className="group flex items-center gap-4 rounded-card border border-border p-5 md:p-8">
         <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-surface">

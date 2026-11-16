@@ -7,6 +7,8 @@ import { formatDeliveryDate } from "@/lib/delivery";
 import { SetupNotice } from "@/components/SetupNotice";
 import type { Order, Product } from "@/lib/types";
 import { StatusDot, type StatusTone } from "@/components/StatusDot";
+import { Icon } from "@/components/Icon";
+import { cancelManualOrder, markManualOrderPaid } from "./actions";
 
 export const metadata: Metadata = { title: "Pedidos" };
 
@@ -18,8 +20,11 @@ const LABEL: Record<Order["status"], { tone: StatusTone; label: string }> = {
   refunded: { tone: "off", label: "Reembolsado" },
 };
 
-export default async function PedidosPage() {
+const MANUAL_METHOD: Record<string, string> = { "manual:efectivo": "Efectivo", "manual:transferencia": "Transferencia" };
+
+export default async function PedidosPage({ searchParams }: PageProps<"/admin/pedidos">) {
   if (!hasSupabaseEnv()) return <SetupNotice />;
+  const sp = await searchParams;
   const { supabase } = await requireSection("pedidos");
   const { data } = await supabase
     .from("orders")
@@ -30,7 +35,17 @@ export default async function PedidosPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-black">Pedidos</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-black">Pedidos</h1>
+        <Link href="/admin/pedidos/nuevo" className="inline-flex items-center gap-2 rounded-full bg-brand px-4 py-2.5 font-extrabold text-white active:scale-95">
+          <Icon name="plus" className="h-5 w-5" strokeWidth={2.2} /> Crear pedido
+        </Link>
+      </div>
+      {sp.creado && (
+        <p className="flex items-center gap-2 rounded-xl bg-surface p-3 text-sm font-bold">
+          <Icon name="ok" className="h-5 w-5 text-brand" /> Pedido creado.
+        </p>
+      )}
       {orders.length === 0 ? (
         <p className="text-muted">Aún no hay pedidos.</p>
       ) : (
@@ -89,7 +104,31 @@ export default async function PedidosPage() {
                         <div className="text-xs font-normal text-muted">incluye despacho {formatCLP(o.shipping_amount ?? 0)}</div>
                       )}
                     </td>
-                    <td className="whitespace-nowrap p-3"><StatusDot {...LABEL[o.status]} /></td>
+                    <td className="whitespace-nowrap p-3">
+                      {o.mp_preference_id === "manual" && o.status === "pending" ? (
+                        <div className="space-y-1.5">
+                          <StatusDot tone="warn" label="Por pagar" />
+                          <div className="flex flex-wrap gap-1.5">
+                            <form action={markManualOrderPaid}>
+                              <input type="hidden" name="id" value={o.id} />
+                              <input type="hidden" name="method" value="transferencia" />
+                              <button className="rounded-full bg-brand px-3 py-1 text-xs font-bold text-white">Pagado</button>
+                            </form>
+                            <form action={cancelManualOrder}>
+                              <input type="hidden" name="id" value={o.id} />
+                              <button className="rounded-full border border-border px-3 py-1 text-xs font-bold">Anular</button>
+                            </form>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <StatusDot {...LABEL[o.status]} />
+                          {o.mp_preference_id === "manual" && (
+                            <div className="text-xs text-muted">Manual{o.mp_payment_id && MANUAL_METHOD[o.mp_payment_id] ? ` · ${MANUAL_METHOD[o.mp_payment_id]}` : ""}</div>
+                          )}
+                        </>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
