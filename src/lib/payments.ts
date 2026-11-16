@@ -61,6 +61,95 @@ export async function createPreference(input: {
   return { id: pref.id ?? null, url: pref.init_point ?? pref.sandbox_init_point ?? null };
 }
 
+/** Prefijo de external_reference para las compras del carrito (varios productos, un pago). */
+export const CART_REF = "carrito:";
+
+/** Crea la preferencia de Checkout Pro de un carrito: todos los productos y despachos en un solo pago. */
+export async function createCartPreference(input: {
+  checkoutId: string;
+  items: { id: string; title: string; quantity: number; unitPrice: number; pictureUrl?: string }[];
+  /** Un cobro por cada despacho (normalmente uno solo) */
+  shipping: { title: string; amount: number }[];
+  buyer: { name: string; email: string };
+  expiresAt: Date;
+}) {
+  const site = siteUrl();
+  const isPublic = site.startsWith("https://");
+  const back = `${site}/compra/${input.checkoutId}`;
+
+  const pref = await new Preference(mpConfig()).create({
+    body: {
+      items: [
+        ...input.items.map((it) => ({
+          id: it.id,
+          title: it.title,
+          quantity: it.quantity,
+          unit_price: it.unitPrice,
+          currency_id: "CLP",
+          picture_url: it.pictureUrl,
+        })),
+        ...input.shipping
+          .filter((s) => s.amount > 0)
+          .map((s, i) => ({ id: `despacho-${i + 1}`, title: s.title, quantity: 1, unit_price: s.amount, currency_id: "CLP" })),
+      ],
+      payer: { name: input.buyer.name, email: input.buyer.email },
+      external_reference: `${CART_REF}${input.checkoutId}`,
+      back_urls: { success: back, failure: back, pending: back },
+      ...(isPublic
+        ? { auto_return: "approved", notification_url: `${site}/api/mercadopago/webhook` }
+        : {}),
+      expires: true,
+      expiration_date_to: input.expiresAt.toISOString(),
+      statement_descriptor: brand.statementDescriptor,
+    },
+    requestOptions: { idempotencyKey: `carrito-${input.checkoutId}` },
+  });
+
+  return { id: pref.id ?? null, url: pref.init_point ?? pref.sandbox_init_point ?? null };
+}
+
+/** Pago de un carrito: actualiza la compra y todos sus pedidos. */
+async function syncCartPayment(payment: Awaited<ReturnType<Payment["get"]>>, checkoutId: string) {
+  const db = createAdminClient();
+  const { data: checkout } = await db.from("checkouts").select("*").eq("id", checkoutId).maybeSingle();
+  if (!checkout) return null;
+
+  if (payment.status === "approved") {
+    if (payment.transaction_amount != null && Math.round(payment.transaction_amount) < checkout.amount) {
+      console.error("[mp] monto pagado menor al de la compra", checkoutId);
+      return "amount_mismatch";
+    }
+    await db.rpc("mark_checkout_paid", { p_checkout_id: checkoutId, p_payment_id: String(payment.id) });
+    if (checkout.status !== "paid") {
+      const { data: orders } = await db.from("orders").select("product_id").eq("checkout_id", checkoutId);
+      for (const o of orders ?? []) await logServerEvent(checkout.user_id, "purchase", o.product_id);
+    }
+    return "paid";
+  }
+
+  if (["rejected", "cancelled", "refunded", "charged_back"].includes(payment.status ?? "")) {
+    if (checkout.status === "pending") {
+      const status = payment.status === "cancelled" ? "cancelled" : "failed";
+      await db.from("checkouts").update({ status, mp_payment_id: String(payment.id) }).eq("id", checkoutId);
+      // Al dejar de estar "pending", las unidades apartadas se liberan solas
+      await db.from("orders").update({ status, mp_payment_id: String(payment.id) }).eq("checkout_id", checkoutId).eq("status", "pending");
+    } else if (checkout.status === "paid" && ["refunded", "charged_back"].includes(payment.status ?? "")) {
+      const now = new Date().toISOString();
+      await db.from("checkouts").update({ status: "refunded" }).eq("id", checkoutId);
+      await db
+        .from("orders")
+        .update({ status: "refunded", refunded_at: now })
+        .eq("checkout_id", checkoutId)
+        .eq("status", "paid")
+        .is("payout_at", null);
+      return "refunded";
+    }
+    return "failed";
+  }
+
+  return "pending";
+}
+
 /**
  * Consulta un pago en Mercado Pago y actualiza el pedido y el producto.
  * Es idempotente: se puede llamar desde el webhook y desde la página de retorno.
@@ -69,6 +158,7 @@ export async function syncPayment(paymentId: string) {
   const payment = await new Payment(mpConfig()).get({ id: paymentId });
   const orderId = payment.external_reference;
   if (!orderId) return null;
+  if (orderId.startsWith(CART_REF)) return syncCartPayment(payment, orderId.slice(CART_REF.length));
 
   const db = createAdminClient();
   const { data: order } = await db.from("orders").select("*").eq("id", orderId).maybeSingle();
@@ -152,10 +242,19 @@ export async function refundOrder(orderId: string) {
   if (!order.mp_payment_id) return { error: "El pedido no tiene pago de Mercado Pago asociado." };
   if (order.mp_payment_id.startsWith("manual:")) return { error: "Este pedido se pagó fuera de Mercado Pago: devuelve el dinero a mano." };
 
-  await new PaymentRefund(mpConfig()).total({
-    payment_id: order.mp_payment_id,
-    requestOptions: { idempotencyKey: `refund-${orderId}` },
-  });
+  if (order.checkout_id) {
+    // Compra del carrito: el pago incluye otros productos, se devuelve solo este pedido
+    await new PaymentRefund(mpConfig()).create({
+      payment_id: order.mp_payment_id,
+      body: { amount: order.amount },
+      requestOptions: { idempotencyKey: `refund-${orderId}` },
+    });
+  } else {
+    await new PaymentRefund(mpConfig()).total({
+      payment_id: order.mp_payment_id,
+      requestOptions: { idempotencyKey: `refund-${orderId}` },
+    });
+  }
 
   await db.from("orders").update({ status: "refunded", refunded_at: new Date().toISOString() }).eq("id", orderId);
   // Repone las unidades (si estaba agotado vuelve a estar disponible)

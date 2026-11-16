@@ -10,7 +10,23 @@ import { SetupNotice } from "@/components/SetupNotice";
 import type { Product } from "@/lib/types";
 import { getPhrase } from "@/lib/phrases";
 
-export const metadata: Metadata = { title: "Catálogo" };
+export async function generateMetadata({ searchParams }: PageProps<"/catalogo">): Promise<Metadata> {
+  const sp = await searchParams;
+  const categoria = typeof sp.categoria === "string" ? sp.categoria : undefined;
+  const q = typeof sp.q === "string" ? sp.q.trim() : "";
+  const name = categoria && hasSupabaseEnv() ? (await getCategories()).find((c) => c.slug === categoria)?.name : undefined;
+  const title = name ? `${name} a precios bajísimos` : "Catálogo";
+  const canonical = name ? `/catalogo?categoria=${encodeURIComponent(categoria!)}` : "/catalogo";
+  return {
+    title,
+    description: name
+      ? `${name} a precios bajísimos. Piezas únicas que se van rápido: mira lo nuevo de hoy.`
+      : "Muebles, electro, deco y más a precios bajísimos. Piezas únicas que se van rápido: mira lo nuevo de hoy.",
+    alternates: { canonical },
+    // Las búsquedas no se indexan (contenido repetido); las categorías sí
+    robots: q ? { index: false, follow: true } : undefined,
+  };
+}
 
 export default async function CatalogoPage({ searchParams }: PageProps<"/catalogo">) {
   if (!hasSupabaseEnv()) return <SetupNotice />;

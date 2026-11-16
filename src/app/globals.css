@@ -84,3 +84,11 @@ h1, h2, h3 { letter-spacing: -0.02em; text-wrap: balance; }
   .logo-loader-piece, .logo-loader-name { animation: logo-loader-pulse 1.6s ease-in-out infinite; }
   @keyframes logo-loader-pulse { 50% { opacity: 0.45; } }
 }
+
+/* Páginas de ayuda y legales (/envios, /devoluciones, /privacidad…) */
+.info-prose a {
+  font-weight: 700;
+  color: var(--brand);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

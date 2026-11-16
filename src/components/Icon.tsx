@@ -11,6 +11,7 @@ import {
   MoveRight, Navigation, NotebookPen, Package, PackageOpen, PartyPopper, PawPrint, Plus, Phone, Piano, Plug, RotateCcw,
   RotateCw, Search, Shirt, ShoppingBag, Sofa, Sparkles, Star, Store, Telescope, ThumbsUp, Trash2, Trophy, Truck,
   User, Users, UtensilsCrossed, Wand2, Warehouse, Wrench, X, Zap, BedDouble, Hammer, Frown, Rocket, Sprout,
+  ShieldCheck, Mountain, MessageCircle, Recycle, Quote, Ruler, Handshake, Route, ExternalLink,
   type LucideIcon,
 } from "lucide-react";
 
@@ -34,6 +35,9 @@ const ICONS = {
   sofa: Sofa, kitchen: UtensilsCrossed, plug: Plug, laptop: Laptop, bed: BedDouble, lamp: Lamp, baby: Baby,
   bike: Bike, book: BookOpen, shirt: Shirt, paw: PawPrint, dumbbell: Dumbbell, microwave: Microwave,
   building: Building2, briefcase: Briefcase,
+  // página Conócenos (mudanzas)
+  shield: ShieldCheck, mountain: Mountain, chat: MessageCircle, recycle: Recycle, quote: Quote, ruler: Ruler,
+  handshake: Handshake, routeMap: Route, external: ExternalLink,
 } satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof ICONS;

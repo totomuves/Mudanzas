@@ -14,6 +14,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { proofUrls } from "@/lib/routing/operations";
 import { getDeliverySettings } from "@/lib/routing/planner";
 import { slotLabel } from "@/lib/delivery";
+import { TrackPurchase } from "@/components/marketing/TrackEvent";
 
 export const metadata: Metadata = { title: "Tu pedido" };
 
@@ -87,6 +88,22 @@ export default async function PedidoPage({ params, searchParams }: PageProps<"/p
 
   return (
     <div className="mx-auto max-w-md space-y-5 text-center">
+      {/* Compras del carrito se miden en /compra (una vez por pago) */}
+      {order.status === "paid" && !order.checkout_id && (
+        <TrackPurchase
+          transactionId={order.id}
+          value={order.amount}
+          shipping={order.shipping_amount ?? 0}
+          items={[
+            {
+              id: order.product_id,
+              name: order.products?.title ?? "Producto",
+              quantity: order.quantity,
+              price: Math.round((order.amount - (order.shipping_amount ?? 0)) / Math.max(1, order.quantity)),
+            },
+          ]}
+        />
+      )}
       <div className={`animate-pop flex justify-center ${s.color}`}>
         <Icon name={s.icon} className="h-16 w-16" strokeWidth={1.4} />
       </div>
@@ -100,6 +117,11 @@ export default async function PedidoPage({ params, searchParams }: PageProps<"/p
         <p>Total: {formatCLP(order.amount)}{(order.shipping_amount ?? 0) > 0 ? ` (incluye despacho ${formatCLP(order.shipping_amount ?? 0)})` : ""}</p>
         <p>Entrega: {order.delivery === "retiro" ? (order.seller_id ? "Retiro (te contactamos para coordinar)" : "Retiro en bodega") : `Despacho a ${order.address}`}</p>
         <p className="text-xs text-muted">Pedido #{order.id.slice(0, 8)}</p>
+        {order.checkout_id && (
+          <Link href={`/compra/${order.checkout_id}`} className="mt-2 inline-flex items-center gap-1 text-xs font-bold underline-offset-4 hover:underline">
+            Ver la compra completa <Icon name="arrow" className="h-3.5 w-3.5" />
+          </Link>
+        )}
       </div>
       {tracker}
       {canReview && <ReceiptActions orderId={order.id} reviewDays={reviewDays} releaseAt={order.release_at ?? null} />}
@@ -108,7 +130,7 @@ export default async function PedidoPage({ params, searchParams }: PageProps<"/p
       )}
       <div className="flex flex-col gap-2">
         {(order.status === "failed" || order.status === "cancelled") && order.products?.status === "available" && order.products.quantity > 0 && (
-          <Link href={`/comprar/${order.product_id}`} className="rounded-full bg-brand py-3 font-extrabold text-white">
+          <Link href={order.checkout_id ? "/carrito" : `/comprar/${order.product_id}`} className="rounded-full bg-brand py-3 font-extrabold text-white">
             Intentar de nuevo
           </Link>
         )}

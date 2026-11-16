@@ -8,6 +8,10 @@ export const brand = {
   name: process.env.NEXT_PUBLIC_APP_NAME || "MUVEO",
   /** Frase corta para buscadores y la app instalada */
   description: "Muebles, electro y tesoros a precios bajísimos. Desliza, elige y compra.",
+  /** Segunda parte del título en Google y al compartir el link: "MUVEO · …" */
+  seoTitle: "Muebles y electro a precios bajísimos en Santiago",
+  /** Palabras clave (pesan poco en Google, pero ayudan a otros buscadores) */
+  keywords: ["muebles baratos", "muebles usados", "electrodomésticos baratos", "outlet muebles", "segunda mano Santiago", "decoración barata", "MUVEO"],
   /** Textos de la portada */
   hero: {
     /** Texto del banner por defecto. El título grande de la portada sale de src/lib/phrases.ts */
@@ -30,4 +34,26 @@ export const brand = {
    */
   themeColor: "#ffffff",
   backgroundColor: "#ffffff",
+  /**
+   * Datos de la empresa para las páginas de ayuda y legales (/contacto,
+   * /privacidad, /terminos, /devoluciones, /envios). Lo que quede vacío no se muestra.
+   */
+  legal: {
+    /** Razón social, ej. "Muveo SpA" */
+    companyName: "",
+    /** RUT de la empresa, ej. "77.123.456-7" */
+    rut: "",
+    /** Dirección de la bodega u oficina (para retiros y avisos legales) */
+    address: "",
+    city: "Santiago",
+    email: "hola@muveo.cl",
+    /** WhatsApp con código de país, ej. "+56912345678". Vacío = se usa el del admin. */
+    whatsapp: "",
+    /** Horario de atención */
+    hours: "Lunes a sábado, 9:00 a 18:00",
+    /** Días corridos para arrepentirse de una compra (derecho a retracto) */
+    returnDays: 10,
+    /** Fecha de la última actualización de las políticas */
+    updatedAt: "16 de noviembre de 2026",
+  },
 };
