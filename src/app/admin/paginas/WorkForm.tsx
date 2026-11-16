@@ -4,12 +4,12 @@ import Image from "next/image";
 import { useActionState, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { compress, photoExt } from "@/lib/photo";
-import { addWork, type WorkState } from "./actions";
+import { addWork, type WorkState } from "./work-actions";
 
 const input = "w-full rounded-xl border border-border bg-card px-3 py-2";
 
-/** Subir una foto de un trabajo realizado (sin quitar el fondo: son fotos reales). */
-export function WorkForm() {
+/** Subir una foto a la galería de una página (sin quitar el fondo: son fotos reales). */
+export function WorkForm({ page }: { page: "mudanzas" | "conocenos" }) {
   const [imageUrl, setImageUrl] = useState("");
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -45,6 +45,7 @@ export function WorkForm() {
   return (
     <form action={action} className="grid gap-4 md:grid-cols-[220px_1fr]">
       <input type="hidden" name="image_url" value={imageUrl} />
+      <input type="hidden" name="page" value={page} />
       <label className="relative flex aspect-[4/3] cursor-pointer items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-border bg-surface text-sm font-bold text-muted">
         {imageUrl ? (
           <Image src={imageUrl} alt="" fill sizes="220px" className="object-cover" />

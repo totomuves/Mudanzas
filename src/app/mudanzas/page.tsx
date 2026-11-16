@@ -2,11 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { brand } from "@/brand";
 import { hasSupabaseEnv } from "@/lib/env";
-import { getMovingData } from "@/lib/data";
+import { getMovingData, getPageBanners, getPagePhotos } from "@/lib/data";
 import { formatCLP } from "@/lib/format";
 import { DISTANCES } from "@/lib/moving";
 import { SetupNotice } from "@/components/SetupNotice";
 import { Icon, ServiceIcon, type IconName } from "@/components/Icon";
+import { PageBanners } from "@/components/PageBanners";
+import { PhotoGallery } from "@/components/PhotoGallery";
 
 export const metadata: Metadata = {
   title: "Mudanzas",
@@ -29,7 +31,12 @@ const FAQ = [
 
 export default async function MudanzasPage() {
   if (!hasSupabaseEnv()) return <SetupNotice />;
-  const { services, settings } = await getMovingData();
+  // Banners y fotos se editan en /admin/paginas (si no hay, no se muestra nada extra)
+  const [{ services, settings }, banners, photos] = await Promise.all([
+    getMovingData(),
+    getPageBanners("mudanzas"),
+    getPagePhotos("mudanzas"),
+  ]);
 
   return (
     <div className="space-y-14">
@@ -51,6 +58,8 @@ export default async function MudanzasPage() {
           <Icon name="truck" className="h-56 w-56" strokeWidth={0.9} />
         </div>
       </section>
+
+      <PageBanners banners={banners} placement="arriba" />
 
       <section className="space-y-5">
         <h2 className="text-2xl font-black">Cómo trabajamos</h2>
@@ -110,6 +119,8 @@ export default async function MudanzasPage() {
         )}
       </section>
 
+      <PhotoGallery photos={photos} eyebrow="Fotos" title="Así trabajamos" />
+
       <section className="space-y-4">
         <h2 className="text-2xl font-black">Preguntas frecuentes</h2>
         <div className="space-y-2">
@@ -121,6 +132,8 @@ export default async function MudanzasPage() {
           ))}
         </div>
       </section>
+
+      <PageBanners banners={banners} placement="abajo" />
 
       <section className="rounded-card bg-brand-soft p-6 text-center">
         <Icon name="gift" className="mx-auto mb-2 h-8 w-8" strokeWidth={1.6} />
