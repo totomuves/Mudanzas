@@ -119,6 +119,15 @@ export async function loadStop(stopId: string) {
   return { access, db, stop };
 }
 
+/**
+ * Otras paradas de la misma entrega: los productos de una compra del carrito
+ * comparten número de parada y se entregan juntos (una firma, una foto).
+ */
+export async function siblingStops(db: Db, stop: Pick<StopRow, "id" | "route_id" | "seq">) {
+  const { data } = await db.from("route_stops").select(STOP_SELECT).eq("route_id", stop.route_id).eq("seq", stop.seq).neq("id", stop.id);
+  return (data ?? []) as unknown as StopRow[];
+}
+
 /** Minutos estimados para llegar de un punto a otro ahora. */
 function etaMinutes(from: { lat: number; lng: number } | null, to: { lat: number | null; lng: number | null }) {
   if (!from || to.lat == null || to.lng == null) return null;
@@ -138,9 +147,14 @@ export async function advanceRoute(db: Db, routeId: string, from: { lat: number;
   if (next.status === "pendiente") {
     const mins = etaMinutes(from, next.orders);
     const eta = mins ? new Date(Date.now() + mins * 60_000) : next.eta ? new Date(next.eta) : null;
-    await db.from("route_stops").update({ status: "en_camino", notified_onway_at: new Date().toISOString(), ...(eta ? { eta: eta.toISOString() } : {}) }).eq("id", next.id);
+    const siblings = (await siblingStops(db, next)).filter((x) => x.status === "pendiente");
+    await db
+      .from("route_stops")
+      .update({ status: "en_camino", notified_onway_at: new Date().toISOString(), ...(eta ? { eta: eta.toISOString() } : {}) })
+      .in("id", [next.id, ...siblings.map((x) => x.id)]);
+    const what = siblings.length ? `Tus ${siblings.length + 1} productos son` : `${next.orders.products?.title ?? "Tu pedido"} es`;
     await notifyOrder(db, next.orders, "entrega_camino", "Vamos en camino",
-      `${next.orders.products?.title ?? "Tu pedido"} es la próxima entrega${eta ? `: llegamos cerca de las ${formatTime(eta)}` : ""}. Ten a mano tu nombre y RUT para firmar.`);
+      `${what} la próxima entrega${eta ? `: llegamos cerca de las ${formatTime(eta)}` : ""}. Ten a mano tu nombre y RUT para firmar.`);
   }
   return next;
 }
@@ -181,6 +195,9 @@ export async function completeStop(
   }
 
   const now = new Date().toISOString();
+  // La misma firma y foto valen para todos los productos de esta entrega
+  const siblings = (await siblingStops(db, stop)).filter((x) => x.status !== "entregado");
+  const stopIds = [stop.id, ...siblings.map((x) => x.id)];
   await db.from("route_stops").update({
     status: "entregado",
     delivered_at: now,
@@ -192,7 +209,7 @@ export async function completeStop(
     delivered_lng: input.lng,
     delivered_accuracy_m: input.accuracy != null ? Math.round(input.accuracy) : null,
     failure_reason: null,
-  }).eq("id", stop.id);
+  }).in("id", stopIds);
 
   // El pedido queda entregado. En ventas de vendedores empieza el plazo de revisión del comprador.
   let releaseAt: string | null = null;
@@ -200,9 +217,13 @@ export async function completeStop(
     const { data: m } = await db.from("marketplace_settings").select("review_days").eq("id", 1).maybeSingle();
     releaseAt = new Date(Date.now() + (m?.review_days ?? 3) * 86_400_000).toISOString();
   }
-  await db.from("orders").update({ delivered_at: now, ...(releaseAt ? { release_at: releaseAt } : {}) }).eq("id", stop.order_id).is("delivered_at", null);
+  await db
+    .from("orders")
+    .update({ delivered_at: now, ...(releaseAt ? { release_at: releaseAt } : {}) })
+    .in("id", [stop.order_id, ...siblings.map((x) => x.order_id)])
+    .is("delivered_at", null);
 
-  await notifyOrder(db, stop.orders, "entrega_lista", "Entregado",
+  await notifyOrder(db, stop.orders, "entrega_lista", siblings.length ? `Entregamos tus ${siblings.length + 1} productos` : "Entregado",
     `Recibió ${input.receivedBy}. Puedes descargar el comprobante con la firma y la foto.`);
 
   const here = input.lat != null && input.lng != null ? { lat: input.lat, lng: input.lng } : null;
@@ -213,12 +234,13 @@ export async function completeStop(
 export async function failStop(stopId: string, reason: string, here: { lat: number; lng: number } | null) {
   const { db, stop } = await loadStop(stopId);
   if (stop.status === "entregado") return;
+  const siblings = (await siblingStops(db, stop)).filter((x) => x.status !== "entregado");
   await db.from("route_stops").update({
     status: "fallido",
     failure_reason: reason,
     delivered_lat: here?.lat ?? null,
     delivered_lng: here?.lng ?? null,
-  }).eq("id", stop.id);
+  }).in("id", [stop.id, ...siblings.map((x) => x.id)]);
   await notifyOrder(db, stop.orders, "entrega_fallida", "No pudimos entregar tu pedido",
     `Pasamos pero no fue posible entregar (${reason.toLowerCase()}). Te escribiremos para coordinar una nueva fecha.`);
   await advanceRoute(db, stop.route_id, here);

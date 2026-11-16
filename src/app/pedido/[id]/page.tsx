@@ -100,6 +100,11 @@ export default async function PedidoPage({ params, searchParams }: PageProps<"/p
         <p>Total: {formatCLP(order.amount)}{(order.shipping_amount ?? 0) > 0 ? ` (incluye despacho ${formatCLP(order.shipping_amount ?? 0)})` : ""}</p>
         <p>Entrega: {order.delivery === "retiro" ? (order.seller_id ? "Retiro (te contactamos para coordinar)" : "Retiro en bodega") : `Despacho a ${order.address}`}</p>
         <p className="text-xs text-muted">Pedido #{order.id.slice(0, 8)}</p>
+        {order.checkout_id && (
+          <Link href={`/compra/${order.checkout_id}`} className="mt-2 inline-flex items-center gap-1 text-xs font-bold underline-offset-4 hover:underline">
+            Ver la compra completa <Icon name="arrow" className="h-3.5 w-3.5" />
+          </Link>
+        )}
       </div>
       {tracker}
       {canReview && <ReceiptActions orderId={order.id} reviewDays={reviewDays} releaseAt={order.release_at ?? null} />}
@@ -108,7 +113,7 @@ export default async function PedidoPage({ params, searchParams }: PageProps<"/p
       )}
       <div className="flex flex-col gap-2">
         {(order.status === "failed" || order.status === "cancelled") && order.products?.status === "available" && order.products.quantity > 0 && (
-          <Link href={`/comprar/${order.product_id}`} className="rounded-full bg-brand py-3 font-extrabold text-white">
+          <Link href={order.checkout_id ? "/carrito" : `/comprar/${order.product_id}`} className="rounded-full bg-brand py-3 font-extrabold text-white">
             Intentar de nuevo
           </Link>
         )}

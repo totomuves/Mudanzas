@@ -88,6 +88,28 @@ export type Order = {
   released_at?: string | null;
   refunded_at?: string | null;
   payout_at?: string | null;
+  /** Compra del carrito a la que pertenece (varios productos, un pago) */
+  checkout_id?: string | null;
+  created_at: string;
+  paid_at: string | null;
+};
+
+export type Checkout = {
+  id: string;
+  user_id: string | null;
+  status: OrderStatus;
+  amount: number;
+  shipping_amount: number;
+  items_count: number;
+  buyer_name: string;
+  buyer_email: string;
+  buyer_phone: string | null;
+  delivery: "retiro" | "despacho";
+  address: string | null;
+  comuna: string | null;
+  reserved_until: string | null;
+  mp_preference_id: string | null;
+  mp_payment_id: string | null;
   created_at: string;
   paid_at: string | null;
 };
