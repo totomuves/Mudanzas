@@ -129,6 +129,12 @@ export function ProductForm({
       setField("condition", data.condition);
       setField("price", data.price);
       setField("original_price", data.original_price);
+      // Tamaño, medidas y peso estimados para el despacho
+      setField("size", data.size);
+      setField("dim_l", data.largo_cm);
+      setField("dim_a", data.ancho_cm);
+      setField("dim_h", data.alto_cm);
+      setField("weight_kg", data.weight_kg != null ? Math.round(data.weight_kg) : null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo sugerir");
     } finally {
@@ -218,6 +224,9 @@ export function ProductForm({
     const sized = product as (Product & { size?: string | null; weight_kg?: number | null }) | undefined;
     if (size || sized?.size) Object.assign(payload, { size: size || null });
     if (kg || sized?.weight_kg != null) Object.assign(payload, { weight_kg: kg ? Number(kg) || null : null });
+    // Volumen a partir de las medidas en cm (largo × ancho × alto)
+    const [dl, da, dh] = ["dim_l", "dim_a", "dim_h"].map((k) => parseFloat(String(f.get(k) ?? "").replace(",", ".")));
+    if (dl > 0 && da > 0 && dh > 0) Object.assign(payload, { volume_m3: Math.round(((dl * da * dh) / 1e6) * 1000) / 1000 });
     if (payload.title.length < 2) return setError("Ponle un título.");
     if (flashOn && (payload.flash_price == null || payload.flash_price >= payload.price)) {
       return setError("El precio relámpago debe ser menor al precio normal.");
@@ -402,6 +411,17 @@ export function ProductForm({
             ))}
           </select>
         </label>
+        <div className="space-y-1">
+          <span className="block font-bold">Medidas en cm (opcional)</span>
+          <div className="grid grid-cols-3 gap-2">
+            <input name="dim_l" inputMode="numeric" placeholder="Largo" className={input} aria-label="Largo en cm" />
+            <input name="dim_a" inputMode="numeric" placeholder="Ancho" className={input} aria-label="Ancho en cm" />
+            <input name="dim_h" inputMode="numeric" placeholder="Alto" className={input} aria-label="Alto en cm" />
+          </div>
+          <span className="block text-xs text-muted">
+            {product?.volume_m3 ? `Volumen guardado: ${Number(product.volume_m3)} m³. ` : ""}La IA las estima desde la foto; corrígelas si mediste.
+          </span>
+        </div>
         <label className="block space-y-1">
           <span className="font-bold">Peso aprox. en kg (opcional)</span>
           <input name="weight_kg" inputMode="decimal" defaultValue={(product as { weight_kg?: number | null } | undefined)?.weight_kg ?? ""} className={input} placeholder="Ej: 45" />
