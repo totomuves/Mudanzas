@@ -3,6 +3,7 @@ import { Logo } from "./Logo";
 import { Icon } from "./Icon";
 import { NotificationBell } from "./NotificationBell";
 import { AccountMenu } from "./AccountMenu";
+import { CartButton } from "./cart/CartButton";
 import { getAccount } from "@/lib/account";
 
 const links = [
@@ -40,6 +41,7 @@ export async function Header() {
         >
           <Icon name="heart" className="h-6 w-6" />
         </Link>
+        <CartButton />
         <AccountMenu account={account} />
       </div>
     </header>

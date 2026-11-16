@@ -11,6 +11,7 @@ import { FlashCountdown } from "@/components/FlashCountdown";
 import { Icon, CategoryIcon } from "@/components/Icon";
 import { TasteMeter } from "./TasteMeter";
 import { requestIndexing } from "@/lib/recsys/track";
+import { addToCart } from "@/lib/cart";
 
 // Mismos valores que el trigger learn_from_swipe en la base de datos
 const DELTA: Record<SwipeAction, number> = { superlike: 2, like: 1, pass: -0.4 };
@@ -362,8 +363,18 @@ export function SwipeDeck({
               <b>{superliked.title}</b> {superliked.quantity > 1 ? `quedan solo ${superliked.quantity}.` : "es pieza única."} Si lo quieres, aparta el tuyo antes que otro.
             </p>
             <div className="mt-5 flex flex-col gap-2">
-              <Link href={`/comprar/${superliked.id}`} className="rounded-full bg-brand py-3 font-extrabold text-white">
-                Comprar ahora
+              <button
+                onClick={() => {
+                  addToCart(superliked.id, 1, superliked.quantity);
+                  setSuperliked(null);
+                }}
+                className="flex items-center justify-center gap-2 rounded-full bg-brand py-3 font-extrabold text-white"
+              >
+                <Icon name="bag" className="h-5 w-5" />
+                Agregar al carrito y seguir
+              </button>
+              <Link href={`/comprar/${superliked.id}`} className="rounded-full border-2 border-foreground py-3 font-extrabold">
+                Comprar solo este
               </Link>
               <button onClick={() => setSuperliked(null)} className="py-2 font-bold text-muted">
                 Seguir descubriendo

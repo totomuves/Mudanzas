@@ -59,10 +59,37 @@ type PlanOrder = {
   lat: number | null;
   lng: number | null;
   buyer_name: string;
+  checkout_id?: string | null;
   products: { title: string; size: string | null; category_slug: string; weight_kg: number | null; volume_m3: number | null } | null;
 };
 
-const ORDER_FIELDS = "id, user_id, product_id, quantity, address, comuna, delivery_slot, lat, lng, buyer_name, products(title, size, category_slug, weight_kg, volume_m3)";
+const ORDER_FIELDS = "id, user_id, product_id, quantity, address, comuna, delivery_slot, lat, lng, buyer_name, checkout_id, products(title, size, category_slug, weight_kg, volume_m3)";
+
+/**
+ * Junta los pedidos de una misma compra del carrito: van a la misma dirección,
+ * así que son UNA sola parada (una visita, una ventana, una firma).
+ */
+function groupByCheckout<T extends { id: string; checkout_id?: string | null }>(orders: T[]) {
+  const groups = new Map<string, T[]>();
+  for (const o of orders) {
+    const k = o.checkout_id ? `c:${o.checkout_id}` : o.id;
+    const g = groups.get(k);
+    if (g) g.push(o);
+    else groups.set(k, [o]);
+  }
+  return [...groups.values()];
+}
+
+/** Carga y tiempo de entrega de una parada con uno o varios pedidos. */
+function stopLoad(orders: { quantity: number; products: Parameters<typeof orderLoad>[0] | null }[]) {
+  return orders.reduce(
+    (a, o) => {
+      const l = orderLoad(o.products ?? {}, o.quantity);
+      return { kg: a.kg + l.kg, m3: a.m3 + l.m3, rank: Math.max(a.rank, l.rank), serviceMin: a.serviceMin + l.serviceMin };
+    },
+    { kg: 0, m3: 0, rank: 0, serviceMin: 0 },
+  );
+}
 
 /** Ubica en el mapa los pedidos que aún no tienen coordenadas. */
 async function locateOrders(db: Db, orders: PlanOrder[]) {
@@ -152,13 +179,16 @@ export async function planDeliveryDay(date: string, sellerId: SellerScope = null
 
   await locateOrders(db, orders);
   const depot = await depotPoint(db, settings, sellerId);
-  const points: Point[] = [depot, ...orders.map((o) => ({ lat: o.lat!, lng: o.lng! }))];
+  // Una parada por dirección de compra (los productos de un mismo carrito llegan juntos)
+  const groups = groupByCheckout(orders);
+  const points: Point[] = [depot, ...groups.map((g) => ({ lat: g[0].lat!, lng: g[0].lng! }))];
   const startSec = toSeconds(settings.start_time);
   const endSec = toSeconds(settings.end_time);
   const matrix = await travelMatrix(points, santiagoToDate(date, startSec), startSec);
 
-  const stops: OptStop[] = orders.map((o, i) => {
-    const load = orderLoad(o.products ?? {}, o.quantity);
+  const stops: OptStop[] = groups.map((g, i) => {
+    const o = g[0];
+    const load = stopLoad(g);
     const tw = slotWindow((o.delivery_slot ?? "cualquiera") as DeliverySlot, settings);
     return {
       id: o.id, node: i + 1, kg: load.kg, m3: load.m3, sizeRank: load.rank,
@@ -180,12 +210,13 @@ export async function planDeliveryDay(date: string, sellerId: SellerScope = null
   }));
 
   const result = optimizeRoutes(stops, optVehicles, matrix, {
-    timeLimitMs: Math.min(8000, 1500 + orders.length * 120),
+    timeLimitMs: Math.min(8000, 1500 + groups.length * 120),
     balance: settings.balance_routes,
     seed: Number(date.replace(/-/g, "")),
   });
 
   const byId = new Map(orders.map((o) => [o.id, o]));
+  const groupOf = new Map(groups.map((g) => [g[0].id, g]));
   let distance = 0;
   for (const [i, r] of result.routes.entries()) {
     const v = fleet.find((x) => x.id === r.vehicleId)!;
@@ -210,19 +241,20 @@ export async function planDeliveryDay(date: string, sellerId: SellerScope = null
       .select("id")
       .single();
     if (error || !route) throw new Error(error?.message ?? "No se pudo guardar la ruta");
-    const stopRows = r.visits.map((vis, k) => {
-      const o = byId.get(vis.id)!;
-      const tw = slotWindow((o.delivery_slot ?? "cualquiera") as DeliverySlot, settings);
+    const stopRows = r.visits.flatMap((vis, k) => {
+      const g = groupOf.get(vis.id)!;
+      const tw = slotWindow((g[0].delivery_slot ?? "cualquiera") as DeliverySlot, settings);
       const [ws, we] = promisedWindow(vis.start, settings, tw);
-      return {
+      // Todos los pedidos de la compra comparten parada (mismo número, hora y ventana)
+      return g.map((o, j) => ({
         route_id: route.id,
         order_id: o.id,
         seq: k + 1,
         eta: santiagoToDate(date, vis.start).toISOString(),
         window_start: santiagoToDate(date, ws).toISOString(),
         window_end: santiagoToDate(date, we).toISOString(),
-        leg_distance_m: Math.round(vis.legDist),
-      };
+        leg_distance_m: j === 0 ? Math.round(vis.legDist) : 0,
+      }));
     });
     const { error: e2 } = await db.from("route_stops").insert(stopRows);
     if (e2) throw new Error(e2.message);
@@ -231,8 +263,10 @@ export async function planDeliveryDay(date: string, sellerId: SellerScope = null
   return {
     date,
     routes: result.routes.length,
-    stops: orders.length - result.unassigned.length,
-    unassigned: result.unassigned.map((u) => ({ orderId: u.id, title: byId.get(u.id)?.products?.title ?? "Pedido", reason: u.reason })),
+    stops: result.routes.reduce((a, r) => a + r.visits.length, 0),
+    unassigned: result.unassigned.flatMap((u) =>
+      (groupOf.get(u.id) ?? [byId.get(u.id)!]).map((o) => ({ orderId: o.id, title: o?.products?.title ?? "Pedido", reason: u.reason })),
+    ),
     source: matrix.source,
     distanceKm: Math.round(distance / 100) / 10,
     iterations: result.iterations,
@@ -251,15 +285,23 @@ export async function publishDay(date: string, sellerId: SellerScope = null) {
   await db.from("delivery_routes").update({ status: "publicada", published_at: new Date().toISOString() }).in("id", ids);
   const { data: stops } = await db
     .from("route_stops")
-    .select("id, window_start, window_end, orders(id, user_id, product_id, products(title))")
+    .select("id, route_id, seq, window_start, window_end, orders(id, user_id, product_id, products(title))")
     .in("route_id", ids);
-  let sent = 0;
+  // Los productos de una misma compra comparten parada: un solo aviso por parada
+  const bySeq = new Map<string, NonNullable<typeof stops>>();
   for (const s of stops ?? []) {
+    const k = `${s.route_id}:${s.seq}`;
+    bySeq.set(k, [...(bySeq.get(k) ?? []), s]);
+  }
+  let sent = 0;
+  for (const group of bySeq.values()) {
+    const s = group[0];
     const o = s.orders as unknown as { id: string; user_id: string | null; product_id: string; products: { title: string } | null } | null;
     if (!o || !s.window_start || !s.window_end) continue;
+    const what = group.length > 1 ? `Tus ${group.length} productos llegan` : `${o.products?.title ?? "Tu compra"} llega`;
     await notifyOrder(db, o, "entrega_fecha", `Tu pedido llega el ${formatDeliveryDate(date, { weekday: "long", day: "numeric", month: "long" })}`,
-      `${o.products?.title ?? "Tu compra"} llega entre las ${formatTime(s.window_start)} y las ${formatTime(s.window_end)}. Te avisamos cuando vayamos en camino.`);
-    await db.from("route_stops").update({ notified_window_at: new Date().toISOString() }).eq("id", s.id);
+      `${what} entre las ${formatTime(s.window_start)} y las ${formatTime(s.window_end)}. Te avisamos cuando vayamos en camino.`);
+    await db.from("route_stops").update({ notified_window_at: new Date().toISOString() }).in("id", group.map((x) => x.id));
     sent++;
   }
   return sent;
@@ -305,12 +347,16 @@ export async function reoptimizeRoute(routeId: string, from: Point | null) {
   const date = route.delivery_date as string;
   const now = santiagoParts(new Date());
   const startSec = now.date === date ? Math.max(now.seconds, 0) : toSeconds(settings.start_time);
-  const points: Point[] = [depot, start, ...pending.map((s) => ({ lat: s.orders.lat!, lng: s.orders.lng! }))];
+  // Paradas con varios productos de una misma compra se mueven juntas
+  const groups = [...pending.reduce((m, s) => m.set(s.seq, [...(m.get(s.seq) ?? []), s]), new Map<number, StopRow[]>()).values()];
+  const groupOf = new Map(groups.map((g) => [g[0].id, g]));
+  const points: Point[] = [depot, start, ...groups.map((g) => ({ lat: g[0].orders.lat!, lng: g[0].orders.lng! }))];
   const matrix = await travelMatrix(points, now.date === date ? new Date() : santiagoToDate(date, startSec), startSec);
   const v = route.vehicles as Vehicle | null;
 
-  const stops: OptStop[] = pending.map((s, i) => {
-    const load = orderLoad(s.orders.products ?? {}, s.orders.quantity);
+  const stops: OptStop[] = groups.map((g, i) => {
+    const s = g[0];
+    const load = stopLoad(g.map((x) => x.orders));
     // Respeta la ventana que ya se le prometió al comprador
     const tw: [number, number] = s.window_start && s.window_end
       ? [santiagoParts(new Date(s.window_start)).seconds, santiagoParts(new Date(s.window_end)).seconds]
@@ -324,15 +370,16 @@ export async function reoptimizeRoute(routeId: string, from: Point | null) {
       start: startSec, end: Math.max(toSeconds(settings.end_time), startSec + 3600), startNode: 1, endNode: 0,
     }],
     matrix,
-    { timeLimitMs: Math.min(4000, 800 + pending.length * 150), hardLimits: false, seed: Date.now() % 100000 },
+    { timeLimitMs: Math.min(4000, 800 + groups.length * 150), hardLimits: false, seed: Date.now() % 100000 },
   );
   const r = result.routes[0];
   if (!r) return { changed: 0 };
 
   let changed = 0;
-  const base = done.length;
+  const base = new Set(done.map((s) => s.seq)).size;
   for (const [k, vis] of r.visits.entries()) {
-    const old = pending.find((s) => s.id === vis.id)!;
+    const group = groupOf.get(vis.id)!;
+    const old = group[0];
     const update: Record<string, unknown> = { seq: base + k + 1, eta: santiagoToDate(date, vis.start).toISOString(), leg_distance_m: Math.round(vis.legDist) };
     // Si la nueva hora cae fuera de la ventana avisada, se corre la ventana y se avisa
     const ws = old.window_start ? new Date(old.window_start).getTime() : null;
@@ -345,11 +392,16 @@ export async function reoptimizeRoute(routeId: string, from: Point | null) {
       update.window_start = nws.toISOString();
       update.window_end = nwe.toISOString();
       await notifyOrder(db, old.orders, "entrega_fecha", "Actualizamos el horario de tu entrega",
-        `${old.orders.products?.title ?? "Tu compra"} llega entre las ${formatTime(nws)} y las ${formatTime(nwe)}.`);
+        `${group.length > 1 ? `Tus ${group.length} productos llegan` : `${old.orders.products?.title ?? "Tu compra"} llega`} entre las ${formatTime(nws)} y las ${formatTime(nwe)}.`);
       changed++;
     }
     if (old.seq !== base + k + 1) changed++;
     await db.from("route_stops").update(update).eq("id", vis.id);
+    if (group.length > 1) {
+      const { leg_distance_m: _leg, ...rest } = update;
+      void _leg;
+      await db.from("route_stops").update({ ...rest, leg_distance_m: 0 }).in("id", group.slice(1).map((x) => x.id));
+    }
   }
   await db.from("delivery_routes").update({
     planned_end: santiagoToDate(date, r.end).toISOString(),

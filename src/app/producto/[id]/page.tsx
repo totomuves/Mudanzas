@@ -9,6 +9,7 @@ import { PriceTag } from "@/components/PriceTag";
 import { FlashCountdown } from "@/components/FlashCountdown";
 import { Gallery } from "./Gallery";
 import { TrackView } from "./TrackView";
+import { AddToCart } from "@/components/cart/AddToCart";
 
 export async function generateMetadata({ params }: PageProps<"/producto/[id]">): Promise<Metadata> {
   if (!hasSupabaseEnv()) return {};
@@ -50,12 +51,7 @@ export default async function ProductoPage({ params }: PageProps<"/producto/[id]
             {reservedByOther ? (
               <p className="rounded-full bg-surface py-4 text-center font-extrabold">Apartado por otra persona</p>
             ) : (
-              <Link
-                href={`/comprar/${product.id}`}
-                className="block rounded-full bg-brand py-4 text-center text-lg font-extrabold text-white transition hover:bg-brand-dark"
-              >
-                Comprar
-              </Link>
+              <AddToCart productId={product.id} maxQuantity={Math.min(10, available)} />
             )}
             {reservedByOther && (
               <p className="text-center text-xs text-muted">

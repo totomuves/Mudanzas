@@ -4,7 +4,7 @@ import Image from "next/image";
 import { hasSupabaseEnv } from "@/lib/env";
 import { SetupNotice } from "@/components/SetupNotice";
 import { Icon } from "@/components/Icon";
-import { loadStop, proofUrls } from "@/lib/routing/operations";
+import { loadStop, proofUrls, siblingStops } from "@/lib/routing/operations";
 import { SIZES, formatTime, mapsDirections, orderLoad, wazeLink } from "@/lib/delivery";
 import { DeliveryForm } from "./DeliveryForm";
 
@@ -18,6 +18,8 @@ export default async function ParadaPage({ params }: PageProps<"/reparto/parada/
   const load = orderLoad(o.products ?? {}, o.quantity);
   const img = o.products?.images?.[0];
   const phone = (o.buyer_phone ?? "").replace(/[^\d+]/g, "");
+  // Productos de la misma compra: se entregan juntos en esta parada
+  const siblings = await siblingStops(db, stop);
 
   return (
     <div className="mx-auto max-w-lg space-y-5">
@@ -34,6 +36,20 @@ export default async function ParadaPage({ params }: PageProps<"/reparto/parada/
           <p className="text-xs text-muted">{SIZES[load.size].label} · {o.buyer_name} · ventana {stop.window_start ? formatTime(stop.window_start) : ""}–{stop.window_end ? formatTime(stop.window_end) : ""}</p>
         </div>
       </div>
+      {siblings.length > 0 && (
+        <section className="space-y-2 rounded-2xl border-2 border-foreground p-3">
+          <p className="flex items-center gap-2 text-sm font-extrabold"><Icon name="box" className="h-5 w-5" />Esta entrega lleva {siblings.length + 1} productos</p>
+          <ul className="space-y-1 text-sm">
+            {[stop, ...siblings].map((x) => (
+              <li key={x.id} className="flex justify-between gap-2">
+                <span>{x.orders.products?.title ?? "Producto"}{x.orders.quantity > 1 ? ` × ${x.orders.quantity}` : ""}</span>
+                <span className="text-xs text-muted">{SIZES[orderLoad(x.orders.products ?? {}, 1).size].label}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-muted">Una sola firma y foto sirven para todos.</p>
+        </section>
+      )}
       {o.address_notes && <p className="rounded-xl bg-surface p-3 text-sm"><b>Indicaciones:</b> {o.address_notes}</p>}
 
       <div className="grid grid-cols-3 gap-2 text-sm font-bold">
