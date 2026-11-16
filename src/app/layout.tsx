@@ -6,6 +6,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { Footer } from "@/components/Footer";
 import { RegisterSW } from "@/components/RegisterSW";
 import { Analytics } from "@/components/marketing/Analytics";
+import { CookieBanner } from "@/components/marketing/CookieBanner";
 import { JsonLd } from "@/components/marketing/JsonLd";
 import { siteUrl } from "@/lib/env";
 import { siteVerification, socialLinks } from "@/lib/marketing/config";
@@ -57,6 +58,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <BottomNav />
         <RegisterSW />
         <Analytics />
+        <CookieBanner />
         <JsonLd
           data={[
             {

@@ -99,14 +99,20 @@ export default async function PrivacidadPage() {
         <p>No vendemos ni arrendamos tus datos personales.</p>
       </Section>
 
-      <Section title="5. Cookies y medición">
+      <Section title="5. Cookies y medición" id="cookies">
         <p>
-          Usamos cookies necesarias para que funcionen la sesión y el carrito. Además usamos Google Analytics, el píxel de Meta y el
-          píxel de TikTok para saber qué productos se ven y se compran, y para mostrar anuncios de {brand.name} a quien le pueden
-          interesar. Estas herramientas no reciben tu nombre, correo ni dirección.
+          Usamos cookies necesarias para que funcionen la sesión y el carrito. Esas no se pueden desactivar porque sin ellas el sitio
+          no funciona.
         </p>
         <p>
-          Puedes bloquear o borrar las cookies desde tu navegador, y ajustar los anuncios en tus cuentas de{" "}
+          Solo si lo aceptas en el aviso de cookies, usamos además Google Analytics, el píxel de Meta y el píxel de TikTok para saber
+          qué productos se ven y se compran, y para mostrar anuncios de {brand.name} a quien le pueden interesar. Estas herramientas
+          no reciben tu nombre, correo ni dirección. Si las rechazas, no se cargan y el sitio funciona igual.
+        </p>
+        <p>
+          Tu elección se guarda en este navegador por 6 meses. Puedes cambiarla cuando quieras en{" "}
+          <b>Preferencias de cookies</b>, al final de cada página. También puedes borrar las cookies desde tu navegador y ajustar los
+          anuncios en tus cuentas de{" "}
           <a href="https://adssettings.google.com" target="_blank" rel="noopener noreferrer">Google</a>,{" "}
           <a href="https://www.facebook.com/adpreferences" target="_blank" rel="noopener noreferrer">Meta</a> y TikTok.
         </p>

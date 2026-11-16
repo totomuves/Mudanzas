@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { brand } from "@/brand";
 import { socialLinks } from "@/lib/marketing/config";
+import { CookiePreferencesButton } from "@/components/marketing/CookieBanner";
 
 const COLUMNS = [
   {
@@ -66,6 +67,11 @@ export function Footer() {
                   </Link>
                 </li>
               ))}
+              {col.title === "Legal" && (
+                <li>
+                  <CookiePreferencesButton className="text-left text-sm font-semibold hover:underline" />
+                </li>
+              )}
             </ul>
           </nav>
         ))}
