@@ -5,6 +5,7 @@ import { SetupNotice } from "@/components/SetupNotice";
 import { COMUNAS } from "@/lib/comunas";
 import type { ShippingRate } from "@/lib/types";
 import { ShippingForm } from "./ShippingForm";
+import { DespachoTabs } from "./Tabs";
 
 export const metadata: Metadata = { title: "Despacho" };
 
@@ -23,6 +24,7 @@ export default async function DespachoAdminPage() {
 
   return (
     <div className="space-y-6">
+      <DespachoTabs active="/admin/despacho" />
       <div className="space-y-1">
         <h1 className="text-2xl font-black">Despacho por comuna</h1>
         <p className="text-muted">

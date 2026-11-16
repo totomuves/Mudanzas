@@ -6,6 +6,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createPreference } from "@/lib/payments";
 import type { Order } from "@/lib/types";
 import { logServerEvent } from "@/lib/recsys/server";
+import { orderLoad } from "@/lib/delivery";
+import { deliveryDateFor } from "@/lib/routing/planner";
 
 export type CheckoutState = { error?: string };
 
@@ -17,6 +19,9 @@ export async function startCheckout(_prev: CheckoutState, formData: FormData): P
   const delivery = formData.get("delivery") === "despacho" ? "despacho" : "retiro";
   const address = String(formData.get("address") ?? "").trim();
   const comuna = String(formData.get("comuna") ?? "").trim();
+  const addressNotes = String(formData.get("address_notes") ?? "").trim().slice(0, 200);
+  const slotRaw = String(formData.get("delivery_slot") ?? "");
+  const slot = slotRaw === "manana" || slotRaw === "tarde" ? slotRaw : "cualquiera";
 
   if (name.length < 2) return { error: "Escribe tu nombre." };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: "Revisa tu correo." };
@@ -66,6 +71,20 @@ export async function startCheckout(_prev: CheckoutState, formData: FormData): P
           ? "No quedan tantas unidades disponibles. Prueba con menos."
           : "¡Uy! Este producto ya no está disponible o alguien lo está pagando ahora.",
     };
+  }
+
+  // Despacho: fecha de entrega (el próximo día con espacio en la flota) y franja elegida
+  if (delivery === "despacho") {
+    try {
+      const { data: p } = await db.from("products").select("size, category_slug, weight_kg, volume_m3, seller_id").eq("id", productId).single();
+      const plan = await deliveryDateFor(orderLoad(p ?? {}, quantity), p?.seller_id ?? null);
+      if (plan) {
+        await db.from("orders").update({ delivery_date: plan.date, delivery_slot: slot, address_notes: addressNotes || null }).eq("id", order.id);
+      }
+    } catch (e) {
+      // Si aún no se corre la migración de rutas, el pedido sigue igual
+      console.warn("[checkout] fecha de entrega", e);
+    }
   }
 
   // Empezar a pagar dice mucho de lo que le gusta

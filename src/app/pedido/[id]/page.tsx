@@ -9,6 +9,11 @@ import { SetupNotice } from "@/components/SetupNotice";
 import type { Order, Product } from "@/lib/types";
 import { Icon, type IconName } from "@/components/Icon";
 import { ReceiptActions } from "./ReceiptActions";
+import { DeliveryTracker, type TrackerStop } from "@/components/DeliveryTracker";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { proofUrls } from "@/lib/routing/operations";
+import { getDeliverySettings } from "@/lib/routing/planner";
+import { slotLabel } from "@/lib/delivery";
 
 export const metadata: Metadata = { title: "Tu pedido" };
 
@@ -51,6 +56,33 @@ export default async function PedidoPage({ params, searchParams }: PageProps<"/p
   const canReview =
     order.status === "paid" && Boolean(order.seller_id) && !order.confirmed_at && !order.issue_at && !order.released_at &&
     !(order.release_at && new Date(order.release_at) <= new Date());
+  // Despacho: seguimiento de la entrega (si ya existe el sistema de rutas)
+  let tracker: React.ReactNode = null;
+  if (order.status === "paid" && order.delivery === "despacho") {
+    const { data: st, error: stErr } = await supabase
+      .from("route_stops")
+      .select("status, eta, window_start, window_end, delivered_at, received_by, failure_reason, receipt_code, signature_path, photo_path, route_id")
+      .eq("order_id", order.id)
+      .maybeSingle();
+    if (!stErr && (order.delivery_date || st)) {
+      const stop = st as (TrackerStop & { signature_path: string | null; photo_path: string | null; route_id: string }) | null;
+      const db = createAdminClient();
+      // El comprador no lee las rutas directamente: el estado se consulta desde el servidor
+      const routeStatus = stop ? (await db.from("delivery_routes").select("status").eq("id", stop.route_id).maybeSingle()).data?.status : null;
+      const proof = stop?.status === "entregado" ? await proofUrls(db, stop) : { photo: null, signature: null };
+      const settings = await getDeliverySettings(db, order.seller_id ?? null);
+      tracker = (
+        <DeliveryTracker
+          orderId={order.id}
+          date={order.delivery_date ?? null}
+          slotText={order.delivery_slot ? slotLabel(order.delivery_slot, settings) : null}
+          stop={stop}
+          published={Boolean(routeStatus && routeStatus !== "borrador")}
+          proof={proof}
+        />
+      );
+    }
+  }
   const reviewDays = canReview ? ((await supabase.rpc("marketplace_review_days")).data as number | null) ?? 3 : 3;
 
   return (
@@ -59,7 +91,7 @@ export default async function PedidoPage({ params, searchParams }: PageProps<"/p
         <Icon name={s.icon} className="h-16 w-16" strokeWidth={1.4} />
       </div>
       <h1 className="text-3xl font-black">{s.title}</h1>
-      <p className="text-muted">{s.text}</p>
+      <p className="text-muted">{order.status === "paid" && tracker ? "Es tuyo. Aquí puedes seguir tu despacho." : s.text}</p>
       <div className="rounded-2xl border border-border bg-card p-4 text-left text-sm">
         <p className="font-bold">
           {order.products?.title}
@@ -69,6 +101,7 @@ export default async function PedidoPage({ params, searchParams }: PageProps<"/p
         <p>Entrega: {order.delivery === "retiro" ? (order.seller_id ? "Retiro (te contactamos para coordinar)" : "Retiro en bodega") : `Despacho a ${order.address}`}</p>
         <p className="text-xs text-muted">Pedido #{order.id.slice(0, 8)}</p>
       </div>
+      {tracker}
       {canReview && <ReceiptActions orderId={order.id} reviewDays={reviewDays} releaseAt={order.release_at ?? null} />}
       {order.status === "paid" && order.issue_at && !order.released_at && (
         <p className="rounded-xl bg-surface p-3 text-sm">Recibimos tu reclamo y retuvimos el pago. Te contactaremos para resolverlo.</p>

@@ -24,6 +24,10 @@ export type Product = {
   /** Unidades comprables ahora (stock menos pagos en curso). Solo si se pide en el select. */
   available_units?: number;
   status: ProductStatus;
+  /** Tamaño para el despacho (migración de rutas). Vacío = se estima por categoría. */
+  size?: "chico" | "mediano" | "grande" | "muy_grande" | null;
+  weight_kg?: number | null;
+  volume_m3?: number | null;
   flash_price: number | null;
   flash_until: string | null;
   reserved_by: string | null;
@@ -69,6 +73,9 @@ export type Order = {
   address: string | null;
   comuna?: string | null;
   shipping_amount?: number | null;
+  delivery_date?: string | null;
+  delivery_slot?: "manana" | "tarde" | "cualquiera";
+  address_notes?: string | null;
   mp_preference_id: string | null;
   mp_payment_id: string | null;
   seller_id?: string | null;

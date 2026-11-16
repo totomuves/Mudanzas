@@ -32,6 +32,14 @@ export async function POST(request: NextRequest) {
     condition: z.enum(["nuevo", "como_nuevo", "buen_estado", "con_detalles"]),
     price: z.number().int().describe("Precio de venta sugerido en CLP para un artículo usado en Chile"),
     original_price: z.number().int().nullable().describe("Precio aproximado nuevo en CLP, o null si no se puede estimar"),
+    // Para el despacho: tamaño, medidas y peso estimados
+    size: z.enum(["chico", "mediano", "grande", "muy_grande"]).describe(
+      "chico: cabe en una caja (lámpara, libros); mediano: silla, microondas, velador; grande: sillón, cómoda, lavadora; muy_grande: sofá 3 cuerpos, refrigerador, cama 2 plazas",
+    ),
+    largo_cm: z.number().int().nullable().describe("Medida más larga en cm, estimada"),
+    ancho_cm: z.number().int().nullable().describe("Segunda medida en cm, estimada"),
+    alto_cm: z.number().int().nullable().describe("Altura en cm, estimada"),
+    weight_kg: z.number().nullable().describe("Peso aproximado en kg"),
   });
 
   const client = new Anthropic();
@@ -47,7 +55,10 @@ export async function POST(request: NextRequest) {
         "No menciones mudanzas ni de dónde viene el producto. " +
         "Escribes en español de Chile, claro y honesto, sin exagerar. " +
         `Categorías disponibles: ${categories.map((c) => `${c.slug} (${c.name})`).join(", ")}. ` +
-        "Los precios de venta suelen ser entre 20% y 50% del precio nuevo según el estado.",
+        "Los precios de venta suelen ser entre 20% y 50% del precio nuevo según el estado. " +
+        "Estima también las medidas y el peso para el despacho: si reconoces el modelo usa sus medidas de fábrica; " +
+        "si no, compáralo con referencias de la foto (una puerta mide ~200 cm de alto, un enchufe ~8 cm, una baldosa ~30-60 cm, " +
+        "un asiento está a ~45 cm del suelo). Si dudas, redondea hacia arriba.",
       messages: [
         {
           role: "user",
