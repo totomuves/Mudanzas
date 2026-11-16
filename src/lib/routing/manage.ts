@@ -130,10 +130,10 @@ export async function planFor(scope: SellerScope, f: FormData): Promise<PlanStat
   if (!isDate(date)) return { error: "Fecha inválida." };
   try {
     const r = await planDeliveryDay(date, scope);
-    if (!r.routes && !r.unassigned.length) return { ok: "No hay pedidos pendientes para este día." };
+    if (!r.routes && !r.unassigned.length) return { ok: "No hay pedidos ni retiros pendientes para este día." };
     const fuente = r.source === "google" ? "con tráfico real de Google" : "con tráfico estimado";
     return {
-      ok: `Listo: ${r.stops} entregas en ${r.routes} ${r.routes === 1 ? "ruta" : "rutas"}, ${r.distanceKm} km en total (${fuente}; ${r.iterations.toLocaleString("es-CL")} combinaciones probadas en ${(r.ms / 1000).toFixed(1)} s).`,
+      ok: `Listo: ${r.pickups ? `${r.stops - r.pickups} entregas y ${r.pickups} retiros` : `${r.stops} entregas`} en ${r.routes} ${r.routes === 1 ? "ruta" : "rutas"}, ${r.distanceKm} km en total (${fuente}; ${r.iterations.toLocaleString("es-CL")} combinaciones probadas en ${(r.ms / 1000).toFixed(1)} s).`,
       unassigned: r.unassigned,
     };
   } catch (e) {

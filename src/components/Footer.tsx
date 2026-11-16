@@ -20,6 +20,7 @@ const COLUMNS = [
     links: [
       { href: "/envios", label: "Envíos y retiro" },
       { href: "/devoluciones", label: "Cambios y devoluciones" },
+      { href: "/retiramos", label: "Retiramos lo que ya no usas" },
       { href: "/contacto", label: "Contacto" },
     ],
   },

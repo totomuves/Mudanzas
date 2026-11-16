@@ -33,10 +33,15 @@ export default async function RutaChoferPage({ params, searchParams }: PageProps
       <div>
         <h1 className="text-2xl font-black">{formatDeliveryDate(route.delivery_date)}</h1>
         <p className="text-muted">
-          {route.vehicles?.name ?? "Vehículo"} · {done} de {stops.length} entregas · {(route.planned_distance_m / 1000).toFixed(0)} km
+          {route.vehicles?.name ?? "Vehículo"} · {done} de {stops.length} {stops.every((s) => s.kind === "retiro") ? "retiros" : "paradas"} · {(route.planned_distance_m / 1000).toFixed(0)} km
         </p>
       </div>
 
+      {typeof sp.retirado === "string" && (
+        <p className="flex items-center gap-2 rounded-2xl bg-accent/10 p-3 font-bold text-accent">
+          <Icon name="ok" className="h-5 w-5" /> Retiro registrado con fotos y firma.
+        </p>
+      )}
       {typeof sp.entregado === "string" && (
         <p className="flex items-center gap-2 rounded-2xl bg-accent/10 p-3 font-bold text-accent">
           <Icon name="ok" className="h-5 w-5" /> Entrega registrada. El comprador ya tiene su comprobante.
@@ -57,7 +62,7 @@ export default async function RutaChoferPage({ params, searchParams }: PageProps
       {current && (
         <section className="space-y-3 rounded-2xl border-2 p-4" style={{ borderColor: route.color }}>
           <p className="text-xs font-black uppercase" style={{ color: route.color }}>
-            {current.status === "en_camino" ? "Vas en camino a" : "Próxima entrega"} · parada {current.seq}
+            {current.status === "en_camino" ? "Vas en camino a" : current.kind === "retiro" ? "Próximo retiro" : "Próxima entrega"} · parada {current.seq}
           </p>
           <StopInfo stop={current} />
           <div className="grid grid-cols-2 gap-2">
@@ -69,7 +74,7 @@ export default async function RutaChoferPage({ params, searchParams }: PageProps
             </a>
           </div>
           <Link href={`/reparto/parada/${current.id}`} className="flex items-center justify-center gap-2 rounded-full bg-brand py-4 text-lg font-extrabold text-white">
-            <Icon name="check" className="h-6 w-6" /> Registrar entrega
+            <Icon name="check" className="h-6 w-6" /> {current.kind === "retiro" ? "Registrar retiro" : "Registrar entrega"}
           </Link>
         </section>
       )}
@@ -90,10 +95,13 @@ export default async function RutaChoferPage({ params, searchParams }: PageProps
               {s.status === "entregado" ? <Icon name="check" className="h-4 w-4" strokeWidth={3} /> : s.status === "fallido" ? <Icon name="x" className="h-4 w-4" strokeWidth={3} /> : s.seq}
             </span>
             <Link href={`/reparto/parada/${s.id}`} className="min-w-0 flex-1">
-              <p className="truncate font-bold">{s.orders.products?.title}{s.orders.quantity > 1 ? ` × ${s.orders.quantity}` : ""}</p>
+              <p className="truncate font-bold">
+                {s.kind === "retiro" && <span className="mr-1 rounded bg-foreground px-1.5 py-0.5 text-[10px] font-black uppercase text-background">Retiro</span>}
+                {s.orders.products?.title}{s.orders.quantity > 1 ? ` × ${s.orders.quantity}` : ""}
+              </p>
               <p className="truncate text-sm text-muted">{s.orders.address}</p>
               <p className="text-xs text-muted">
-                {s.status === "entregado" && s.delivered_at ? `Entregado ${formatTime(s.delivered_at)}` : s.status === "fallido" ? `No entregado: ${s.failure_reason ?? ""}` : `Llegada ${s.eta ? formatTime(s.eta) : "—"} · avisado ${s.window_start ? formatTime(s.window_start) : ""}–${s.window_end ? formatTime(s.window_end) : ""}`}
+                {s.status === "entregado" && s.delivered_at ? `${s.kind === "retiro" ? "Retirado" : "Entregado"} ${formatTime(s.delivered_at)}` : s.status === "fallido" ? `${s.kind === "retiro" ? "No retirado" : "No entregado"}: ${s.failure_reason ?? ""}` : `Llegada ${s.eta ? formatTime(s.eta) : "—"} · avisado ${s.window_start ? formatTime(s.window_start) : ""}–${s.window_end ? formatTime(s.window_end) : ""}`}
               </p>
             </Link>
           </li>
@@ -109,11 +117,11 @@ function StopInfo({ stop }: { stop: Awaited<ReturnType<typeof loadRoute>>["stops
   const phone = (o.buyer_phone ?? "").replace(/[^\d+]/g, "");
   return (
     <div className="space-y-1">
-      <p className="text-lg font-extrabold">{o.products?.title}{o.quantity > 1 ? ` × ${o.quantity}` : ""}</p>
+      <p className="text-lg font-extrabold">{stop.kind === "retiro" ? "Retirar: " : ""}{o.products?.title}{o.quantity > 1 ? ` × ${o.quantity}` : ""}</p>
       <p className="text-sm">{o.address}</p>
       {o.address_notes && <p className="rounded-xl bg-surface p-2 text-sm"><b>Indicaciones:</b> {o.address_notes}</p>}
       <p className="text-sm text-muted">
-        {o.buyer_name} · {SIZES[load.size].label}{load.rank >= 3 ? " (2 personas)" : ""} · ventana {stop.window_start ? formatTime(stop.window_start) : ""}–{stop.window_end ? formatTime(stop.window_end) : ""}
+        {stop.kind === "retiro" ? "Regala " : ""}{o.buyer_name} · {SIZES[load.size].label}{load.rank >= 3 ? " (2 personas)" : ""} · ventana {stop.window_start ? formatTime(stop.window_start) : ""}–{stop.window_end ? formatTime(stop.window_end) : ""}
       </p>
       {phone && (
         <div className="flex gap-4 pt-1 text-sm font-bold">

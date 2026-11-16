@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { formatTime, santiagoParts } from "@/lib/delivery";
 import { haversine, trafficFactor } from "./optimizer";
 import { notifyOrder } from "./notify";
+import { brand } from "@/brand";
 
 type Db = ReturnType<typeof createAdminClient>;
 
@@ -72,10 +73,39 @@ export type StopOrder = {
   products: { title: string; images: string[]; size: string | null; category_slug: string; weight_kg: number | null; volume_m3: number | null } | null;
 };
 
+export type PickupRow = {
+  id: string;
+  pickup_date: string | null;
+  slot: string;
+  contact_name: string;
+  contact_phone: string | null;
+  address: string;
+  comuna: string | null;
+  address_notes: string | null;
+  items: string;
+  size: string | null;
+  volume_m3: number | null;
+  weight_kg: number | null;
+  lat: number | null;
+  lng: number | null;
+  status: "solicitado" | "rechazado" | "pendiente" | "retirado" | "fallido" | "cancelado";
+  picked_at: string | null;
+  photo_paths: string[];
+  donation_terms: string | null;
+};
+
+export const PICKUP_FIELDS =
+  "id, pickup_date, slot, contact_name, contact_phone, address, comuna, address_notes, items, size, volume_m3, weight_kg, lat, lng, status, picked_at, photo_paths, donation_terms";
+
 export type StopRow = {
   id: string;
   route_id: string;
+  /** Entrega: id del pedido. Retiro: null (ver pickup). */
   order_id: string;
+  pickup_id: string | null;
+  /** "entrega" o "retiro" */
+  kind: "entrega" | "retiro";
+  pickup: PickupRow | null;
   seq: number;
   eta: string | null;
   window_start: string | null;
@@ -92,11 +122,36 @@ export type StopRow = {
   delivered_accuracy_m: number | null;
   failure_reason: string | null;
   receipt_code: string;
+  /** En un retiro trae los datos del retiro con la misma forma (para mapas y listas). */
   orders: StopOrder;
 };
 
 export const STOP_SELECT =
-  "*, orders(id, user_id, product_id, quantity, amount, buyer_name, buyer_phone, buyer_email, address, address_notes, comuna, delivery_slot, lat, lng, seller_id, products(title, images, size, category_slug, weight_kg, volume_m3))";
+  `*, orders(id, user_id, product_id, quantity, amount, buyer_name, buyer_phone, buyer_email, address, address_notes, comuna, delivery_slot, lat, lng, seller_id, products(title, images, size, category_slug, weight_kg, volume_m3)), pickups(${PICKUP_FIELDS})`;
+
+/** Datos de un retiro con la forma de un pedido (dirección, contacto, tamaño). */
+export function pickupAsOrder(p: PickupRow): StopOrder {
+  return {
+    id: p.id, user_id: null, product_id: "", quantity: 1, amount: 0,
+    buyer_name: p.contact_name, buyer_phone: p.contact_phone, buyer_email: "",
+    address: p.comuna && !p.address.includes(p.comuna) ? `${p.address}, ${p.comuna}` : p.address,
+    address_notes: p.address_notes, comuna: p.comuna, delivery_slot: p.slot, lat: p.lat, lng: p.lng, seller_id: null,
+    products: { title: p.items, images: [], size: p.size, category_slug: "", weight_kg: p.weight_kg, volume_m3: p.volume_m3 },
+  };
+}
+
+/** Deja cada parada con kind, pickup y orders siempre presentes. */
+export function normalizeStops<T>(rows: T[] | null | undefined): (T & StopRow)[] {
+  return ((rows ?? []) as unknown as (StopRow & { pickups?: PickupRow | null; orders: StopOrder | null })[]).map((r) => {
+    const pickup = r.pickups ?? null;
+    return {
+      ...r,
+      kind: pickup ? "retiro" : "entrega",
+      pickup,
+      orders: pickup ? pickupAsOrder(pickup) : (r.orders as StopOrder),
+    };
+  }) as unknown as (T & StopRow)[];
+}
 
 /** Ruta con sus paradas, solo si la persona puede verla. */
 export async function loadRoute(routeId: string) {
@@ -106,7 +161,7 @@ export async function loadRoute(routeId: string) {
   const { data: route } = await db.from("delivery_routes").select("*, vehicles(*)").eq("id", routeId).maybeSingle();
   if (!route || !canAccessRoute(access, route)) notFound();
   const { data: stops } = await db.from("route_stops").select(STOP_SELECT).eq("route_id", routeId).order("seq");
-  return { access, db, route: route as RouteRow & { vehicles: { name: string; kind: string; plate: string | null } | null }, stops: (stops ?? []) as unknown as StopRow[] };
+  return { access, db, route: route as RouteRow & { vehicles: { name: string; kind: string; plate: string | null } | null }, stops: normalizeStops<StopRow>(stops) };
 }
 
 export async function loadStop(stopId: string) {
@@ -114,7 +169,7 @@ export async function loadStop(stopId: string) {
   const access = await requireDriver(`/reparto/parada/${stopId}`);
   const db = createAdminClient();
   const { data } = await db.from("route_stops").select(`${STOP_SELECT}, delivery_routes(*)`).eq("id", stopId).maybeSingle();
-  const stop = data as (StopRow & { delivery_routes: RouteRow }) | null;
+  const stop = data ? normalizeStops<StopRow & { delivery_routes: RouteRow }>([data])[0] : null;
   if (!stop || !canAccessRoute(access, stop.delivery_routes)) notFound();
   return { access, db, stop };
 }
@@ -125,7 +180,7 @@ export async function loadStop(stopId: string) {
  */
 export async function siblingStops(db: Db, stop: Pick<StopRow, "id" | "route_id" | "seq">) {
   const { data } = await db.from("route_stops").select(STOP_SELECT).eq("route_id", stop.route_id).eq("seq", stop.seq).neq("id", stop.id);
-  return (data ?? []) as unknown as StopRow[];
+  return normalizeStops<StopRow>(data);
 }
 
 /** Minutos estimados para llegar de un punto a otro ahora. */
@@ -139,7 +194,7 @@ function etaMinutes(from: { lat: number; lng: number } | null, to: { lat: number
 /** Pasa a la siguiente parada: queda "en camino" y se avisa al comprador. */
 export async function advanceRoute(db: Db, routeId: string, from: { lat: number; lng: number } | null) {
   const { data } = await db.from("route_stops").select(STOP_SELECT).eq("route_id", routeId).in("status", ["pendiente", "en_camino"]).order("seq").limit(1);
-  const next = (data?.[0] ?? null) as unknown as StopRow | null;
+  const next = normalizeStops<StopRow>(data)[0] ?? null;
   if (!next) {
     await db.from("delivery_routes").update({ status: "terminada", finished_at: new Date().toISOString() }).eq("id", routeId);
     return null;
@@ -153,7 +208,8 @@ export async function advanceRoute(db: Db, routeId: string, from: { lat: number;
       .update({ status: "en_camino", notified_onway_at: new Date().toISOString(), ...(eta ? { eta: eta.toISOString() } : {}) })
       .in("id", [next.id, ...siblings.map((x) => x.id)]);
     const what = siblings.length ? `Tus ${siblings.length + 1} productos son` : `${next.orders.products?.title ?? "Tu pedido"} es`;
-    await notifyOrder(db, next.orders, "entrega_camino", "Vamos en camino",
+    // Quien regala no tiene cuenta: el chofer le avisa por WhatsApp desde su pantalla
+    if (next.kind === "entrega") await notifyOrder(db, next.orders, "entrega_camino", "Vamos en camino",
       `${what} la próxima entrega${eta ? `: llegamos cerca de las ${formatTime(eta)}` : ""}. Ten a mano tu nombre y RUT para firmar.`);
   }
   return next;
@@ -176,6 +232,7 @@ export async function completeStop(
 ) {
   const { db, stop } = await loadStop(stopId);
   if (stop.status === "entregado") return { ok: true as const };
+  if (stop.kind === "retiro") return { ok: false as const, error: "Esta parada es un retiro." };
   if (!input.signature || input.signature.size < 200 || input.signature.size > MAX_UPLOAD || !input.signature.type.startsWith("image/")) {
     return { ok: false as const, error: "Falta la firma." };
   }
@@ -231,9 +288,69 @@ export async function completeStop(
   return { ok: true as const };
 }
 
+/** Texto que firma quien regala los productos. */
+export function donationTerms(items: string, brandName: string) {
+  return `Entrego sin costo a ${brandName} lo siguiente: ${items}. Lo hago voluntariamente, es mío o tengo permiso para entregarlo, está en buen estado y funcionando, y acepto que ${brandName} pase a ser su dueño y lo pueda usar, vender o regalar, sin pagarme nada a cambio.`;
+}
+
+const MAX_PICKUP_PHOTOS = 4;
+
+/** Retiro hecho: fotos de lo recibido + firma de quien lo entrega, aceptando el texto. */
+export async function completePickup(
+  stopId: string,
+  input: { donorName: string; rut: string; lat: number | null; lng: number | null; accuracy: number | null; signature: File; photos: File[] },
+) {
+  const { db, stop } = await loadStop(stopId);
+  if (stop.kind !== "retiro" || !stop.pickup) return { ok: false as const, error: "Esta parada no es un retiro." };
+  if (stop.status === "entregado") return { ok: true as const };
+  if (!input.signature || input.signature.size < 200 || input.signature.size > MAX_UPLOAD || !input.signature.type.startsWith("image/")) {
+    return { ok: false as const, error: "Falta la firma de quien regala." };
+  }
+  const photos = input.photos.filter((f) => f.size > 0).slice(0, MAX_PICKUP_PHOTOS);
+  if (!photos.length) return { ok: false as const, error: "Toma al menos una foto de lo que retiras." };
+  if (photos.some((f) => f.size > MAX_UPLOAD || !f.type.startsWith("image/"))) return { ok: false as const, error: "Una foto es muy pesada. Intenta de nuevo." };
+
+  const base = `retiros/${stop.pickup.id}`;
+  const sigPath = `${base}/firma.png`;
+  const up = await db.storage.from("entregas").upload(sigPath, input.signature, { contentType: "image/png", upsert: true });
+  if (up.error) return { ok: false as const, error: `No se pudo guardar la firma: ${up.error.message}` };
+  const paths: string[] = [];
+  for (const [i, f] of photos.entries()) {
+    const path = `${base}/foto-${i + 1}.jpg`;
+    const r = await db.storage.from("entregas").upload(path, f, { contentType: f.type || "image/jpeg", upsert: true });
+    if (r.error) return { ok: false as const, error: `No se pudo guardar la foto: ${r.error.message}` };
+    paths.push(path);
+  }
+
+  const now = new Date().toISOString();
+  await db.from("route_stops").update({
+    status: "entregado",
+    delivered_at: now,
+    received_by: input.donorName,
+    receiver_rut: input.rut || null,
+    signature_path: sigPath,
+    photo_path: paths[0],
+    delivered_lat: input.lat,
+    delivered_lng: input.lng,
+    delivered_accuracy_m: input.accuracy != null ? Math.round(input.accuracy) : null,
+    failure_reason: null,
+  }).eq("id", stop.id);
+  await db.from("pickups").update({ status: "retirado", picked_at: now, photo_paths: paths, donation_terms: donationTerms(stop.pickup.items, brand.name) }).eq("id", stop.pickup.id);
+
+  const here = input.lat != null && input.lng != null ? { lat: input.lat, lng: input.lng } : null;
+  if (stop.delivery_routes.status !== "terminada") await advanceRoute(db, stop.route_id, here);
+  return { ok: true as const };
+}
+
 export async function failStop(stopId: string, reason: string, here: { lat: number; lng: number } | null) {
   const { db, stop } = await loadStop(stopId);
   if (stop.status === "entregado") return;
+  if (stop.kind === "retiro") {
+    await db.from("route_stops").update({ status: "fallido", failure_reason: reason, delivered_lat: here?.lat ?? null, delivered_lng: here?.lng ?? null }).eq("id", stop.id);
+    if (stop.pickup) await db.from("pickups").update({ status: "fallido" }).eq("id", stop.pickup.id);
+    await advanceRoute(db, stop.route_id, here);
+    return;
+  }
   const siblings = (await siblingStops(db, stop)).filter((x) => x.status !== "entregado");
   await db.from("route_stops").update({
     status: "fallido",
@@ -244,6 +361,11 @@ export async function failStop(stopId: string, reason: string, here: { lat: numb
   await notifyOrder(db, stop.orders, "entrega_fallida", "No pudimos entregar tu pedido",
     `Pasamos pero no fue posible entregar (${reason.toLowerCase()}). Te escribiremos para coordinar una nueva fecha.`);
   await advanceRoute(db, stop.route_id, here);
+}
+
+/** Enlaces firmados (válidos 1 hora) de las fotos de un retiro. */
+export async function signedPaths(db: Db, paths: string[]) {
+  return Promise.all(paths.map(async (p) => (await db.storage.from("entregas").createSignedUrl(p, 3600)).data?.signedUrl ?? null));
 }
 
 /** Enlaces firmados (válidos 1 hora) para ver la foto y la firma. */
