@@ -10,16 +10,20 @@ export function CheckoutForm({
   unitPrice,
   maxQuantity,
   shippingRates,
+  deliveryInfo,
 }: {
   productId: string;
   unitPrice: number;
   maxQuantity: number;
   shippingRates: { comuna: string; price: number }[];
+  /** Fecha estimada y franjas horarias del despacho (null si aún no se configura el reparto). */
+  deliveryInfo?: { dateLabel: string; slots: { value: string; label: string }[] } | null;
 }) {
   const [state, action, pending] = useActionState<CheckoutState, FormData>(startCheckout, {});
   const [delivery, setDelivery] = useState<"retiro" | "despacho">("retiro");
   const [quantity, setQuantity] = useState(1);
   const [comuna, setComuna] = useState("");
+  const [slot, setSlot] = useState("cualquiera");
   const canShip = shippingRates.length > 0;
   const rate = shippingRates.find((r) => r.comuna === comuna);
   const shipping = delivery === "despacho" && rate ? rate.price : 0;
@@ -105,6 +109,25 @@ export function CheckoutForm({
             </span>
           </label>
           <Field label="Dirección (calle, número, depto)" name="address" autoComplete="street-address" required />
+          <Field label="Indicaciones para llegar (opcional)" name="address_notes" placeholder="Ej: casa con reja verde, piso 3 sin ascensor" maxLength={200} />
+          {deliveryInfo && (
+            <div className="space-y-2 rounded-2xl border border-border bg-card p-4">
+              <p className="flex items-center gap-2 font-bold">
+                <Icon name="calendar" className="h-5 w-5 text-brand" />
+                Llega el {deliveryInfo.dateLabel}
+              </p>
+              <p className="text-sm text-muted">¿A qué hora te acomoda? El día anterior te avisamos una ventana más precisa.</p>
+              <div className="grid gap-2">
+                {deliveryInfo.slots.map((s) => (
+                  <label key={s.value} className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 px-3 py-2 text-sm ${slot === s.value ? "border-foreground bg-surface" : "border-border"}`}>
+                    <input type="radio" name="delivery_slot" value={s.value} checked={slot === s.value} onChange={() => setSlot(s.value)} className="accent-[var(--brand)]" />
+                    <Icon name="clock" className="h-4 w-4 text-muted" />
+                    <span className="font-semibold">{s.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
         </>
       )}
 

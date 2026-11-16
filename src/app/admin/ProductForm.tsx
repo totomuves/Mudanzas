@@ -10,6 +10,7 @@ import type { Category, Condition, Product } from "@/lib/types";
 import { compress, photoExt, rotate, whiteBackground, type BgProvider } from "@/lib/photo";
 import { Icon } from "@/components/Icon";
 import { requestIndexing } from "@/lib/recsys/track";
+import { SIZES, SIZE_KEYS, itemSize } from "@/lib/delivery";
 
 const MAX_PHOTOS = 6;
 const STORAGE_PREFIX = "/storage/v1/object/public/products/";
@@ -211,6 +212,12 @@ export function ProductForm({
           : new Date(Date.now() + flashHours * 3600_000).toISOString()
         : null,
     };
+    // Tamaño para el despacho (solo se envía si se usa, así funciona aunque falte la migración de rutas)
+    const size = String(f.get("size") ?? "");
+    const kg = String(f.get("weight_kg") ?? "").replace(",", ".").trim();
+    const sized = product as (Product & { size?: string | null; weight_kg?: number | null }) | undefined;
+    if (size || sized?.size) Object.assign(payload, { size: size || null });
+    if (kg || sized?.weight_kg != null) Object.assign(payload, { weight_kg: kg ? Number(kg) || null : null });
     if (payload.title.length < 2) return setError("Ponle un título.");
     if (flashOn && (payload.flash_price == null || payload.flash_price >= payload.price)) {
       return setError("El precio relámpago debe ser menor al precio normal.");
@@ -385,6 +392,19 @@ export function ProductForm({
               <option key={c} value={c}>{c}</option>
             ))}
           </select>
+        </label>
+        <label className="block space-y-1">
+          <span className="font-bold">Tamaño para despacho</span>
+          <select name="size" defaultValue={(product as { size?: string | null } | undefined)?.size ?? ""} className={input}>
+            <option value="">Automático ({SIZES[itemSize({ category_slug: product?.category_slug ?? categories[0]?.slug })].label.toLowerCase()} según categoría)</option>
+            {SIZE_KEYS.map((k) => (
+              <option key={k} value={k}>{SIZES[k].label}: {SIZES[k].hint}</option>
+            ))}
+          </select>
+        </label>
+        <label className="block space-y-1">
+          <span className="font-bold">Peso aprox. en kg (opcional)</span>
+          <input name="weight_kg" inputMode="decimal" defaultValue={(product as { weight_kg?: number | null } | undefined)?.weight_kg ?? ""} className={input} placeholder="Ej: 45" />
         </label>
         <label className="block space-y-1">
           <span className="font-bold">Publicación</span>

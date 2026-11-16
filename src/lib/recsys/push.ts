@@ -15,13 +15,13 @@ export function pushEnabled() {
   return Boolean(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY);
 }
 
-type Notification = { id: number; user_id: string; title: string; body: string | null; url: string | null };
+export type PushNotification = { id: number; user_id: string; title: string; body: string | null; url: string | null };
 
 /** Calcula a quién avisar de estos productos nuevos y les envía la notificación. */
 export async function notifyNewProducts(productIds: string[]) {
   if (productIds.length === 0) return 0;
   const db = createAdminClient();
-  const created: Notification[] = [];
+  const created: PushNotification[] = [];
   for (const id of productIds) {
     const { data, error } = await db.rpc("notify_matches", { p_product_id: id });
     if (error) {
@@ -29,13 +29,13 @@ export async function notifyNewProducts(productIds: string[]) {
       if (!/notify_matches/.test(error.message)) console.warn("[avisos]", error.message);
       return 0;
     }
-    created.push(...((data ?? []) as Notification[]));
+    created.push(...((data ?? []) as PushNotification[]));
   }
   if (created.length && pushEnabled()) await sendPush(created);
   return created.length;
 }
 
-async function sendPush(items: Notification[]) {
+export async function sendPush(items: PushNotification[]) {
   webpush.setVapidDetails(
     process.env.VAPID_SUBJECT || "mailto:avisos@totomuves.cl",
     process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,

@@ -12,7 +12,7 @@ import { AvisosSettings } from "./AvisosSettings";
 
 export const metadata: Metadata = { title: "Avisos" };
 
-type Row = { id: number; title: string; body: string | null; url: string | null; read_at: string | null; created_at: string; products: Product | null };
+type Row = { id: number; kind?: string; title: string; body: string | null; url: string | null; read_at: string | null; created_at: string; products: Product | null };
 
 const dateFmt = new Intl.DateTimeFormat("es-CL", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
@@ -27,7 +27,7 @@ export default async function AvisosPage() {
     const [{ data, error }, { data: profile }] = await Promise.all([
       supabase
         .from("notifications")
-        .select("id, title, body, url, read_at, created_at, products(*)")
+        .select("id, kind, title, body, url, read_at, created_at, products(*)")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(50),
@@ -74,7 +74,7 @@ export default async function AvisosPage() {
         <ul className="divide-y divide-border overflow-hidden rounded-card border border-border bg-card">
           {rows.map((r) => {
             const p = r.products;
-            const gone = !p || p.status !== "available";
+            const gone = (r.kind ?? "match") === "match" && (!p || p.status !== "available");
             return (
               <li key={r.id}>
                 <Link href={r.url ?? "/descubrir"} className={`flex items-center gap-3 p-3 hover:bg-background ${gone ? "opacity-60" : ""}`}>

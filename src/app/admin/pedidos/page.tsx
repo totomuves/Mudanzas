@@ -3,6 +3,7 @@ import Link from "next/link";
 import { hasSupabaseEnv } from "@/lib/env";
 import { requireSection } from "@/lib/admin";
 import { formatCLP } from "@/lib/format";
+import { formatDeliveryDate } from "@/lib/delivery";
 import { SetupNotice } from "@/components/SetupNotice";
 import type { Order, Product } from "@/lib/types";
 import { StatusDot, type StatusTone } from "@/components/StatusDot";
@@ -70,7 +71,18 @@ export default async function PedidosPage() {
                         </a>
                       )}
                     </td>
-                    <td className="p-3">{o.delivery === "retiro" ? "Retiro" : `Despacho: ${o.address}`}</td>
+                    <td className="p-3">
+                      {o.delivery === "retiro" ? "Retiro" : `Despacho: ${o.address}`}
+                      {o.delivery === "despacho" && (
+                        <div className="text-xs text-muted">
+                          {o.delivered_at
+                            ? `Entregado ${new Date(o.delivered_at).toLocaleDateString("es-CL", { timeZone: "America/Santiago" })}`
+                            : o.delivery_date
+                              ? `Sale el ${formatDeliveryDate(o.delivery_date, { weekday: "short", day: "numeric", month: "short" })}`
+                              : "Sin fecha de despacho"}
+                        </div>
+                      )}
+                    </td>
                     <td className="whitespace-nowrap p-3 font-bold">
                       {formatCLP(o.amount)}
                       {(o.shipping_amount ?? 0) > 0 && (

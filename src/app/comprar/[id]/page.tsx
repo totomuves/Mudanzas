@@ -9,6 +9,8 @@ import { PriceTag } from "@/components/PriceTag";
 import { currentPrice } from "@/lib/format";
 import { CheckoutForm } from "./CheckoutForm";
 import { Icon } from "@/components/Icon";
+import { formatDeliveryDate, orderLoad, slotLabel, type DeliverySlot } from "@/lib/delivery";
+import { deliveryDateFor } from "@/lib/routing/planner";
 
 export const metadata: Metadata = { title: "Comprar" };
 
@@ -31,6 +33,15 @@ export default async function ComprarPage({ params }: PageProps<"/comprar/[id]">
     );
   }
 
+  // Fecha de entrega si el comprador elige despacho (null si el reparto aún no está configurado)
+  const plan = await deliveryDateFor(orderLoad(product)).catch(() => null);
+  const delivery = plan
+    ? {
+        dateLabel: formatDeliveryDate(plan.date),
+        slots: (["cualquiera", "manana", "tarde"] as DeliverySlot[]).map((v) => ({ value: v, label: slotLabel(v, plan.settings) })),
+      }
+    : null;
+
   return (
     <div className="mx-auto max-w-lg space-y-6">
       <h1 className="text-3xl font-black">Finalizar compra</h1>
@@ -48,6 +59,7 @@ export default async function ComprarPage({ params }: PageProps<"/comprar/[id]">
         unitPrice={currentPrice(product)}
         maxQuantity={Math.min(10, product.available_units ?? product.quantity)}
         shippingRates={shippingRates}
+        deliveryInfo={delivery}
       />
     </div>
   );
