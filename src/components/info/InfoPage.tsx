@@ -73,9 +73,9 @@ export function InfoPage({
   );
 }
 
-export function Section({ title, children }: { title: string; children: React.ReactNode }) {
+export function Section({ title, id, children }: { title: string; id?: string; children: React.ReactNode }) {
   return (
-    <section className="space-y-3">
+    <section id={id} className="scroll-mt-24 space-y-3">
       <h2 className="text-xl font-black">{title}</h2>
       <div className="space-y-3 leading-relaxed text-foreground/85">{children}</div>
     </section>

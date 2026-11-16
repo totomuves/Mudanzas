@@ -20,6 +20,11 @@ export const tracking = {
   tiktokPixelId: clean(process.env.NEXT_PUBLIC_TIKTOK_PIXEL_ID, /^[A-Z0-9]{10,30}$/),
 };
 
+/** Hay al menos una herramienta de medición configurada (si no, no se pide consentimiento). */
+export const anyTracking = Boolean(
+  tracking.gaId || tracking.googleAdsId || tracking.metaPixelId || tracking.tiktokPixelId,
+);
+
 /** Códigos para verificar que el dominio es tuyo (etiqueta meta en el <head>). */
 export const siteVerification = {
   google: (process.env.GOOGLE_SITE_VERIFICATION ?? "").trim(),

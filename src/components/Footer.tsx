@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { brand } from "@/brand";
 import { socialLinks } from "@/lib/marketing/config";
+import { CookiePreferencesButton } from "@/components/marketing/CookieBanner";
 
 const COLUMNS = [
   {
@@ -34,7 +35,7 @@ const COLUMNS = [
 ];
 
 /** Pie de página con los links de ayuda, legales y redes (oculto en el admin y el panel vendedor). */
-export function Footer() {
+export function Footer({ cookieConsentRequired }: { cookieConsentRequired: boolean }) {
   const pathname = usePathname();
   if (pathname.startsWith("/admin") || pathname.startsWith("/vendedor")) return null;
   return (
@@ -66,6 +67,11 @@ export function Footer() {
                   </Link>
                 </li>
               ))}
+              {col.title === "Legal" && cookieConsentRequired && (
+                <li>
+                  <CookiePreferencesButton required={cookieConsentRequired} className="text-left text-sm font-semibold hover:underline" />
+                </li>
+              )}
             </ul>
           </nav>
         ))}

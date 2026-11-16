@@ -5,6 +5,7 @@
  */
 
 import { isStaffPath, tracking } from "./config";
+import { hasConsent } from "./consent";
 
 export type TrackItem = {
   id: string;
@@ -61,7 +62,7 @@ function whenReady(run: (w: MarketingWindow) => void, tries = 0) {
 
 export function trackEvent(name: EventName, payload: Payload) {
   if (typeof window === "undefined" || !payload.items.length) return;
-  if (isStaffPath(window.location.pathname)) return;
+  if (isStaffPath(window.location.pathname) || !hasConsent()) return;
   whenReady((w) => send(w, name, payload));
 }
 
@@ -124,6 +125,7 @@ function send(w: MarketingWindow, name: EventName, { items, value, transactionId
 
 /** Cuenta una compra una sola vez aunque el comprador recargue la página. */
 export function trackPurchaseOnce(payload: Payload & { transactionId: string }) {
+  if (!hasConsent()) return;
   const key = `muveo-compra-medida:${payload.transactionId}`;
   try {
     if (localStorage.getItem(key)) return;
@@ -136,7 +138,7 @@ export function trackPurchaseOnce(payload: Payload & { transactionId: string }) 
 
 /** Avisa a Meta y TikTok de un cambio de página (Google lo detecta solo). */
 export function trackPageView() {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined" || !hasConsent()) return;
   const w = window as MarketingWindow;
   try {
     w.fbq?.("track", "PageView");
