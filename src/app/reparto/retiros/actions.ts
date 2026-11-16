@@ -58,7 +58,7 @@ export async function savePickup(_prev: PickupFormState, f: FormData): Promise<P
   const { error } = await db.from("pickups").insert({ ...row, created_by: user.id });
   if (error) {
     console.error("[retiros]", error);
-    return { error: error.message.includes("pickups") ? "Falta correr la migración de retiros en Supabase (20261116140000_retiros.sql)." : error.message };
+    return { error: error.message.includes("pickups") ? "Falta correr la migración de retiros en Supabase (20261116160000_retiros.sql)." : error.message };
   }
   refresh();
   return { ok: `Retiro agregado: ${row.contact_name}, ${row.address}.`, at: Date.now() };

@@ -32,7 +32,7 @@ export async function PickupsBoard({ fecha, tabs, driverMode, canReview }: { fec
       <div className="space-y-6">
         {tabs}
         <p className="rounded-2xl bg-brand-soft p-4 text-sm font-bold">
-          Falta la tabla de retiros. En Supabase, abre SQL Editor y corre 20261116140000_retiros.sql.
+          Falta la tabla de retiros. En Supabase, abre SQL Editor y corre 20261116160000_retiros.sql.
         </p>
       </div>
     );
