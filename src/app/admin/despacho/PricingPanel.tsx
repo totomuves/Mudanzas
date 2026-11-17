@@ -167,7 +167,7 @@ export function PricingPanel({ pricing, vehicleCount }: { pricing: PricingSettin
           <div className="space-y-2">
             <p className="text-sm text-muted">
               {km(sim.kmOneWay ?? 0)} y unos {Math.round(sim.minOneWay ?? 0)} min desde la bodega
-              {sim.source === "google" ? " (con tráfico de Google)" : " (estimado)"}
+              {sim.source === "google" ? " (con tráfico de Google)" : sim.roads === "osm" ? " (km por calles reales con OpenStreetMap, gratis; tiempo estimado)" : " (estimado)"}
               {sim.geoSource === "comuna" ? ". Sin dirección exacta: se usó el centro de la comuna." : "."}
               {sim.usingPresets ? " Con vehículos de referencia." : ""}
             </p>

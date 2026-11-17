@@ -7,9 +7,10 @@ import { estimatedMatrix, trafficFactor } from "./optimizer";
  * Con GOOGLE_MAPS_API_KEY (recomendado):
  *  - Direcciones → coordenadas con Geocoding API
  *  - Tiempos de viaje con tráfico real con Routes API (computeRouteMatrix)
- * Sin clave:
- *  - Direcciones con OpenStreetMap (Nominatim, gratis, 1 consulta por segundo)
- *  - Tiempos estimados por distancia y hora punta de Santiago
+ * Sin clave (gratis):
+ *  - Direcciones con OpenStreetMap (Nominatim, 1 consulta por segundo)
+ *  - Km por las calles reales con OSRM (si falla, línea recta × 1,32)
+ *  - Tiempos estimados con esos km y la hora punta de Santiago
  * Si una dirección no se encuentra, se usa el centro de la comuna.
  */
 
@@ -90,7 +91,14 @@ export async function geocode(address: string, comuna?: string | null): Promise<
 // -------------------------------------------------------------
 // Matriz de tiempos de viaje
 // -------------------------------------------------------------
-export type TravelMatrix = { dur: number[][]; dist: number[][]; factor: (t: number) => number; source: "google" | "estimado" };
+export type TravelMatrix = {
+  dur: number[][];
+  dist: number[][];
+  factor: (t: number) => number;
+  source: "google" | "estimado";
+  /** De dónde salen los km cuando no hay Google: calles reales (OSRM) o línea recta × 1,32 */
+  roads?: "osm" | "linea";
+};
 
 async function googleMatrix(points: Point[], departure: Date | null) {
   const n = points.length;
@@ -154,5 +162,40 @@ export async function travelMatrix(points: Point[], departure: Date | null, depa
       console.warn("[rutas] Routes API falló, uso estimación", e);
     }
   }
-  return { ...estimatedMatrix(points), factor: trafficFactor, source: "estimado" };
+  // Sin Google: km por las calles reales con OSRM (gratis); si falla, línea recta × 1,32
+  const est = estimatedMatrix(points);
+  const roads = await osrmDistances(points).catch((e) => {
+    console.warn("[rutas] OSRM falló, uso distancia estimada", e);
+    return null;
+  });
+  if (roads) {
+    for (let i = 0; i < points.length; i++)
+      for (let j = 0; j < points.length; j++) {
+        const d = roads[i]?.[j];
+        if (i === j || d === null || d === undefined || !Number.isFinite(d)) continue;
+        est.dist[i][j] = Math.round(d);
+        // Mismo modelo de tiempo que la estimación (32 km/h con tráfico normal), con los km reales
+        est.dur[i][j] = Math.round(d / (32 / 3.6) + 60);
+      }
+  }
+  return { ...est, factor: trafficFactor, source: "estimado", roads: roads ? "osm" : "linea" };
+}
+
+/**
+ * Distancias por calles entre todos los puntos con OSRM (servidor público gratis de OpenStreetMap).
+ * Devuelve metros, o null si no se pudo. El servidor público acepta hasta ~100 puntos por consulta.
+ */
+async function osrmDistances(points: Point[]): Promise<(number | null)[][] | null> {
+  if (points.length < 2 || points.length > 90) return null;
+  const coords = points.map((p) => `${p.lng.toFixed(6)},${p.lat.toFixed(6)}`).join(";");
+  const res = await fetch(`https://router.project-osrm.org/table/v1/driving/${coords}?annotations=distance`, {
+    headers: { "User-Agent": "MUVEO-reparto/1.0" },
+    signal: AbortSignal.timeout(10_000),
+    // Las distancias entre los mismos puntos no cambian: se guardan un día
+    next: { revalidate: 86_400 },
+  });
+  if (!res.ok) throw new Error(`OSRM table ${res.status}`);
+  const data = (await res.json()) as { code: string; distances?: (number | null)[][] };
+  if (data.code !== "Ok" || !data.distances) throw new Error(`OSRM table ${data.code}`);
+  return data.distances;
 }

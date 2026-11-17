@@ -66,7 +66,7 @@ export function SetupBoard({
             <p className="text-muted">
               {hasGoogleMaps()
                 ? "Las rutas usan los tiempos de viaje de Google con el tráfico previsto para el día y la hora."
-                : "Sin clave de Google Maps, los tiempos se calculan por distancia y las horas punta de Santiago, y las direcciones se ubican con OpenStreetMap. Para usar el tráfico real, agrega GOOGLE_MAPS_API_KEY en Vercel (Routes API y Geocoding API activadas)."}
+                : "Sin clave de Google Maps (gratis): los km se miden por las calles reales con OpenStreetMap (OSRM), los tiempos se estiman con esos km y las horas punta de Santiago, y las direcciones se ubican con OpenStreetMap. Para usar el tráfico real, agrega GOOGLE_MAPS_API_KEY en Vercel (Routes API y Geocoding API activadas)."}
             </p>
           </div>
         </section>

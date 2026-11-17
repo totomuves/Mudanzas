@@ -49,6 +49,8 @@ export type GroupQuote =
       kmOneWay: number;
       minOneWay: number;
       source: "google" | "estimado";
+      /** Sin Google: km por calles reales (OSRM, gratis) o línea recta estimada */
+      roads?: "osm" | "linea";
       geoSource: GeoSource;
       usingPresets: boolean;
     }
@@ -57,6 +59,11 @@ export type GroupQuote =
 /** Precio de llevar una carga desde la bodega de un scope (null = MUVEO). */
 export async function quoteLoad(args: {
   load: Load;
+  /**
+   * Productos de la misma compra por separado. Si vienen, se cobra el despacho del
+   * producto más caro de llevar, una sola vez (regla de Andrés, 17 nov 2026).
+   */
+  items?: Load[];
   address: string;
   comuna: string;
   sellerId?: SellerScope;
@@ -92,16 +99,26 @@ export async function quoteLoad(args: {
   const usingPresets = fleet.length === 0;
   if (usingPresets) fleet = presetFleet();
 
-  const options = rankVehicles(fleet, args.load, leg, settings?.service_minutes ?? 12);
+  const svc = settings?.service_minutes ?? 12;
+  const loads = args.items && args.items.length > 0 ? args.items : [args.load];
+  // Precio de cada producto por separado; se cobra el más caro
+  let top: { price: number; options: TripCost[] } | null = null;
+  for (const l of loads) {
+    const options = rankVehicles(fleet, l, leg, svc);
+    const price = priceFromCost(options[0].cost, pricing);
+    if (!top || price > top.price) top = { price, options };
+  }
+  const { price, options } = top!;
   const best = options[0];
   return {
     ok: true,
-    price: priceFromCost(best.cost, pricing),
+    price,
     best,
     options,
     kmOneWay: leg.kmOut,
     minOneWay: leg.minOut,
     source: m.source,
+    roads: m.roads,
     geoSource: dest.source,
     usingPresets,
   };
@@ -122,7 +139,8 @@ export type CartQuote =
 
 /**
  * Precio automático del despacho de un carrito: una entrega por bodega
- * (MUVEO y cada vendedor), cada una con su vehículo y distancia.
+ * (MUVEO y cada vendedor), cada una con su distancia. En cada bodega se cobra
+ * una sola vez el despacho del producto más caro de llevar.
  * byGroup tiene la forma que espera place_cart: { muveo: 5990, "<id vendedor>": 4500 }.
  */
 export async function quoteItems(items: { id: string; qty: number }[], comuna: string, address: string, db: Db = createAdminClient()): Promise<CartQuote> {
@@ -134,7 +152,9 @@ export async function quoteItems(items: { id: string; qty: number }[], comuna: s
   const rows = (data ?? []) as ProductLoadRow[];
   if (!rows.length) return { ok: false, reason: "empty" };
 
+  // Una entrega por bodega (MUVEO o cada vendedor). En cada una se cobra el producto más caro de llevar.
   const loads = new Map<string | null, Load>();
+  const perItem = new Map<string | null, Load[]>();
   for (const it of items) {
     const p = rows.find((r) => r.id === it.id);
     if (!p) continue;
@@ -142,12 +162,13 @@ export async function quoteItems(items: { id: string; qty: number }[], comuna: s
     const k = p.seller_id ?? null;
     const a = loads.get(k) ?? { kg: 0, m3: 0, rank: 0, serviceMin: 0 };
     loads.set(k, { kg: a.kg + l.kg, m3: a.m3 + l.m3, rank: Math.max(a.rank, l.rank), serviceMin: a.serviceMin + l.serviceMin });
+    perItem.set(k, [...(perItem.get(k) ?? []), l]);
   }
 
   const pricing = await getPricing(db);
   const groups: { sellerId: string | null; price: number }[] = [];
   for (const [sellerId, load] of loads) {
-    const q = await quoteLoad({ load, address, comuna, sellerId, pricing, db });
+    const q = await quoteLoad({ load, items: perItem.get(sellerId), address, comuna, sellerId, pricing, db });
     if (!q.ok) return { ok: false, reason: q.reason };
     groups.push({ sellerId, price: q.price });
   }
