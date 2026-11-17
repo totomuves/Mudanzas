@@ -8,6 +8,7 @@ import { currentPrice } from "@/lib/format";
 import { logServerEvent } from "@/lib/recsys/server";
 import { formatDeliveryDate, orderLoad, slotLabel, type DeliverySlot } from "@/lib/delivery";
 import { deliveryDateFor } from "@/lib/routing/planner";
+import { getPricing, quoteItems } from "@/lib/routing/quote";
 import type { Checkout, Product } from "@/lib/types";
 import type { CartItem } from "@/lib/cart";
 
@@ -144,6 +145,18 @@ export async function startCartCheckout(_prev: CartCheckoutState, formData: Form
 
   const db = createAdminClient();
 
+  // Despacho automático: el precio de cada entrega se calcula aquí con la dirección
+  let shippingByGroup: Record<string, number> | undefined;
+  if (delivery === "despacho" && (await getPricing(db)).pricing_mode === "automatico") {
+    const q = await quoteItems(items, comuna, address, db).catch((e) => {
+      console.error("[carrito] despacho automático", e);
+      return null;
+    });
+    if (!q) return { error: "No pudimos calcular el despacho. Intenta de nuevo." };
+    if (!q.ok) return { error: q.reason === "far" ? "Por ahora no despachamos tan lejos. Puedes elegir retiro." : `Por ahora no despachamos a ${comuna}. Puedes elegir retiro.` };
+    shippingByGroup = q.byGroup;
+  }
+
   // Crea la compra y aparta TODAS las unidades 15 minutos (todo o nada, en la base de datos)
   const { data: placed, error: placeErr } = await db.rpc("place_cart", {
     p: {
@@ -155,6 +168,7 @@ export async function startCartCheckout(_prev: CartCheckoutState, formData: Form
       address: delivery === "despacho" ? `${address}, ${comuna}` : "",
       comuna: delivery === "despacho" ? comuna : "",
       items: items.map((i) => ({ product_id: i.id, quantity: i.qty })),
+      ...(shippingByGroup ? { shipping_by_group: shippingByGroup } : {}),
     },
   });
   const res = placed as { ok: boolean; reason?: string; product_id?: string; checkout?: Checkout } | null;

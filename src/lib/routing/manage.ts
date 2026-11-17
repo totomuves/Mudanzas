@@ -94,6 +94,8 @@ export async function saveVehicleFor(scope: SellerScope, f: FormData, allowedDri
     capacity_kg: kg,
     max_item_size: maxSize,
     cost_per_km: int(f.get("cost_per_km"), 0, 10000, 250),
+    toll_per_trip: int(f.get("toll_per_trip"), 0, 200000, 0),
+    hourly_cost: int(f.get("hourly_cost"), 0, 500000, 0),
     crew: int(f.get("crew"), 1, 4, 1),
     driver_id: driverOk ? driver : null,
     active: f.get("active") === "on",

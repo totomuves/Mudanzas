@@ -35,7 +35,7 @@ export async function getVehicles(db: Db = createAdminClient(), onlyActive = tru
 }
 
 /** Bodega de salida (si no tiene coordenadas, se buscan con la dirección y se guardan). */
-async function depotPoint(db: Db, s: DeliverySettings, sellerId: SellerScope = null): Promise<Point> {
+export async function depotPoint(db: Db, s: DeliverySettings, sellerId: SellerScope = null): Promise<Point> {
   if (s.depot_lat != null && s.depot_lng != null) return { lat: s.depot_lat, lng: s.depot_lng };
   if (s.depot_address) {
     const p = await geocode(s.depot_address);

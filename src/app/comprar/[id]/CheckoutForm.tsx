@@ -4,6 +4,8 @@ import { useActionState, useState } from "react";
 import { formatCLP } from "@/lib/format";
 import { Icon } from "@/components/Icon";
 import { trackEvent } from "@/lib/marketing/track";
+import { useShippingQuote } from "@/components/checkout/useShippingQuote";
+import type { ShippingConfig } from "@/lib/data";
 import { startCheckout, type CheckoutState } from "./actions";
 
 export function CheckoutForm({
@@ -11,14 +13,14 @@ export function CheckoutForm({
   productTitle,
   unitPrice,
   maxQuantity,
-  shippingRates,
+  shipping: config,
   deliveryInfo,
 }: {
   productId: string;
   productTitle?: string;
   unitPrice: number;
   maxQuantity: number;
-  shippingRates: { comuna: string; price: number }[];
+  shipping: ShippingConfig;
   /** Fecha estimada y franjas horarias del despacho (null si aún no se configura el reparto). */
   deliveryInfo?: { dateLabel: string; slots: { value: string; label: string }[] } | null;
 }) {
@@ -26,13 +28,19 @@ export function CheckoutForm({
   const [delivery, setDelivery] = useState<"retiro" | "despacho">("retiro");
   const [quantity, setQuantity] = useState(1);
   const [comuna, setComuna] = useState("");
+  const [address, setAddress] = useState("");
   const [slot, setSlot] = useState("cualquiera");
+  const shippingRates = config.rates;
+  const auto = config.mode === "automatico";
   const canShip = shippingRates.length > 0;
-  const rate = shippingRates.find((r) => r.comuna === comuna);
-  const shipping = delivery === "despacho" && rate ? rate.price : 0;
+  const quote = useShippingQuote({ enabled: auto && delivery === "despacho", items: [{ id: productId, qty: quantity }], comuna, address });
+  const fixed = shippingRates.find((r) => r.comuna === comuna)?.price;
+  const shippingPrice: number | null = auto ? quote.total : fixed ?? null;
+  const rate = shippingPrice != null;
+  const shipping = delivery === "despacho" && shippingPrice != null ? shippingPrice : 0;
   const subtotal = unitPrice * quantity;
   const total = subtotal + shipping;
-  const minShipping = canShip ? Math.min(...shippingRates.map((r) => r.price)) : 0;
+  const minShipping = config.minPrice;
 
   return (
     <form
@@ -70,7 +78,7 @@ export function CheckoutForm({
               [
                 "despacho",
                 "Despacho",
-                canShip ? `Desde ${formatCLP(minShipping)} según comuna` : "Por ahora no disponible",
+                canShip ? `Desde ${formatCLP(minShipping)} según ${auto ? "distancia" : "comuna"}` : "Por ahora no disponible",
                 "truck",
               ],
             ] as const
@@ -112,15 +120,17 @@ export function CheckoutForm({
               <option value="">Elige tu comuna</option>
               {shippingRates.map((r) => (
                 <option key={r.comuna} value={r.comuna}>
-                  {r.comuna} · {r.price === 0 ? "Gratis" : formatCLP(r.price)}
+                  {r.price == null ? r.comuna : `${r.comuna} · ${r.price === 0 ? "Gratis" : formatCLP(r.price)}`}
                 </option>
               ))}
             </select>
             <span className="block text-xs text-muted">
-              ¿No aparece tu comuna? Por ahora no despachamos ahí, pero puedes elegir retiro.
+              {auto
+                ? "El despacho se calcula según la distancia a tu dirección."
+                : "¿No aparece tu comuna? Por ahora no despachamos ahí, pero puedes elegir retiro."}
             </span>
           </label>
-          <Field label="Dirección (calle, número, depto)" name="address" autoComplete="street-address" required />
+          <Field label="Dirección (calle, número, depto)" name="address" autoComplete="street-address" required value={address} onChange={(e) => setAddress(e.target.value)} />
           <Field label="Indicaciones para llegar (opcional)" name="address_notes" placeholder="Ej: casa con reja verde, piso 3 sin ascensor" maxLength={200} />
           {deliveryInfo && (
             <div className="space-y-2 rounded-2xl border border-border bg-card p-4">
@@ -151,7 +161,15 @@ export function CheckoutForm({
         <div className="flex justify-between">
           <dt className="text-muted">Despacho</dt>
           <dd className="font-semibold">
-            {delivery === "retiro" ? "Gratis (retiro)" : rate ? (rate.price === 0 ? "Gratis" : formatCLP(rate.price)) : "Elige tu comuna"}
+            {delivery === "retiro"
+              ? "Gratis (retiro)"
+              : rate
+                ? shipping === 0 ? "Gratis" : formatCLP(shipping)
+                : auto && quote.loading
+                  ? "Calculando…"
+                  : auto && quote.error
+                    ? "No disponible"
+                    : "Elige tu comuna"}
           </dd>
         </div>
         <div className="flex justify-between border-t border-border pt-2 text-base">
@@ -160,6 +178,9 @@ export function CheckoutForm({
         </div>
       </dl>
 
+      {delivery === "despacho" && auto && quote.error && (
+        <p className="rounded-xl bg-surface p-3 text-sm font-bold">{quote.error}</p>
+      )}
       {state.error && <p className="rounded-xl bg-pass/10 p-3 text-sm font-bold text-pass">{state.error}</p>}
 
       <button

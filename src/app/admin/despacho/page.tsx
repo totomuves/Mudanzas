@@ -6,14 +6,25 @@ import { COMUNAS } from "@/lib/comunas";
 import type { ShippingRate } from "@/lib/types";
 import { ShippingForm } from "./ShippingForm";
 import { DespachoTabs } from "./Tabs";
+import { PricingPanel } from "./PricingPanel";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getPricing } from "@/lib/routing/quote";
 
-export const metadata: Metadata = { title: "Despacho" };
+export const metadata: Metadata = { title: "Precio de despacho" };
 
 export default async function DespachoAdminPage() {
   if (!hasSupabaseEnv()) return <SetupNotice />;
   const { supabase } = await requireSection("despacho");
   const { data, error } = await supabase.from("shipping_rates").select("*");
   const rates = (data ?? []) as ShippingRate[];
+  const db = createAdminClient();
+  const [pricing, columns, vehicles] = await Promise.all([
+    getPricing(db),
+    db.from("delivery_settings").select("pricing_mode").eq("id", 1).maybeSingle(),
+    db.from("vehicles").select("id", { count: "exact", head: true }).is("seller_id", null).eq("active", true),
+  ]);
+  const needsMigration = Boolean(columns.error);
+  const auto = pricing.pricing_mode === "automatico";
 
   // Todas las comunas conocidas + las que se hayan agregado a mano
   const names = Array.from(new Set([...COMUNAS, ...rates.map((r) => r.comuna)])).sort((a, b) => a.localeCompare(b, "es"));
@@ -25,11 +36,23 @@ export default async function DespachoAdminPage() {
   return (
     <div className="space-y-6">
       <DespachoTabs active="/admin/despacho" />
+      <h1 className="text-2xl font-black">Precio de despacho</h1>
+
+      {needsMigration ? (
+        <p className="rounded-2xl bg-brand-soft p-4 text-sm font-bold">
+          Para usar el precio automático, en Supabase abre SQL Editor y corre el archivo
+          supabase/migrations/20261117100000_despacho_automatico.sql.
+        </p>
+      ) : (
+        <PricingPanel pricing={pricing} vehicleCount={vehicles.count ?? 0} />
+      )}
+
       <div className="space-y-1">
-        <h1 className="text-2xl font-black">Despacho por comuna</h1>
+        <h2 className="text-xl font-black">Precios por comuna</h2>
         <p className="text-muted">
-          Escribe cuánto cobras por despachar a cada comuna. El precio se suma al total cuando el comprador elige
-          despacho. Si dejas el precio vacío, esa comuna no aparece y solo se puede retirar. Usa 0 para despacho gratis.
+          {auto
+            ? "Ahora el despacho se calcula solo, así que esta lista no se usa. Queda guardada por si vuelves al precio fijo."
+            : "Escribe cuánto cobras por despachar a cada comuna. El precio se suma al total cuando el comprador elige despacho. Si dejas el precio vacío, esa comuna no aparece y solo se puede retirar. Usa 0 para despacho gratis."}
         </p>
       </div>
 
@@ -40,7 +63,9 @@ export default async function DespachoAdminPage() {
         </p>
       )}
 
-      <ShippingForm rows={rows} />
+      <div className={auto ? "opacity-60" : ""}>
+        <ShippingForm rows={rows} />
+      </div>
     </div>
   );
 }

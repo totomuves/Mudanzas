@@ -2,6 +2,8 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import type { BannerPage, Category, HomeBanner, Product, ShippingRate } from "./types";
 import type { MovingSettings, ServiceType } from "./moving";
+import { COMUNAS } from "./comunas";
+import { readPricing, type PricingMode } from "./shipping-pricing";
 
 export async function getCategories(): Promise<Category[]> {
   const supabase = await createClient();
@@ -56,6 +58,32 @@ export async function getShippingRates(): Promise<Pick<ShippingRate, "comuna" | 
     .order("comuna");
   if (error) return [];
   return ((data ?? []) as Pick<ShippingRate, "comuna" | "price">[]).sort((a, b) => a.comuna.localeCompare(b.comuna, "es"));
+}
+
+/**
+ * Cómo se cobra el despacho en el checkout.
+ * fijo: lista de comunas con su precio. automatico: todas las comunas; el precio
+ * se calcula con la dirección (desde minPrice).
+ */
+export type ShippingConfig = {
+  mode: PricingMode;
+  rates: { comuna: string; price: number | null }[];
+  minPrice: number;
+};
+
+export async function getShippingConfig(): Promise<ShippingConfig> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("delivery_settings")
+    .select("pricing_mode, margin_pct, min_price, max_km, round_to, trip_share_pct")
+    .eq("id", 1)
+    .maybeSingle();
+  const pricing = readPricing(data);
+  if (pricing.pricing_mode === "automatico") {
+    return { mode: "automatico", rates: COMUNAS.map((comuna) => ({ comuna, price: null })), minPrice: pricing.min_price };
+  }
+  const rates = await getShippingRates();
+  return { mode: "fijo", rates, minPrice: rates.length ? Math.min(...rates.map((r) => r.price)) : 0 };
 }
 
 export async function getMovingData() {

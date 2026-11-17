@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { hasSupabaseEnv } from "@/lib/env";
 import { requireSection } from "@/lib/admin";
-import { getShippingRates } from "@/lib/data";
+import { getShippingConfig } from "@/lib/data";
 import { currentPrice } from "@/lib/format";
 import { slotLabel, upcomingDeliveryDates, formatDeliveryDate, type DeliverySlot } from "@/lib/delivery";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -19,14 +19,14 @@ export default async function NuevoPedidoPage() {
   await requireSection("pedidos");
   const db = createAdminClient();
 
-  const [{ data }, shippingRates, { settings }] = await Promise.all([
+  const [{ data }, shipping, { settings }] = await Promise.all([
     db
       .from("products")
       .select("id, title, price, flash_price, flash_until, quantity, available_units, seller_id, sellers(name)")
       .eq("status", "available")
       .order("created_at", { ascending: false })
       .limit(1000),
-    getShippingRates(),
+    getShippingConfig(),
     readDeliverySettings(db, null).catch(() => ({ settings: null })),
   ]);
   const rows = (data ?? []) as unknown as (Pick<Product, "id" | "title" | "price" | "flash_price" | "flash_until" | "quantity" | "seller_id"> & {
@@ -62,7 +62,7 @@ export default async function NuevoPedidoPage() {
       {products.length === 0 ? (
         <p className="rounded-2xl border border-border bg-card p-4 text-muted">No hay productos con stock disponible.</p>
       ) : (
-        <NewOrderForm products={products} shippingRates={shippingRates} dates={dates} slots={slots} />
+        <NewOrderForm products={products} shipping={shipping} dates={dates} slots={slots} />
       )}
     </div>
   );

@@ -8,6 +8,7 @@ import type { Order } from "@/lib/types";
 import { logServerEvent } from "@/lib/recsys/server";
 import { orderLoad } from "@/lib/delivery";
 import { deliveryDateFor } from "@/lib/routing/planner";
+import { getPricing, quoteItems } from "@/lib/routing/quote";
 
 export type CheckoutState = { error?: string };
 
@@ -41,12 +42,24 @@ export async function startCheckout(_prev: CheckoutState, formData: FormData): P
 
   const db = createAdminClient();
 
-  if (delivery === "despacho") {
-    const { data: rate } = await db.from("shipping_rates").select("price").eq("comuna", comuna).eq("active", true).maybeSingle();
-    if (!rate) return { error: `Por ahora no despachamos a ${comuna}. Puedes elegir retiro.` };
-  }
-
   const quantity = Math.max(1, Math.min(50, parseInt(String(formData.get("quantity") ?? "1"), 10) || 1));
+
+  // Despacho: precio fijo de la comuna, o calculado con la dirección (automático)
+  let shippingPrice: number | undefined;
+  if (delivery === "despacho") {
+    if ((await getPricing(db)).pricing_mode === "automatico") {
+      const q = await quoteItems([{ id: productId, qty: quantity }], comuna, address, db).catch((e) => {
+        console.error("[checkout] despacho automático", e);
+        return null;
+      });
+      if (!q) return { error: "No pudimos calcular el despacho. Intenta de nuevo." };
+      if (!q.ok) return { error: q.reason === "far" ? "Por ahora no despachamos tan lejos. Puedes elegir retiro." : `Por ahora no despachamos a ${comuna}. Puedes elegir retiro.` };
+      shippingPrice = q.total;
+    } else {
+      const { data: rate } = await db.from("shipping_rates").select("price").eq("comuna", comuna).eq("active", true).maybeSingle();
+      if (!rate) return { error: `Por ahora no despachamos a ${comuna}. Puedes elegir retiro.` };
+    }
+  }
 
   // Crea el pedido y aparta las unidades 15 minutos (atómico, en la base de datos)
   const { data: placed, error: placeErr } = await db.rpc("place_order", {
@@ -60,6 +73,7 @@ export async function startCheckout(_prev: CheckoutState, formData: FormData): P
       delivery,
       address: delivery === "despacho" ? `${address}, ${comuna}` : "",
       comuna: delivery === "despacho" ? comuna : "",
+      ...(shippingPrice != null ? { shipping_price: shippingPrice } : {}),
     },
   });
   const order = placed as Order | null;

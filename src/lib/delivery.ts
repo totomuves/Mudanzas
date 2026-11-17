@@ -47,11 +47,12 @@ export function orderLoad(
 // -------------------------------------------------------------
 export type VehicleKind = "auto" | "camioneta" | "furgon" | "camion";
 
-export const VEHICLE_KINDS: Record<VehicleKind, { label: string; m3: number; kg: number; maxSize: ItemSize; costPerKm: number; crew: number }> = {
-  auto: { label: "Auto", m3: 0.8, kg: 250, maxSize: "mediano", costPerKm: 150, crew: 1 },
-  camioneta: { label: "Camioneta", m3: 2.5, kg: 700, maxSize: "grande", costPerKm: 210, crew: 1 },
-  furgon: { label: "Furgón", m3: 8, kg: 1200, maxSize: "muy_grande", costPerKm: 280, crew: 2 },
-  camion: { label: "Camión", m3: 20, kg: 3500, maxSize: "muy_grande", costPerKm: 450, crew: 2 },
+// hourlyCost: chofer y ayudantes por hora (total del vehículo), valores de referencia
+export const VEHICLE_KINDS: Record<VehicleKind, { label: string; m3: number; kg: number; maxSize: ItemSize; costPerKm: number; crew: number; hourlyCost: number }> = {
+  auto: { label: "Auto", m3: 0.8, kg: 250, maxSize: "mediano", costPerKm: 150, crew: 1, hourlyCost: 6000 },
+  camioneta: { label: "Camioneta", m3: 2.5, kg: 700, maxSize: "grande", costPerKm: 210, crew: 1, hourlyCost: 7000 },
+  furgon: { label: "Furgón", m3: 8, kg: 1200, maxSize: "muy_grande", costPerKm: 280, crew: 2, hourlyCost: 13000 },
+  camion: { label: "Camión", m3: 20, kg: 3500, maxSize: "muy_grande", costPerKm: 450, crew: 2, hourlyCost: 16000 },
 };
 export const VEHICLE_KEYS = Object.keys(VEHICLE_KINDS) as VehicleKind[];
 
@@ -63,7 +64,12 @@ export type Vehicle = {
   capacity_kg: number;
   capacity_m3: number;
   max_item_size: ItemSize;
+  /** Bencina y desgaste por km */
   cost_per_km: number;
+  /** Peajes (TAG) por viaje, ida y vuelta */
+  toll_per_trip?: number | null;
+  /** Chofer y ayudantes por hora, total del vehículo */
+  hourly_cost?: number | null;
   crew: number;
   driver_id: string | null;
   active: boolean;
