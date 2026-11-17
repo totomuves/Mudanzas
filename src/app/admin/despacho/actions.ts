@@ -106,6 +106,7 @@ export type SimResult = {
   kmOneWay?: number;
   minOneWay?: number;
   source?: string;
+  roads?: string;
   geoSource?: string;
   usingPresets?: boolean;
   options?: SimOption[];
@@ -142,6 +143,7 @@ export async function simulateShipping(input: {
       kmOneWay: q.kmOneWay,
       minOneWay: q.minOneWay,
       source: q.source,
+      roads: q.roads,
       geoSource: q.geoSource,
       usingPresets: q.usingPresets,
       options: q.options.map((o) => ({
