@@ -4,6 +4,8 @@ import { useActionState, useMemo, useState } from "react";
 import { formatCLP } from "@/lib/format";
 import { Icon } from "@/components/Icon";
 import { createManualOrder, type NewOrderState } from "../actions";
+import { useShippingQuote } from "@/components/checkout/useShippingQuote";
+import type { ShippingConfig } from "@/lib/data";
 
 type ProductOption = { id: string; title: string; price: number; units: number; seller: string | null };
 type Option = { value: string; label: string };
@@ -12,12 +14,12 @@ const input = "w-full rounded-xl border border-border bg-card px-4 py-3";
 
 export function NewOrderForm({
   products,
-  shippingRates,
+  shipping: config,
   dates,
   slots,
 }: {
   products: ProductOption[];
-  shippingRates: { comuna: string; price: number }[];
+  shipping: ShippingConfig;
   /** Próximos días de reparto de MUVEO (vacío si el reparto no está configurado). */
   dates: Option[];
   slots: Option[];
@@ -29,6 +31,7 @@ export function NewOrderForm({
   const [price, setPrice] = useState("");
   const [delivery, setDelivery] = useState<"retiro" | "despacho">("retiro");
   const [comuna, setComuna] = useState("");
+  const [address, setAddress] = useState("");
   const [payment, setPayment] = useState("transferencia");
 
   const product = products.find((p) => p.id === productId) ?? null;
@@ -39,8 +42,11 @@ export function NewOrderForm({
 
   const listed = product ? product.price * quantity : 0;
   const subtotal = price ? parseInt(price.replace(/\D/g, ""), 10) || 0 : listed;
-  const rate = shippingRates.find((r) => r.comuna === comuna);
-  const shipping = delivery === "despacho" && rate ? rate.price : 0;
+  const shippingRates = config.rates;
+  const auto = config.mode === "automatico";
+  const quote = useShippingQuote({ enabled: auto && delivery === "despacho" && Boolean(productId), items: productId ? [{ id: productId, qty: quantity }] : [], comuna, address });
+  const shippingPrice: number | null = auto ? quote.total : shippingRates.find((r) => r.comuna === comuna)?.price ?? null;
+  const shipping = delivery === "despacho" && shippingPrice != null ? shippingPrice : 0;
   const isMuveo = product ? !product.seller : true;
 
   return (
@@ -153,12 +159,13 @@ export function NewOrderForm({
               <option value="">Comuna</option>
               {shippingRates.map((r) => (
                 <option key={r.comuna} value={r.comuna}>
-                  {r.comuna} · {r.price === 0 ? "Gratis" : formatCLP(r.price)}
+                  {r.price == null ? r.comuna : `${r.comuna} · ${r.price === 0 ? "Gratis" : formatCLP(r.price)}`}
                 </option>
               ))}
             </select>
             {shippingRates.length === 0 && <p className="text-xs text-muted">No hay comunas con precio de despacho. Agrégalas en Despacho → Precios.</p>}
-            <input name="address" required placeholder="Dirección (calle, número, depto)" autoComplete="off" className={input} />
+            <input name="address" required placeholder="Dirección (calle, número, depto)" autoComplete="off" value={address} onChange={(e) => setAddress(e.target.value)} className={input} />
+            {auto && quote.error && <p className="text-xs font-bold text-pass">{quote.error}</p>}
             <input name="address_notes" maxLength={200} placeholder="Indicaciones (opcional)" autoComplete="off" className={input} />
             {isMuveo && dates.length > 0 ? (
               <div className="grid grid-cols-2 gap-2">
@@ -208,7 +215,7 @@ export function NewOrderForm({
         </div>
         <div className="flex justify-between">
           <dt className="text-muted">Despacho</dt>
-          <dd className="font-semibold">{delivery === "retiro" ? "Retiro" : rate ? formatCLP(rate.price) : "Elige la comuna"}</dd>
+          <dd className="font-semibold">{delivery === "retiro" ? "Retiro" : shippingPrice != null ? formatCLP(shippingPrice) : auto && quote.loading ? "Calculando…" : "Elige la comuna"}</dd>
         </div>
         <div className="flex justify-between border-t border-border pt-2 text-base">
           <dt className="font-black">Total</dt>

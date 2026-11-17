@@ -104,6 +104,7 @@ export function VehicleForm({ vehicle, drivers, saveAction, onDone }: { vehicle?
   const [maxSize, setMaxSize] = useState<ItemSize>(vehicle?.max_item_size ?? preset.maxSize);
   const [cost, setCost] = useState(String(vehicle?.cost_per_km ?? preset.costPerKm));
   const [crew, setCrew] = useState(String(vehicle?.crew ?? preset.crew));
+  const [hourly, setHourly] = useState(String(vehicle?.hourly_cost || preset.hourlyCost));
   const [dims, setDims] = useState({ l: "", a: "", h: "" });
 
   function pickKind(k: VehicleKind) {
@@ -114,6 +115,7 @@ export function VehicleForm({ vehicle, drivers, saveAction, onDone }: { vehicle?
     setMaxSize(p.maxSize);
     setCost(String(p.costPerKm));
     setCrew(String(p.crew));
+    setHourly(String(p.hourlyCost));
   }
   function calc(next: typeof dims) {
     setDims(next);
@@ -179,15 +181,32 @@ export function VehicleForm({ vehicle, drivers, saveAction, onDone }: { vehicle?
           </select>
         </label>
         <label className="space-y-1">
-          <span className="block text-sm font-bold">Costo por km (CLP)</span>
-          <input name="cost_per_km" value={cost} onChange={(e) => setCost(e.target.value)} inputMode="numeric" className={input} />
-        </label>
-        <label className="space-y-1">
           <span className="block text-sm font-bold">Personas a bordo</span>
           <select name="crew" value={crew} onChange={(e) => setCrew(e.target.value)} className={input}>
             {[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}</option>)}
           </select>
         </label>
+      </div>
+      <div className="space-y-2 rounded-xl bg-surface p-3">
+        <p className="text-sm font-bold">Gasto del vehículo</p>
+        <div className="grid gap-2 sm:grid-cols-3">
+          <label className="space-y-1">
+            <span className="block text-xs font-bold">Bencina y desgaste por km (CLP)</span>
+            <input name="cost_per_km" value={cost} onChange={(e) => setCost(e.target.value)} inputMode="numeric" className={input} />
+          </label>
+          <label className="space-y-1">
+            <span className="block text-xs font-bold">Peajes por viaje, ida y vuelta (CLP)</span>
+            <input name="toll_per_trip" defaultValue={vehicle?.toll_per_trip ?? 0} inputMode="numeric" className={input} />
+          </label>
+          <label className="space-y-1">
+            <span className="block text-xs font-bold">Chofer y ayudantes por hora (CLP)</span>
+            <input name="hourly_cost" value={hourly} onChange={(e) => setHourly(e.target.value)} inputMode="numeric" className={input} />
+          </label>
+        </div>
+        <p className="text-xs text-muted">
+          Con esto se calcula el costo de cada despacho y se elige el vehículo más barato que pueda llevar la carga.
+          Ejemplo de bencina: si rinde 8 km por litro y el litro está a $1.300, son $163 por km (súmale algo por desgaste).
+        </p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="space-y-1">
@@ -229,7 +248,7 @@ export function VehicleItem({ vehicle: v, drivers, actions }: { vehicle: Vehicle
         <p className="font-extrabold">{v.name} {v.plate && <span className="text-sm font-bold text-muted">· {v.plate}</span>}</p>
         <p className="text-sm">{VEHICLE_KINDS[v.kind]?.label} · {Number(v.capacity_m3)} m³ · {v.capacity_kg} kg</p>
         <p className="text-xs text-muted">
-          Hasta {SIZES[v.max_item_size]?.label.toLowerCase()} · {v.crew} {v.crew === 1 ? "persona" : "personas"} · ${v.cost_per_km}/km
+          Hasta {SIZES[v.max_item_size]?.label.toLowerCase()} · {v.crew} {v.crew === 1 ? "persona" : "personas"} · ${v.cost_per_km}/km{v.toll_per_trip ? ` · peajes $${v.toll_per_trip}` : ""}{v.hourly_cost ? ` · $${v.hourly_cost}/h` : ""}
         </p>
         <p className="text-xs text-muted">{driver ? `Chofer: ${driver.name}` : "Sin chofer asignado"}{v.active ? "" : " · Pausado"}</p>
       </div>

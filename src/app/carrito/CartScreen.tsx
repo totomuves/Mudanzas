@@ -8,17 +8,22 @@ import { ProductImage } from "@/components/ProductImage";
 import { removeFromCart, setCartQty, writeCart } from "@/lib/cart";
 import { useCart } from "@/components/cart/useCart";
 import { trackEvent } from "@/lib/marketing/track";
+import { useShippingQuote } from "@/components/checkout/useShippingQuote";
+import type { ShippingConfig } from "@/lib/data";
 import { loadCart, startCartCheckout, type CartCheckoutState, type CartView } from "./actions";
 
 const noop = () => () => {};
 
-export function CartScreen({ shippingRates }: { shippingRates: { comuna: string; price: number }[] }) {
+export function CartScreen({ shipping: config }: { shipping: ShippingConfig }) {
+  const shippingRates = config.rates;
+  const auto = config.mode === "automatico";
   const items = useCart();
   const [view, setView] = useState<CartView | null>(null);
   const [loading, startLoading] = useTransition();
   const [state, action, pending] = useActionState<CartCheckoutState, FormData>(startCartCheckout, {});
   const [delivery, setDelivery] = useState<"retiro" | "despacho">("retiro");
   const [comuna, setComuna] = useState("");
+  const [address, setAddress] = useState("");
   const [slot, setSlot] = useState("cualquiera");
   // El carrito vive en el navegador: en el servidor se muestra "cargando"
   const hydrated = useSyncExternalStore(noop, () => true, () => false);
@@ -50,12 +55,17 @@ export function CartScreen({ shippingRates }: { shippingRates: { comuna: string;
   const unavailable = lines.filter((l) => l.available <= 0);
   const groups = [...new Set(ready.map((l) => l.group))];
   const canShip = shippingRates.length > 0;
-  const rate = shippingRates.find((r) => r.comuna === comuna);
+  const quoteItems = ready.map((l) => ({ id: l.id, qty: l.qty }));
+  const quote = useShippingQuote({ enabled: auto && delivery === "despacho", items: quoteItems, comuna, address });
+  const fixedRate = shippingRates.find((r) => r.comuna === comuna);
+  // Precio del despacho: fijo por comuna (× entregas) o calculado con la dirección
+  const shippingPrice: number | null = auto ? quote.total : fixedRate?.price != null ? fixedRate.price * groups.length : null;
+  const rate = shippingPrice != null;
   const subtotal = ready.reduce((a, l) => a + l.unitPrice * l.qty, 0);
-  const shipping = delivery === "despacho" && rate ? rate.price * groups.length : 0;
+  const shipping = delivery === "despacho" && shippingPrice != null ? shippingPrice : 0;
   const total = subtotal + shipping;
   const count = ready.reduce((a, l) => a + l.qty, 0);
-  const minShipping = canShip ? Math.min(...shippingRates.map((r) => r.price)) : 0;
+  const minShipping = config.minPrice;
   const dates = (view?.deliveries ?? []).filter((d) => groups.includes(d.group));
   const payload = JSON.stringify(ready.map((l) => ({ id: l.id, qty: l.qty })));
 
@@ -161,7 +171,7 @@ export function CartScreen({ shippingRates }: { shippingRates: { comuna: string;
               {(
                 [
                   ["retiro", "Retiro", "Gratis", "warehouse"],
-                  ["despacho", "Despacho", canShip ? `Desde ${formatCLP(minShipping)} según comuna` : "Por ahora no disponible", "truck"],
+                  ["despacho", "Despacho", canShip ? `Desde ${formatCLP(minShipping)} según ${auto ? "distancia" : "comuna"}` : "Por ahora no disponible", "truck"],
                 ] as const
               ).map(([value, label, hint, icon]) => {
                 const disabled = value === "despacho" && !canShip;
@@ -195,13 +205,17 @@ export function CartScreen({ shippingRates }: { shippingRates: { comuna: string;
                   <option value="">Elige tu comuna</option>
                   {shippingRates.map((r) => (
                     <option key={r.comuna} value={r.comuna}>
-                      {r.comuna} · {r.price === 0 ? "Gratis" : formatCLP(r.price)}
+                      {r.price == null ? r.comuna : `${r.comuna} · ${r.price === 0 ? "Gratis" : formatCLP(r.price)}`}
                     </option>
                   ))}
                 </select>
-                <span className="block text-xs text-muted">¿No aparece tu comuna? Por ahora no despachamos ahí, pero puedes elegir retiro.</span>
+                <span className="block text-xs text-muted">
+                  {auto
+                    ? "El despacho se calcula según la distancia a tu dirección."
+                    : "¿No aparece tu comuna? Por ahora no despachamos ahí, pero puedes elegir retiro."}
+                </span>
               </label>
-              <Field label="Dirección (calle, número, depto)" name="address" autoComplete="street-address" required />
+              <Field label="Dirección (calle, número, depto)" name="address" autoComplete="street-address" required value={address} onChange={(e) => setAddress(e.target.value)} />
               <Field label="Indicaciones para llegar (opcional)" name="address_notes" placeholder="Ej: casa con reja verde, piso 3 sin ascensor" maxLength={200} />
               {dates.some((d) => d.dateLabel) && view?.slots && (
                 <div className="space-y-2 rounded-2xl border border-border bg-card p-4">
@@ -236,7 +250,15 @@ export function CartScreen({ shippingRates }: { shippingRates: { comuna: string;
             <div className="flex justify-between">
               <dt className="text-muted">Despacho{groups.length > 1 && delivery === "despacho" ? ` (${groups.length} entregas)` : ""}</dt>
               <dd className="font-semibold">
-                {delivery === "retiro" ? "Gratis (retiro)" : rate ? (shipping === 0 ? "Gratis" : formatCLP(shipping)) : "Elige tu comuna"}
+                {delivery === "retiro"
+                  ? "Gratis (retiro)"
+                  : rate
+                    ? shipping === 0 ? "Gratis" : formatCLP(shipping)
+                    : auto && quote.loading
+                      ? "Calculando…"
+                      : auto && quote.error
+                        ? "No disponible"
+                        : "Elige tu comuna"}
               </dd>
             </div>
             <div className="flex justify-between border-t border-border pt-2 text-base">
@@ -245,6 +267,9 @@ export function CartScreen({ shippingRates }: { shippingRates: { comuna: string;
             </div>
           </dl>
 
+          {delivery === "despacho" && auto && quote.error && (
+            <p className="rounded-xl bg-surface p-3 text-sm font-bold">{quote.error}</p>
+          )}
           {state.error && <p className="rounded-xl bg-pass/10 p-3 text-sm font-bold text-pass">{state.error}</p>}
 
           <button

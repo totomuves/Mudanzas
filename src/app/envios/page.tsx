@@ -3,7 +3,7 @@ import Link from "next/link";
 import { brand } from "@/brand";
 import { Bullets, InfoPage, Section } from "@/components/info/InfoPage";
 import { getContact } from "@/lib/contact";
-import { getShippingRates } from "@/lib/data";
+import { getShippingConfig } from "@/lib/data";
 import { hasSupabaseEnv } from "@/lib/env";
 import { formatCLP } from "@/lib/format";
 
@@ -14,8 +14,11 @@ export const metadata: Metadata = {
 };
 
 export default async function EnviosPage() {
-  const [c, rates] = await Promise.all([getContact(), hasSupabaseEnv() ? getShippingRates() : Promise.resolve([])]);
-  const min = rates.length ? Math.min(...rates.map((r) => r.price)) : null;
+  const [c, config] = await Promise.all([getContact(), hasSupabaseEnv() ? getShippingConfig() : Promise.resolve(null)]);
+  const auto = config?.mode === "automatico";
+  // Con precio automático no hay tabla: el precio depende de la distancia
+  const rates = !auto && config ? (config.rates as { comuna: string; price: number }[]) : [];
+  const min = config && (auto || rates.length) ? config.minPrice : null;
 
   return (
     <InfoPage
@@ -24,7 +27,11 @@ export default async function EnviosPage() {
       title="Envíos y retiro"
       intro="Te lo llevamos a la puerta con nuestro propio equipo, o lo retiras tú sin costo."
       highlights={[
-        { icon: "truck", title: min ? `Despacho desde ${formatCLP(min)}` : "Despacho por comuna", text: "El precio depende de tu comuna y lo ves antes de pagar." },
+        {
+          icon: "truck",
+          title: min ? `Despacho desde ${formatCLP(min)}` : auto ? "Despacho según distancia" : "Despacho por comuna",
+          text: auto ? "El precio depende de la distancia a tu dirección y lo ves antes de pagar." : "El precio depende de tu comuna y lo ves antes de pagar.",
+        },
         { icon: "calendar", title: "1 a 4 días hábiles", text: "Te mostramos la fecha estimada al pagar. Repartimos de lunes a sábado." },
         { icon: "warehouse", title: "Retiro sin costo", text: "Coordinamos contigo el día y la hora." },
       ]}

@@ -6,6 +6,7 @@ import { requireSection } from "@/lib/admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { orderLoad } from "@/lib/delivery";
 import { deliveryDateFor } from "@/lib/routing/planner";
+import { getPricing, quoteItems } from "@/lib/routing/quote";
 import type { Order } from "@/lib/types";
 
 export type NewOrderState = { error?: string };
@@ -44,9 +45,17 @@ export async function createManualOrder(_prev: NewOrderState, formData: FormData
   if (dateRaw && !/^\d{4}-\d{2}-\d{2}$/.test(dateRaw)) return { error: "Revisa la fecha de entrega." };
 
   const db = createAdminClient();
+  let shippingPrice: number | undefined;
   if (delivery === "despacho") {
-    const { data: rate } = await db.from("shipping_rates").select("price").eq("comuna", comuna).eq("active", true).maybeSingle();
-    if (!rate) return { error: `No hay precio de despacho activo para ${comuna}. Agrégalo en Despacho → Precios.` };
+    if ((await getPricing(db)).pricing_mode === "automatico") {
+      const q = await quoteItems([{ id: productId, qty: quantity }], comuna, address, db).catch(() => null);
+      if (!q) return { error: "No pudimos calcular el despacho automático. Intenta de nuevo." };
+      if (!q.ok) return { error: q.reason === "far" ? "La dirección está más lejos que la distancia máxima de despacho." : `No despachamos a ${comuna}.` };
+      shippingPrice = q.total;
+    } else {
+      const { data: rate } = await db.from("shipping_rates").select("price").eq("comuna", comuna).eq("active", true).maybeSingle();
+      if (!rate) return { error: `No hay precio de despacho activo para ${comuna}. Agrégalo en Despacho → Precios.` };
+    }
   }
 
   // Mismo camino que una compra en la tienda: revisa stock y lo aparta de forma atómica
@@ -61,6 +70,7 @@ export async function createManualOrder(_prev: NewOrderState, formData: FormData
       delivery,
       address: delivery === "despacho" ? `${address}, ${comuna}` : "",
       comuna: delivery === "despacho" ? comuna : "",
+      ...(shippingPrice != null ? { shipping_price: shippingPrice } : {}),
     },
   });
   const order = placed as Order | null;
