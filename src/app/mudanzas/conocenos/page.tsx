@@ -9,7 +9,8 @@ import { PageBanners } from "@/components/PageBanners";
 import { PhotoGallery, type GalleryPhoto } from "@/components/PhotoGallery";
 import { getPagePhotos, getPageBanners } from "@/lib/data";
 import type { HomeBanner } from "@/lib/types";
-import { FOUNDER, GOOGLE_RATING, PROMISES, SERVICES, VEHICLE } from "@/lib/conocenos";
+import { FOUNDER, PROMISES, SERVICES, VEHICLE } from "@/lib/conocenos";
+import { getReviews } from "@/lib/google-reviews";
 import { GoogleReviews, Stars } from "@/components/GoogleReviews";
 
 export const metadata: Metadata = {
@@ -38,7 +39,7 @@ async function getPageData() {
 }
 
 export default async function ConocenosPage() {
-  const { works, banners, whatsapp } = await getPageData();
+  const [{ works, banners, whatsapp }, reviews] = await Promise.all([getPageData(), getReviews()]);
   const waHref = whatsapp
     ? `https://wa.me/${whatsapp}?text=${encodeURIComponent(`Hola ${brand.name}, quiero cotizar una mudanza.`)}`
     : null;
@@ -55,7 +56,7 @@ export default async function ConocenosPage() {
           </p>
           <a href="#resenas" className="flex w-fit items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-sm font-bold backdrop-blur hover:bg-white/25">
             <Stars color="text-white" />
-            <span>{GOOGLE_RATING} en Google · clientes reales</span>
+            <span>{reviews.rating} en Google{reviews.count ? ` · ${reviews.count} reseñas` : " · clientes reales"}</span>
           </a>
           <div className="flex flex-wrap gap-3 pt-2">
             <Link href="/mudanzas/cotizar" className="rounded-full bg-white px-6 py-3 font-extrabold text-[#17151f] transition hover:bg-white/90">
@@ -150,7 +151,7 @@ export default async function ConocenosPage() {
       </section>
 
       {/* Reseñas (mismo componente que bajo el cotizador) */}
-      <GoogleReviews id="resenas" />
+      <GoogleReviews id="resenas" data={reviews} />
 
       {/* Quién está detrás */}
       <section className="grid gap-6 rounded-card border border-border p-6 md:grid-cols-[auto_1fr] md:items-center md:p-10">
