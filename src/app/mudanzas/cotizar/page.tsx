@@ -3,6 +3,7 @@ import { hasSupabaseEnv } from "@/lib/env";
 import { getMovingData } from "@/lib/data";
 import { createClient } from "@/lib/supabase/server";
 import { SetupNotice } from "@/components/SetupNotice";
+import { GoogleReviews } from "@/components/GoogleReviews";
 import { QuoteWizard, type Slot } from "./QuoteWizard";
 
 export const metadata: Metadata = { title: "Cotizar mudanza" };
@@ -25,11 +26,17 @@ export default async function CotizarPage({ searchParams }: PageProps<"/mudanzas
   const { data } = await supabase.rpc("get_availability", { p_from: isoDay(today), p_to: isoDay(until) });
 
   return (
-    <QuoteWizard
-      services={services}
-      settings={settings}
-      slots={(data ?? []) as Slot[]}
-      initialService={typeof sp.servicio === "string" ? sp.servicio : undefined}
-    />
+    <div className="space-y-4">
+      <QuoteWizard
+        services={services}
+        settings={settings}
+        slots={(data ?? []) as Slot[]}
+        initialService={typeof sp.servicio === "string" ? sp.servicio : undefined}
+      />
+      {/* Mismas reseñas que en Conócenos (src/lib/conocenos.ts) */}
+      <div className="mx-auto max-w-5xl pb-24">
+        <GoogleReviews title="Lo que dicen quienes ya se mudaron con nosotros" />
+      </div>
+    </div>
   );
 }

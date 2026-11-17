@@ -9,7 +9,8 @@ import { PageBanners } from "@/components/PageBanners";
 import { PhotoGallery, type GalleryPhoto } from "@/components/PhotoGallery";
 import { getPagePhotos, getPageBanners } from "@/lib/data";
 import type { HomeBanner } from "@/lib/types";
-import { FOUNDER, GOOGLE_RATING, GOOGLE_REVIEWS_URL, PROMISES, REVIEWS, SERVICES, VEHICLE } from "@/lib/conocenos";
+import { FOUNDER, GOOGLE_RATING, PROMISES, SERVICES, VEHICLE } from "@/lib/conocenos";
+import { GoogleReviews, Stars } from "@/components/GoogleReviews";
 
 export const metadata: Metadata = {
   title: "Conócenos · Mudanzas",
@@ -34,16 +35,6 @@ async function getPageData() {
     banners,
     whatsapp: settings.data?.whatsapp?.replace(/\D/g, "") || null,
   };
-}
-
-function Stars({ className = "h-4 w-4", color = "text-star" }: { className?: string; color?: string }) {
-  return (
-    <span className={`flex gap-0.5 ${color}`} aria-label="5 de 5 estrellas">
-      {[0, 1, 2, 3, 4].map((i) => (
-        <Icon key={i} name="star" className={`${className} fill-current`} strokeWidth={1.5} />
-      ))}
-    </span>
-  );
 }
 
 export default async function ConocenosPage() {
@@ -158,32 +149,8 @@ export default async function ConocenosPage() {
         </ul>
       </section>
 
-      {/* Reseñas */}
-      <section id="resenas" className="scroll-mt-24 space-y-5">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-muted">Reseñas en Google</p>
-            <h2 className="text-2xl font-black">Lo que dicen nuestros clientes</h2>
-          </div>
-          <a href={GOOGLE_REVIEWS_URL} target="_blank" rel="noopener" className="flex items-center gap-3 rounded-full border border-border px-4 py-2 text-sm font-bold hover:bg-surface">
-            <span className="text-xl font-black">{GOOGLE_RATING}</span>
-            <Stars />
-            <span className="flex items-center gap-1">Ver en Google <Icon name="external" className="h-4 w-4" strokeWidth={2} /></span>
-          </a>
-        </div>
-        <ul className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 md:mx-0 md:grid md:grid-cols-3 md:overflow-visible md:px-0">
-          {REVIEWS.map((r) => (
-            <li key={r.name} className="flex w-72 shrink-0 snap-start flex-col gap-3 rounded-card bg-surface p-5 md:w-auto">
-              <div className="flex items-center justify-between">
-                <Stars />
-                <Icon name="quote" className="h-5 w-5 text-muted" strokeWidth={1.6} />
-              </div>
-              <blockquote className="flex-1 text-sm">“{r.text}”</blockquote>
-              <p className="text-sm font-extrabold">{r.name}</p>
-            </li>
-          ))}
-        </ul>
-      </section>
+      {/* Reseñas (mismo componente que bajo el cotizador) */}
+      <GoogleReviews id="resenas" />
 
       {/* Quién está detrás */}
       <section className="grid gap-6 rounded-card border border-border p-6 md:grid-cols-[auto_1fr] md:items-center md:p-10">
