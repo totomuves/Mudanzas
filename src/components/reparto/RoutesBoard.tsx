@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { Icon } from "@/components/Icon";
 import { StatusDot, type StatusTone } from "@/components/StatusDot";
 import { RouteMap } from "@/components/RouteMap";
+import { ConfirmForm } from "@/components/ConfirmForm";
 import {
   SIZES, VEHICLE_KINDS, addDays, formatDeliveryDate, formatTime, orderLoad, santiagoParts, slotLabel, upcomingDeliveryDates,
   whatsappLink, type DeliverySlot, type Vehicle,
@@ -21,6 +22,7 @@ export type RoutesActions = {
   assignDriver: (f: FormData) => Promise<void>;
   reoptimize: (f: FormData) => Promise<void>;
   moveOrder: (f: FormData) => Promise<void>;
+  deleteRoute: (f: FormData) => Promise<void>;
 };
 
 const ROUTE_STATUS: Record<RouteRow["status"], { tone: StatusTone; label: string }> = {
@@ -217,6 +219,17 @@ export async function RoutesBoard({
                   </select>
                   <button className="rounded-full border border-border px-3 py-1.5 text-xs font-bold">Asignar</button>
                 </form>
+                {(r.status === "borrador" || r.status === "publicada") && (
+                  <ConfirmForm
+                    action={actions.deleteRoute}
+                    hidden={{ routeId: r.id }}
+                    message={`¿Eliminar la ruta de ${v?.name ?? "este vehículo"}? Sus ${rs.length} paradas quedan sin ruta en este día para volver a planificar. Los pedidos y retiros no se borran.${r.status === "publicada" ? " Ojo: a los compradores ya se les avisó la hora." : ""}`}
+                  >
+                    <button className="flex items-center gap-1 rounded-full border border-border px-3 py-1.5 text-xs font-bold text-pass">
+                      <Icon name="x" className="h-3.5 w-3.5" /> Eliminar ruta
+                    </button>
+                  </ConfirmForm>
+                )}
                 {r.status !== "terminada" && (
                   <form action={actions.reoptimize}>
                     <input type="hidden" name="routeId" value={r.id} />

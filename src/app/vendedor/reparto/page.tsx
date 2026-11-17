@@ -3,7 +3,7 @@ import Link from "next/link";
 import { requireSeller } from "@/lib/seller";
 import { RoutesBoard } from "@/components/reparto/RoutesBoard";
 import { DespachoTabs, SELLER_TABS } from "@/app/admin/despacho/Tabs";
-import { sellerAssignDriver, sellerMoveOrder, sellerPlanDay, sellerPublish, sellerReoptimize } from "../reparto-actions";
+import { sellerAssignDriver, sellerMoveOrder, sellerDeleteRoute, sellerPlanDay, sellerPublish, sellerReoptimize } from "../reparto-actions";
 
 export const metadata: Metadata = { title: "Reparto" };
 export const maxDuration = 60;
@@ -21,7 +21,7 @@ export default async function VendedorRepartoPage({ searchParams }: PageProps<"/
         sellerId={seller.id}
         fecha={typeof sp.fecha === "string" ? sp.fecha : undefined}
         tabs={<DespachoTabs active="/vendedor/reparto" tabs={SELLER_TABS} />}
-        actions={{ plan: sellerPlanDay, publish: sellerPublish, assignDriver: sellerAssignDriver, reoptimize: sellerReoptimize, moveOrder: sellerMoveOrder }}
+        actions={{ plan: sellerPlanDay, publish: sellerPublish, assignDriver: sellerAssignDriver, reoptimize: sellerReoptimize, moveOrder: sellerMoveOrder, deleteRoute: sellerDeleteRoute }}
         drivers={[{ id: user.id, name: seller.contact_name || seller.name }]}
         setupHref="/vendedor/reparto/ajustes"
       />

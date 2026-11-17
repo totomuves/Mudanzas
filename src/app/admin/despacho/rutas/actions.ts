@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireSection } from "@/lib/admin";
-import { assignDriverFor, moveOrderFor, planFor, publishFor, reoptimizeFor, type PlanState } from "@/lib/routing/manage";
+import { assignDriverFor, deleteRouteFor, moveOrderFor, planFor, publishFor, reoptimizeFor, type PlanState } from "@/lib/routing/manage";
 
 const PATH = "/admin/despacho/rutas";
 
@@ -34,5 +34,11 @@ export async function reoptimize(f: FormData) {
 export async function moveOrder(f: FormData) {
   await requireSection("despacho");
   await moveOrderFor(null, f);
+  revalidatePath(PATH);
+}
+
+export async function deleteRoute(f: FormData) {
+  await requireSection("despacho");
+  await deleteRouteFor(null, f);
   revalidatePath(PATH);
 }
