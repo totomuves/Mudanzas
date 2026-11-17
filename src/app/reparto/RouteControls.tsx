@@ -14,23 +14,63 @@ export function getPosition(timeout = 8000): Promise<GeolocationPosition | null>
   });
 }
 
-export function DriverMap({ depot, routes }: { depot: { lat: number; lng: number } | null; routes: MapRoute[] }) {
+export function DriverMap({ depot, routes, routeId, tracking }: { depot: { lat: number; lng: number } | null; routes: MapRoute[]; routeId: string; tracking: boolean }) {
   const [me, setMe] = useState<{ lat: number; lng: number } | null>(null);
+  const [sharing, setSharing] = useState<"off" | "on" | "denied">("off");
   useEffect(() => {
     if (!navigator.geolocation) return;
+    let lastSent = 0;
+    let lastPos: { lat: number; lng: number } | null = null;
     const id = navigator.geolocation.watchPosition(
-      (p) => setMe((prev) => {
-        // Solo redibuja si se movió más de ~50 m
+      (p) => {
         const next = { lat: p.coords.latitude, lng: p.coords.longitude };
-        if (prev && Math.abs(prev.lat - next.lat) < 0.0005 && Math.abs(prev.lng - next.lng) < 0.0005) return prev;
-        return next;
-      }),
-      () => {},
+        // Solo redibuja si se movió más de ~50 m
+        setMe((prev) => (prev && Math.abs(prev.lat - next.lat) < 0.0005 && Math.abs(prev.lng - next.lng) < 0.0005 ? prev : next));
+        if (!tracking) return;
+        setSharing("on");
+        // Envía la posición cada 30 s, o antes (mín. 10 s) si avanzó más de ~100 m
+        const now = Date.now();
+        const moved = lastPos ? Math.abs(lastPos.lat - next.lat) + Math.abs(lastPos.lng - next.lng) > 0.001 : true;
+        if (now - lastSent < 10_000 || (now - lastSent < 30_000 && !moved)) return;
+        lastSent = now;
+        lastPos = next;
+        void fetch("/api/rutas/posicion", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ routeId, ...next, accuracy: p.coords.accuracy }),
+          keepalive: true,
+        }).catch(() => {});
+      },
+      (e) => { if (e.code === e.PERMISSION_DENIED) setSharing("denied"); },
       { enableHighAccuracy: true, maximumAge: 20_000 },
     );
-    return () => navigator.geolocation.clearWatch(id);
-  }, []);
-  return <RouteMap depot={depot} routes={routes} me={me} className="h-72" />;
+    // Mantiene la pantalla encendida mientras la ruta está en curso, para que siga enviando la ubicación
+    let lock: { release: () => Promise<void> } | null = null;
+    const nav = navigator as Navigator & { wakeLock?: { request: (t: "screen") => Promise<{ release: () => Promise<void> }> } };
+    const askLock = () => { if (tracking && document.visibilityState === "visible") nav.wakeLock?.request("screen").then((l) => { lock = l; }).catch(() => {}); };
+    askLock();
+    document.addEventListener("visibilitychange", askLock);
+    return () => {
+      navigator.geolocation.clearWatch(id);
+      document.removeEventListener("visibilitychange", askLock);
+      void lock?.release().catch(() => {});
+    };
+  }, [routeId, tracking]);
+  return (
+    <div className="space-y-1">
+      <RouteMap depot={depot} routes={routes} me={me} className="h-72" />
+      {tracking && (
+        <p className={`flex items-center gap-1.5 text-xs font-bold ${sharing === "denied" ? "text-pass" : "text-muted"}`}>
+          <span className={`h-2 w-2 rounded-full ${sharing === "on" ? "bg-accent" : sharing === "denied" ? "bg-pass" : "bg-border"}`} aria-hidden />
+          {sharing === "denied"
+            ? "Activa la ubicación del navegador para que la oficina vea dónde vas."
+            : sharing === "on"
+              ? "Compartiendo tu ubicación con la oficina mientras la ruta está en curso."
+              : "Buscando tu ubicación…"}
+        </p>
+      )}
+    </div>
+  );
 }
 
 export function RouteControls({ routeId, status, hasPending }: { routeId: string; status: string; hasPending: boolean }) {

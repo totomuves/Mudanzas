@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireSeller } from "@/lib/seller";
 import {
-  assignDriverFor, deleteVehicleFor, moveOrderFor, planFor, publishFor, reoptimizeFor, saveSettingsFor, saveVehicleFor,
+  assignDriverFor, deleteRouteFor, deleteVehicleFor, moveOrderFor, planFor, publishFor, reoptimizeFor, saveSettingsFor, saveVehicleFor,
   type FormState, type PlanState,
 } from "@/lib/routing/manage";
 
@@ -61,5 +61,11 @@ export async function sellerReoptimize(f: FormData) {
 export async function sellerMoveOrder(f: FormData) {
   const s = await seller();
   await moveOrderFor(s.id, f);
+  revalidatePath("/vendedor/reparto");
+}
+
+export async function sellerDeleteRoute(f: FormData) {
+  const s = await seller();
+  await deleteRouteFor(s.id, f);
   revalidatePath("/vendedor/reparto");
 }

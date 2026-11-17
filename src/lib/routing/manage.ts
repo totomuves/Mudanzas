@@ -157,6 +157,21 @@ export async function assignDriverFor(scope: SellerScope, f: FormData, allowedDr
   await createAdminClient().from("delivery_routes").update({ driver_id: ok ? driver : null }).eq("id", id);
 }
 
+/**
+ * Elimina una ruta que todavía no sale (borrador o publicada).
+ * Los pedidos y retiros no se borran: quedan "sin ruta" en el mismo día para volver a planificar.
+ * Las rutas en curso o terminadas no se borran, porque guardan firmas y fotos.
+ */
+export async function deleteRouteFor(scope: SellerScope, f: FormData) {
+  const id = String(f.get("routeId") ?? "");
+  if (!(await ownsRoute(scope, id))) return;
+  const db = createAdminClient();
+  const { data: route } = await db.from("delivery_routes").select("status").eq("id", id).maybeSingle();
+  if (!route || (route.status !== "borrador" && route.status !== "publicada")) return;
+  await db.from("route_stops").delete().eq("route_id", id);
+  await db.from("delivery_routes").delete().eq("id", id);
+}
+
 export async function reoptimizeFor(scope: SellerScope, f: FormData) {
   const id = String(f.get("routeId") ?? "");
   if (await ownsRoute(scope, id)) await reoptimizeRoute(id, null);

@@ -49,6 +49,8 @@ export default async function RutaChoferPage({ params, searchParams }: PageProps
       )}
 
       <DriverMap
+        routeId={route.id}
+        tracking={route.status === "en_curso" && open.length > 0}
         depot={depot}
         routes={[{
           id: route.id,

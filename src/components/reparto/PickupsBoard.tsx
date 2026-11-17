@@ -10,6 +10,7 @@ import { PICKUP_FIELDS, signedPaths, type PickupRow } from "@/lib/routing/operat
 import { brand } from "@/brand";
 import { acceptRequest, cancelPickup, movePickup, rejectRequest } from "@/app/reparto/retiros/actions";
 import { PickupForm, PlanMineForm } from "./PickupForms";
+import { ConfirmForm } from "@/components/ConfirmForm";
 import { RouteMap, type MapRoute, type MapStop } from "@/components/RouteMap";
 
 const STATUS: Record<PickupRow["status"], { tone: StatusTone; label: string }> = {
@@ -245,10 +246,9 @@ export async function PickupsBoard({ fecha, tabs, driverMode, canReview }: { fec
                             </select>
                             <button className="text-muted hover:text-foreground">Mover</button>
                           </form>
-                          <form action={cancelPickup}>
-                            <input type="hidden" name="id" value={p.id} />
-                            <button className="text-muted hover:text-pass">Quitar</button>
-                          </form>
+                          <ConfirmForm action={cancelPickup} hidden={{ id: p.id }} message={`¿Eliminar el retiro de ${p.contact_name} (${p.items})?${stop ? " También sale de su ruta." : ""}`}>
+                            <button className="text-pass">Eliminar</button>
+                          </ConfirmForm>
                         </>
                       )}
                     </div>
