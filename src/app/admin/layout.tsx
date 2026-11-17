@@ -15,7 +15,7 @@ const NAV: NavItem[] = [
   { href: "/admin/despacho", label: "Despacho", section: "despacho" },
   { href: "/reparto", label: "Reparto", section: "reparto" },
   { href: "/admin/recomendador", label: "Recomendador", section: "recomendador" },
-  { href: "/admin/mudanzas", label: "Agenda mudanzas", section: "mudanzas" },
+  { href: "/admin/mudanzas", label: "Mudanzas", section: "mudanzas" },
   { href: "/admin/paginas", label: "Banners y fotos", section: ["portada", "mudanzas"] },
   { href: "/admin/equipo", label: "Equipo", section: "equipo" },
 ];

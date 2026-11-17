@@ -5,7 +5,9 @@ import { formatCLP } from "@/lib/format";
 import { BOOKING_STATUS, DISTANCES, formatDay } from "@/lib/moving";
 import { SetupNotice } from "@/components/SetupNotice";
 import { Icon, ServiceIcon } from "@/components/Icon";
+import Link from "next/link";
 import { blockDay, setBookingStatus, unblockDay } from "./actions";
+import { MudanzasTabs } from "./Tabs";
 
 export const metadata: Metadata = { title: "Agenda de mudanzas" };
 
@@ -27,7 +29,8 @@ type Row = {
   heavy_items: number;
   notes: string | null;
   contact_name: string;
-  contact_email: string;
+  contact_email: string | null;
+  source?: string;
   contact_phone: string;
   estimated_price: number;
   service_types: { slug: string; name: string } | null;
@@ -38,6 +41,7 @@ export default async function AdminMudanzasPage({ searchParams }: PageProps<"/ad
   const { supabase } = await requireSection("mudanzas");
   const sp = await searchParams;
   const showPast = sp.ver === "todas";
+  const okMsg = sp.ok === "creada" ? "Mudanza creada." : sp.ok === "editada" ? "Cambios guardados." : null;
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Santiago" });
 
   let q = supabase.from("bookings").select("*, service_types(slug, name)").order("day").order("slot_time").limit(300);
@@ -50,11 +54,18 @@ export default async function AdminMudanzasPage({ searchParams }: PageProps<"/ad
 
   return (
     <div className="space-y-8">
+      <MudanzasTabs active="/admin/mudanzas" />
+      {okMsg && <p className="rounded-2xl bg-accent/12 p-4 text-sm font-bold text-accent">{okMsg}</p>}
       <div className="flex flex-wrap items-end justify-between gap-2">
         <h1 className="text-2xl font-black">Agenda de mudanzas</h1>
-        <a href={showPast ? "/admin/mudanzas" : "/admin/mudanzas?ver=todas"} className="text-sm font-bold text-brand">
-          {showPast ? "Ver solo próximas" : "Ver también pasadas"}
-        </a>
+        <div className="flex flex-wrap items-center gap-4">
+          <a href={showPast ? "/admin/mudanzas" : "/admin/mudanzas?ver=todas"} className="text-sm font-bold text-brand">
+            {showPast ? "Ver solo próximas" : "Ver también pasadas"}
+          </a>
+          <Link href="/admin/mudanzas/nueva" className="rounded-full bg-brand px-4 py-2 text-sm font-extrabold text-white hover:bg-brand-dark">
+            + Nueva mudanza
+          </Link>
+        </div>
       </div>
 
       {rows.length === 0 ? (
@@ -97,14 +108,21 @@ export default async function AdminMudanzasPage({ searchParams }: PageProps<"/ad
                     {b.heavy_items ? ` · ${b.heavy_items} pesado(s)` : ""}
                   </p>
                   <p>
-                    <Icon name="user" className="mt-0.5 h-4 w-4" />{b.contact_name} · {b.contact_email} ·{" "}
+                    <Icon name="user" className="mt-0.5 h-4 w-4" />{b.contact_name} · {b.contact_email ? `${b.contact_email} · ` : ""}
                     <a href={`https://wa.me/${phone}`} target="_blank" rel="noreferrer" className="font-bold text-accent">
                       WhatsApp
                     </a>
                   </p>
                   {b.notes && <p className="sm:col-span-2"><Icon name="note" className="mt-0.5 h-4 w-4" />{b.notes}</p>}
                 </div>
-                <p className="mt-1 text-xs text-muted">{st?.label} · #{b.id.slice(0, 8)}</p>
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <p className="text-xs text-muted">
+                    {st?.label} · #{b.id.slice(0, 8)}{b.source === "admin" ? " · creada en el admin" : ""}
+                  </p>
+                  <Link href={`/admin/mudanzas/${b.id}`} className="rounded-full border border-border px-3 py-1 text-sm font-bold hover:bg-surface">
+                    Editar
+                  </Link>
+                </div>
               </li>
             );
           })}
@@ -130,8 +148,10 @@ export default async function AdminMudanzasPage({ searchParams }: PageProps<"/ad
           ))}
         </ul>
         <p className="text-xs text-muted">
-          Precios, horarios de los bloques, cupos por bloque y WhatsApp se editan en Supabase → Table Editor →
-          <code> moving_settings</code> y <code>service_types</code>.
+          Precios y servicios se editan en{" "}
+          <Link href="/admin/mudanzas/servicios" className="font-bold underline underline-offset-4">Servicios y precios</Link>; bloques,
+          cupos, días y WhatsApp en{" "}
+          <Link href="/admin/mudanzas/ajustes" className="font-bold underline underline-offset-4">Horarios y recargos</Link>.
         </p>
       </section>
     </div>

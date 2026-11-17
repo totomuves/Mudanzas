@@ -7,7 +7,7 @@ export const ADMIN_SECTIONS = [
   { key: "despacho", label: "Despacho", href: "/admin/despacho", hint: "Precios por comuna, días de despacho, vehículos y rutas" },
   { key: "reparto", label: "Reparto (chofer)", href: "/reparto", hint: "Ver sus rutas, navegar y registrar entregas con firma y foto" },
   { key: "recomendador", label: "Recomendador", href: "/admin/recomendador", hint: "Ajustes de \"conocer al comprador\"" },
-  { key: "mudanzas", label: "Agenda mudanzas", href: "/admin/mudanzas", hint: "Reservas, servicios, días bloqueados y banners y fotos de las páginas de mudanzas" },
+  { key: "mudanzas", label: "Mudanzas", href: "/admin/mudanzas", hint: "Agenda, crear y editar mudanzas, servicios y precios, horarios, WhatsApp y banners y fotos de las páginas de mudanzas" },
 ] as const;
 
 export type AdminSection = (typeof ADMIN_SECTIONS)[number]["key"];
