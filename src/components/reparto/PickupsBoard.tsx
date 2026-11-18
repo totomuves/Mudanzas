@@ -12,6 +12,10 @@ import { acceptRequest, cancelPickup, movePickup, rejectRequest } from "@/app/re
 import { PickupForm, PlanMineForm } from "./PickupForms";
 import { ConfirmForm } from "@/components/ConfirmForm";
 import { RouteMap, type MapRoute, type MapStop } from "@/components/RouteMap";
+import { CreditForm } from "./CreditForm";
+import { formatCLP } from "@/lib/format";
+import { formatCreditCode } from "@/lib/credits";
+import { siteUrl } from "@/lib/env";
 
 const STATUS: Record<PickupRow["status"], { tone: StatusTone; label: string }> = {
   solicitado: { tone: "warn", label: "Por revisar" },
@@ -63,6 +67,12 @@ export async function PickupsBoard({ fecha, tabs, driverMode, canReview }: { fec
     })),
   );
   const pickups = (rows ?? []) as unknown as PickupRow[];
+  // Créditos de los retiros del día (solo quien administra Despacho los ve y los da)
+  const creditOf = new Map<string, { amount: number; status: string; code: string }>();
+  if (canReview && pickups.length) {
+    const { data: cr } = await db.from("store_credits").select("pickup_id, amount, status, code").in("pickup_id", pickups.map((p) => p.id)).neq("status", "anulado");
+    for (const c of (cr ?? []) as { pickup_id: string; amount: number; status: string; code: string }[]) creditOf.set(c.pickup_id, c);
+  }
   const vehicles = (vehiclesData ?? []) as Vehicle[];
   const perDay = new Map<string, number>();
   for (const c of counts ?? []) perDay.set(c.pickup_date as string, (perDay.get(c.pickup_date as string) ?? 0) + 1);
@@ -117,7 +127,7 @@ export async function PickupsBoard({ fecha, tabs, driverMode, canReview }: { fec
             <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-brand px-2 text-xs font-black text-white">{requests.length}</span>
             Solicitudes desde la web
           </h2>
-          <p className="text-sm text-muted">Personas que piden que pasemos a buscar algo. Acepta con un día y entra a las rutas, o recházala.</p>
+          <p className="text-sm text-muted">Personas que piden que pasemos a buscar algo. Acepta con un día y entra a las rutas, o recházala. Si le das créditos para la tienda, se activan cuando el chofer haga el retiro.</p>
           <ul className="space-y-3">
             {requests.map((r) => {
               const first = r.contact_name.split(" ")[0];
@@ -150,6 +160,7 @@ export async function PickupsBoard({ fecha, tabs, driverMode, canReview }: { fec
                       {SIZE_KEYS.map((k) => <option key={k} value={k}>{SIZES[k].label}</option>)}
                     </select>
                     <input name="volume_m3" inputMode="decimal" placeholder="m³ (opcional)" className="w-28 rounded-xl border border-border bg-background px-2 py-2" />
+                    <input name="credit" inputMode="numeric" placeholder="Créditos $ (opcional)" aria-label="Créditos para la tienda" className="w-40 rounded-xl border border-border bg-background px-2 py-2" />
                     <button className="rounded-full bg-brand px-4 py-2 font-extrabold text-white">Aceptar</button>
                     {waYes && <a href={waYes} target="_blank" rel="noreferrer" className="font-bold text-accent">Avisar por WhatsApp</a>}
                   </form>
@@ -236,6 +247,21 @@ export async function PickupsBoard({ fecha, tabs, driverMode, canReview }: { fec
                     <div className="flex flex-wrap items-center gap-3 pl-10 text-xs font-bold">
                       {stop && <Link href={`/reparto/parada/${stop.id}`} className="text-brand">{p.status === "retirado" ? `Ver fotos y firma (${p.photo_paths.length})` : "Abrir parada"}</Link>}
                       {wa && p.status !== "retirado" && <a href={wa} target="_blank" rel="noreferrer" className="text-accent">WhatsApp</a>}
+                      {canReview && (p.status === "pendiente" || p.status === "fallido" || p.status === "retirado") && (
+                        <CreditForm pickupId={p.id} amount={creditOf.get(p.id)?.amount ?? null} />
+                      )}
+                      {(() => {
+                        const c = creditOf.get(p.id);
+                        if (!c) return null;
+                        if (c.status === "pendiente") return <span className="text-muted">{formatCLP(c.amount)} en créditos, se activan al retirar</span>;
+                        const waCode = whatsappLink(p.contact_phone, `Hola ${p.contact_name.split(" ")[0]}, gracias por lo que nos entregaste. Te dejamos ${formatCLP(c.amount)} en créditos para comprar en ${brand.name}. Tu código es ${formatCreditCode(c.code)}. Úsalo en el carrito (${siteUrl()}/carrito) eligiendo despacho; el despacho se paga aparte.`);
+                        return (
+                          <>
+                            <span className="text-accent">Código {formatCreditCode(c.code)}</span>
+                            {waCode && <a href={waCode} target="_blank" rel="noreferrer" className="text-accent">Enviar código</a>}
+                          </>
+                        );
+                      })()}
                       {p.status !== "retirado" && routeOpen && (
                         <>
                           <form action={movePickup} className="flex items-center gap-1">

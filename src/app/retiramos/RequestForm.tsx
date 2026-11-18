@@ -50,7 +50,7 @@ export function RequestForm({ comunas }: { comunas: readonly string[] }) {
       <div className="space-y-3 rounded-card border border-border bg-card p-6 text-center">
         <Icon name="ok" className="mx-auto h-12 w-12 text-accent" strokeWidth={1.6} />
         <p className="text-xl font-black">¡Recibimos tu solicitud!</p>
-        <p className="text-muted">Revisamos las fotos y te escribimos por WhatsApp para confirmar el día del retiro.</p>
+        <p className="text-muted">Revisamos las fotos y te escribimos por WhatsApp para confirmar el día del retiro y cuántos créditos recibes para la tienda.</p>
       </div>
     );
   }
@@ -121,7 +121,7 @@ export function RequestForm({ comunas }: { comunas: readonly string[] }) {
       <button disabled={pending} className="w-full rounded-full bg-brand py-4 text-lg font-extrabold text-white disabled:opacity-60">
         {pending ? "Enviando…" : "Enviar solicitud"}
       </button>
-      <p className="text-center text-xs text-muted">Sin costo para ti. Te confirmamos por WhatsApp si podemos retirarlo y qué día pasamos.</p>
+      <p className="text-center text-xs text-muted">Sin costo para ti. Te confirmamos por WhatsApp si podemos retirarlo, qué día pasamos y cuántos créditos recibes.</p>
     </form>
   );
 }

@@ -89,6 +89,7 @@ export default async function CompraPage({ params, searchParams }: PageProps<"/c
           {checkout.items_count} {checkout.items_count === 1 ? "producto" : "productos"} · {formatCLP(checkout.amount)}
         </p>
         {checkout.shipping_amount > 0 && <p>Incluye despacho {formatCLP(checkout.shipping_amount)}</p>}
+        {(checkout.credit_amount ?? 0) > 0 && <p>Pagaste {formatCLP(checkout.credit_amount ?? 0)} con créditos</p>}
         <p>Entrega: {checkout.delivery === "retiro" ? "Retiro (te contactamos para coordinar)" : `Despacho a ${checkout.address}`}</p>
         {checkout.status === "paid" && checkout.delivery === "despacho" && dates.length > 0 && (
           <p className="flex items-center gap-2 pt-1 font-bold">

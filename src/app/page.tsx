@@ -134,7 +134,7 @@ export default async function Home() {
         </span>
         <span className="flex-1">
           <span className="block text-lg font-black">¿Quieres que retiremos algo?</span>
-          <span className="block text-sm text-muted">Mándanos fotos de lo que ya no usas y pasamos a buscarlo sin costo.</span>
+          <span className="block text-sm text-muted">Mándanos fotos de lo que ya no usas y pasamos a buscarlo sin costo, sujeto a evaluación. Y recibe créditos para gastar en nuestra tienda.</span>
         </span>
         <Icon name="arrow" className="h-6 w-6 transition group-hover:translate-x-1" />
       </Link>

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { getAdminAccess } from "@/lib/admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { planPickupRoute } from "@/lib/routing/planner";
+import { setPickupCredit } from "@/lib/credits-server";
 
 export type PickupFormState = { error?: string; ok?: string; at?: number };
 export type PickupPlanState = { error?: string; ok?: string; unassigned?: { orderId: string; title: string; reason: string }[] };
@@ -24,6 +25,7 @@ function refresh() {
   revalidatePath("/reparto/retiros");
   revalidatePath("/admin/despacho/retiros");
   revalidatePath("/admin/despacho/rutas");
+  revalidatePath("/admin/despacho/creditos");
 }
 
 export async function savePickup(_prev: PickupFormState, f: FormData): Promise<PickupFormState> {
@@ -140,6 +142,12 @@ export async function acceptRequest(f: FormData) {
     })
     .eq("id", id)
     .eq("status", "solicitado");
+  // Créditos para la tienda (opcional): quedan pendientes hasta que se haga el retiro
+  const credit = parseInt(String(f.get("credit") ?? "").replace(/\D/g, ""), 10);
+  if (access.user && Number.isFinite(credit) && credit > 0) {
+    const err = await setPickupCredit(id, Math.min(credit, 10_000_000), access.user.id);
+    if (err) console.error("[retiros] créditos", err);
+  }
   refresh();
 }
 

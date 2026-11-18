@@ -11,6 +11,7 @@ import { deliveryDateFor } from "@/lib/routing/planner";
 import { getPricing, quoteItems } from "@/lib/routing/quote";
 import type { Checkout, Product } from "@/lib/types";
 import type { CartItem } from "@/lib/cart";
+import { formatCreditDate, normalizeCreditCode } from "@/lib/credits";
 
 export type CartLine = {
   id: string;
@@ -23,6 +24,8 @@ export type CartLine = {
   available: number;
   /** Índice de la entrega a la que pertenece (0 = la principal) */
   group: number;
+  /** Producto de la tienda (no de un vendedor): se puede pagar con créditos */
+  store: boolean;
 };
 
 export type CartView = {
@@ -78,6 +81,7 @@ export async function loadCart(items: CartItem[]): Promise<CartView> {
       originalPrice: p.original_price ?? null,
       available: p.status === "available" ? Math.max(0, p.available_units ?? p.quantity) : 0,
       group: scopeOf(p.seller_id ?? null),
+      store: !p.seller_id,
     });
   }
 
@@ -107,6 +111,26 @@ function sumLoad(items: { p: Parameters<typeof orderLoad>[0]; qty: number }[]) {
   );
 }
 
+export type CreditCheck = { ok: true; code: string; balance: number; expires: string; name: string } | { ok: false; error: string };
+
+/** Revisa un código de créditos: saldo y vencimiento. */
+export async function checkCreditCode(raw: string): Promise<CreditCheck> {
+  const code = normalizeCreditCode(String(raw ?? ""));
+  if (code.length !== 10) return { ok: false, error: "El código tiene 10 letras y números." };
+  const db = createAdminClient();
+  const { data: settings, error: sErr } = await db.from("credit_settings").select("enabled").eq("id", 1).maybeSingle();
+  if (sErr || !settings?.enabled) return { ok: false, error: "Por ahora no se pueden usar créditos." };
+  const { data } = await db.rpc("credit_balance", { p_code: code });
+  const r = data as { ok: boolean; reason?: string; balance?: number; expires_at?: string; name?: string } | null;
+  if (!r?.ok) {
+    if (r?.reason === "pending") return { ok: false, error: "Tus créditos se activan cuando pasemos a retirar." };
+    if (r?.reason === "expired") return { ok: false, error: `Este código venció${r.expires_at ? ` el ${formatCreditDate(r.expires_at)}` : ""}.` };
+    return { ok: false, error: "No encontramos ese código. Revisa que esté bien escrito." };
+  }
+  if (!r.balance) return { ok: false, error: "Este código ya no tiene saldo." };
+  return { ok: true, code, balance: r.balance, expires: formatCreditDate(r.expires_at!), name: r.name ?? "" };
+}
+
 export type CartCheckoutState = { error?: string; unavailable?: string[] };
 
 export async function startCartCheckout(_prev: CartCheckoutState, formData: FormData): Promise<CartCheckoutState> {
@@ -125,6 +149,7 @@ export async function startCartCheckout(_prev: CartCheckoutState, formData: Form
   const addressNotes = String(formData.get("address_notes") ?? "").trim().slice(0, 200);
   const slotRaw = String(formData.get("delivery_slot") ?? "");
   const slot = slotRaw === "manana" || slotRaw === "tarde" ? slotRaw : "cualquiera";
+  const creditCode = normalizeCreditCode(String(formData.get("credit_code") ?? ""));
 
   if (!items.length) return { error: "Tu carrito está vacío." };
   if (name.length < 2) return { error: "Escribe tu nombre." };
@@ -132,6 +157,7 @@ export async function startCartCheckout(_prev: CartCheckoutState, formData: Form
   if (phone.replace(/\D/g, "").length < 8) return { error: "Escribe un teléfono de contacto." };
   if (delivery === "despacho" && !comuna) return { error: "Elige la comuna de despacho." };
   if (delivery === "despacho" && address.length < 5) return { error: "Escribe la dirección de despacho." };
+  if (creditCode && delivery !== "despacho") return { error: "Los créditos se usan con despacho (el despacho se paga aparte). Elige despacho o quita el código." };
 
   const supabase = await createClient();
   let {
@@ -169,11 +195,17 @@ export async function startCartCheckout(_prev: CartCheckoutState, formData: Form
       comuna: delivery === "despacho" ? comuna : "",
       items: items.map((i) => ({ product_id: i.id, quantity: i.qty })),
       ...(shippingByGroup ? { shipping_by_group: shippingByGroup } : {}),
+      ...(creditCode ? { credit_code: creditCode } : {}),
     },
   });
   const res = placed as { ok: boolean; reason?: string; product_id?: string; checkout?: Checkout } | null;
   if (placeErr || !res?.ok || !res.checkout) {
     if (placeErr) console.error("[carrito]", placeErr);
+    if (placeErr?.message.includes("credit_no_store_products")) return { error: "Los créditos sirven para productos de la tienda, y tu carrito no tiene ninguno." };
+    if (placeErr?.message.includes("credit_zero_total")) return { error: "Con créditos hay que pagar el despacho. Revisa tu dirección e intenta de nuevo." };
+    if (res?.reason === "credit_off") return { error: "Por ahora no se pueden usar créditos. Quita el código para seguir." };
+    if (res?.reason === "credit_needs_shipping") return { error: "Los créditos se usan con despacho. Elige despacho o quita el código." };
+    if (res?.reason === "credit_invalid" || res?.reason === "credit_empty") return { error: "Tu código de créditos ya no es válido o no tiene saldo. Quítalo para seguir." };
     if (res?.reason === "comuna") return { error: `Por ahora no despachamos a ${comuna}. Puedes elegir retiro.` };
     if (res?.reason === "unavailable" && res.product_id) {
       return {
@@ -187,10 +219,10 @@ export async function startCartCheckout(_prev: CartCheckoutState, formData: Form
 
   const { data: orders } = await db
     .from("orders")
-    .select("id, product_id, quantity, amount, shipping_amount, seller_id, products(title, images, size, category_slug, weight_kg, volume_m3)")
+    .select("id, product_id, quantity, amount, shipping_amount, credit_amount, seller_id, products(title, images, size, category_slug, weight_kg, volume_m3)")
     .eq("checkout_id", checkout.id);
   type Row = {
-    id: string; product_id: string; quantity: number; amount: number; shipping_amount: number; seller_id: string | null;
+    id: string; product_id: string; quantity: number; amount: number; shipping_amount: number; credit_amount: number | null; seller_id: string | null;
     products: { title: string; images: string[]; size: string | null; category_slug: string; weight_kg: number | null; volume_m3: number | null } | null;
   };
   const rows = (orders ?? []) as unknown as Row[];
@@ -222,13 +254,17 @@ export async function startCartCheckout(_prev: CartCheckoutState, formData: Form
   try {
     const pref = await createCartPreference({
       checkoutId: checkout.id,
-      items: rows.map((r) => ({
-        id: r.product_id,
-        title: r.products?.title ?? "Producto",
-        quantity: r.quantity,
-        unitPrice: Math.round((r.amount - r.shipping_amount) / r.quantity),
-        pictureUrl: r.products?.images?.[0],
-      })),
+      items: rows.flatMap((r) => {
+        const title = r.products?.title ?? "Producto";
+        const net = r.amount - r.shipping_amount;
+        // Con créditos se cobra solo lo que falta (y nada si los créditos lo pagan entero)
+        if (r.credit_amount) {
+          return net > 0
+            ? [{ id: r.product_id, title: `${r.quantity > 1 ? `${r.quantity} × ` : ""}${title} (con créditos)`, quantity: 1, unitPrice: net, pictureUrl: r.products?.images?.[0] }]
+            : [];
+        }
+        return [{ id: r.product_id, title, quantity: r.quantity, unitPrice: Math.round(net / r.quantity), pictureUrl: r.products?.images?.[0] }];
+      }),
       shipping: shippingCharges.map((amount, i) => ({
         title: shippingCharges.length > 1 ? `Despacho ${i + 1}` : "Despacho",
         amount,

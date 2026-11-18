@@ -4,7 +4,7 @@ import Image from "next/image";
 import { hasSupabaseEnv } from "@/lib/env";
 import { SetupNotice } from "@/components/SetupNotice";
 import { Icon } from "@/components/Icon";
-import { donationTerms, loadStop, proofUrls, siblingStops, signedPaths } from "@/lib/routing/operations";
+import { donationTerms, loadStop, pickupCredits, proofUrls, siblingStops, signedPaths } from "@/lib/routing/operations";
 import { brand } from "@/brand";
 import { SIZES, formatTime, mapsDirections, orderLoad, wazeLink } from "@/lib/delivery";
 import { DeliveryForm, PickupStopForm } from "./DeliveryForm";
@@ -100,7 +100,7 @@ async function PickupStop({ stop, db }: Pick<Awaited<ReturnType<typeof loadStop>
   const o = stop.orders;
   const load = orderLoad(o.products ?? {}, 1);
   const phone = (p.contact_phone ?? "").replace(/[^\d+]/g, "");
-  const terms = p.donation_terms ?? donationTerms(p.items, brand.name);
+  const terms = p.donation_terms ?? donationTerms(p.items, brand.name, await pickupCredits(db, p.id));
   return (
     <div className="mx-auto max-w-lg space-y-5">
       <Link href={`/reparto/${stop.route_id}`} className="inline-flex items-center gap-1 text-sm font-bold text-muted"><Icon name="back" className="h-4 w-4" />Volver a la ruta</Link>
