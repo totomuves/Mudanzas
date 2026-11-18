@@ -100,6 +100,8 @@ export type SimOption = {
   crew: number;
   cost: number;
   price: number;
+  /** Dónde se estaciona el vehículo (de ahí sale y ahí vuelve) */
+  parking?: string;
 };
 export type SimResult = {
   error?: string;
@@ -109,6 +111,7 @@ export type SimResult = {
   roads?: string;
   geoSource?: string;
   usingPresets?: boolean;
+  bodega?: string;
   options?: SimOption[];
 };
 
@@ -120,6 +123,7 @@ export async function simulateShipping(input: {
   quantity: number;
   kg?: number;
   m3?: number;
+  warehouse_id?: string | null;
   margin_pct: number;
   min_price: number;
   max_km: number;
@@ -131,7 +135,8 @@ export async function simulateShipping(input: {
   const qty = Math.max(1, Math.min(50, Number(input.quantity) || 1));
   const base = orderLoad({ size: input.size, weight_kg: input.kg || null, volume_m3: input.m3 || null }, qty);
   try {
-    const q = await quoteLoad({ load: base, address: input.address ?? "", comuna: input.comuna, pricing });
+    const wh = input.warehouse_id && /^[0-9a-f-]{36}$/i.test(input.warehouse_id) ? input.warehouse_id : null;
+    const q = await quoteLoad({ load: base, address: input.address ?? "", comuna: input.comuna, warehouseId: wh, pricing });
     if (!q.ok) {
       return {
         error: q.reason === "far"
@@ -146,7 +151,9 @@ export async function simulateShipping(input: {
       roads: q.roads,
       geoSource: q.geoSource,
       usingPresets: q.usingPresets,
+      bodega: q.bodega,
       options: q.options.map((o) => ({
+        parking: q.usingPresets ? undefined : q.parkings[o.vehicle.id],
         name: o.vehicle.name,
         kind: o.vehicle.kind,
         trips: o.trips,

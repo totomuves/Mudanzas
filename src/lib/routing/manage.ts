@@ -100,6 +100,26 @@ export async function saveVehicleFor(scope: SellerScope, f: FormData, allowedDri
     driver_id: driverOk ? driver : null,
     active: f.get("active") === "on",
   };
+  // Parking (solo si el formulario lo trae: requiere la migración de bodegas y parking)
+  if (f.has("parking_mode")) {
+    const mode = String(f.get("parking_mode") ?? "");
+    const addr = String(f.get("parking_address") ?? "").trim().slice(0, 200);
+    let parking: Record<string, unknown> = { parking_warehouse_id: null, parking_address: null, parking_lat: null, parking_lng: null };
+    if (mode === "direccion") {
+      if (addr.length < 5) return { error: "Escribe la dirección del parking (calle, número y comuna)." };
+      const { data: cur } = isId(id) ? await db.from("vehicles").select("parking_address, parking_lat, parking_lng").eq("id", id).maybeSingle() : { data: null };
+      if (cur && cur.parking_address === addr && cur.parking_lat != null) {
+        parking = { ...parking, parking_address: addr, parking_lat: cur.parking_lat, parking_lng: cur.parking_lng };
+      } else {
+        const p = await geocode(addr);
+        parking = { ...parking, parking_address: addr, parking_lat: p.lat, parking_lng: p.lng };
+      }
+    } else if (!scope && isId(mode)) {
+      // Una de las bodegas de MUVEO
+      parking = { ...parking, parking_warehouse_id: mode };
+    }
+    Object.assign(row, parking);
+  }
   let res;
   if (isId(id)) {
     let q = db.from("vehicles").update(row).eq("id", id);

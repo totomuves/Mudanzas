@@ -7,6 +7,10 @@ import {
 } from "@/lib/shipping-pricing";
 import { SANTIAGO_CENTER, comunaCenter, geocode, travelMatrix, type GeoSource, type Point } from "./geo";
 import { depotPoint, getVehicles, readDeliverySettings, type SellerScope } from "./planner";
+import { NodeIndex, getWarehouses, loadLogistics } from "./warehouses";
+
+/** Minutos de carga en la bodega (igual que en las rutas). */
+const LOAD_MINUTES = 10;
 
 /**
  * PRECIO DE DESPACHO AUTOMÁTICO
@@ -53,6 +57,10 @@ export type GroupQuote =
       roads?: "osm" | "linea";
       geoSource: GeoSource;
       usingPresets: boolean;
+      /** Bodega desde donde sale el producto */
+      bodega: string;
+      /** Parking de cada vehículo (id → nombre) */
+      parkings: Record<string, string>;
     }
   | { ok: false; reason: "far" | "comuna"; kmOneWay?: number };
 
@@ -67,6 +75,8 @@ export async function quoteLoad(args: {
   address: string;
   comuna: string;
   sellerId?: SellerScope;
+  /** Bodega de MUVEO donde está el producto (null = la principal). */
+  warehouseId?: string | null;
   pricing?: PricingSettings;
   db?: Db;
 }): Promise<GroupQuote> {
@@ -82,29 +92,38 @@ export async function quoteLoad(args: {
 
   const dest = args.address.trim().length >= 5 ? await cachedGeocode(args.address, args.comuna) : { ...comunaCenter(args.comuna), source: "comuna" as GeoSource };
 
-  // Salida a media mañana del próximo día de despacho (el tráfico de esa hora)
-  const DEP = 11 * 3600;
-  const day = (settings ? upcomingDeliveryDates(settings, new Date(), 1)[0] : null) ?? addDays(santiagoParts(new Date()).date, 1);
-  const m = await travelMatrix([depot, dest], santiagoToDate(day, DEP), DEP);
-  const f = m.source === "estimado" ? m.factor(DEP) : 1;
-  const leg = {
-    kmOut: m.dist[0][1] / 1000,
-    kmBack: m.dist[1][0] / 1000,
-    minOut: (m.dur[0][1] * f) / 60,
-    minBack: (m.dur[1][0] * f) / 60,
-  };
-  if (leg.kmOut > pricing.max_km) return { ok: false, reason: "far", kmOneWay: leg.kmOut };
-
   let fleet: Vehicle[] = await getVehicles(db, true, sellerId).catch(() => []);
   const usingPresets = fleet.length === 0;
   if (usingPresets) fleet = presetFleet();
+
+  // Bodega del producto y parking de cada vehículo: parking → bodega → dirección → parking
+  const lg = await loadLogistics(db, sellerId, depot, settings, usingPresets ? [] : fleet);
+  const bodega = sellerId ? lg.main : lg.bodegaOf(args.warehouseId);
+  const idx = new NodeIndex();
+  idx.add(bodega.key, bodega);
+  idx.add("dest", dest);
+  const parkNode = new Map(fleet.map((v) => [v.id, idx.add(lg.parkingOf(v).key, lg.parkingOf(v))]));
+
+  // Salida a media mañana del próximo día de despacho (el tráfico de esa hora)
+  const DEP = 11 * 3600;
+  const day = (settings ? upcomingDeliveryDates(settings, new Date(), 1)[0] : null) ?? addDays(santiagoParts(new Date()).date, 1);
+  const m = await travelMatrix(idx.points, santiagoToDate(day, DEP), DEP);
+  const f = m.source === "estimado" ? m.factor(DEP) : 1;
+  const km = (i: number, j: number) => m.dist[i][j] / 1000;
+  const min = (i: number, j: number) => (m.dur[i][j] * f) / 60;
+  const base = { kmOut: km(0, 1), kmBack: km(1, 0), minOut: min(0, 1), minBack: min(1, 0) };
+  if (base.kmOut > pricing.max_km) return { ok: false, reason: "far", kmOneWay: base.kmOut };
+  const legOf = (v: Vehicle) => {
+    const p = parkNode.get(v.id) ?? 0;
+    return { ...base, kmToStart: km(p, 0), minToStart: min(p, 0), kmHome: km(1, p), minHome: min(1, p), loadMin: lg.migrated ? LOAD_MINUTES : 0 };
+  };
 
   const svc = settings?.service_minutes ?? 12;
   const loads = args.items && args.items.length > 0 ? args.items : [args.load];
   // Precio de cada producto por separado; se cobra el más caro
   let top: { price: number; options: TripCost[] } | null = null;
   for (const l of loads) {
-    const options = rankVehicles(fleet, l, leg, svc);
+    const options = rankVehicles(fleet, l, legOf, svc);
     const price = priceFromCost(options[0].cost, pricing);
     if (!top || price > top.price) top = { price, options };
   }
@@ -115,12 +134,14 @@ export async function quoteLoad(args: {
     price,
     best,
     options,
-    kmOneWay: leg.kmOut,
-    minOneWay: leg.minOut,
+    kmOneWay: base.kmOut,
+    minOneWay: base.minOut,
     source: m.source,
     roads: m.roads,
     geoSource: dest.source,
     usingPresets,
+    bodega: bodega.name,
+    parkings: Object.fromEntries(fleet.map((v) => [v.id, lg.parkingOf(v).name])),
   };
 }
 
@@ -131,6 +152,7 @@ type ProductLoadRow = {
   category_slug: string | null;
   weight_kg: number | null;
   volume_m3: number | null;
+  warehouse_id?: string | null;
 };
 
 export type CartQuote =
@@ -145,21 +167,29 @@ export type CartQuote =
  */
 export async function quoteItems(items: { id: string; qty: number }[], comuna: string, address: string, db: Db = createAdminClient()): Promise<CartQuote> {
   if (!items.length) return { ok: false, reason: "empty" };
-  const { data } = await db
-    .from("products")
-    .select("id, seller_id, size, category_slug, weight_kg, volume_m3")
-    .in("id", items.map((i) => i.id));
+  const ids = items.map((i) => i.id);
+  const first = await db.from("products").select("id, seller_id, size, category_slug, weight_kg, volume_m3, warehouse_id").in("id", ids);
+  // Sin la migración de bodegas: todo sale de la bodega principal
+  const data = first.error
+    ? (await db.from("products").select("id, seller_id, size, category_slug, weight_kg, volume_m3").in("id", ids)).data
+    : first.data;
   const rows = (data ?? []) as ProductLoadRow[];
   if (!rows.length) return { ok: false, reason: "empty" };
+  const warehouses = rows.some((r) => !r.seller_id) ? await getWarehouses(db, true) : [];
+  const mainId = warehouses[0]?.id ?? null;
+  const known = new Set(warehouses.map((w) => w.id));
 
-  // Una entrega por bodega (MUVEO o cada vendedor). En cada una se cobra el producto más caro de llevar.
-  const loads = new Map<string | null, Load>();
-  const perItem = new Map<string | null, Load[]>();
+  // Una entrega por bodega (cada bodega de MUVEO y cada vendedor). En cada una se cobra el producto más caro de llevar.
+  const loads = new Map<string, Load>();
+  const perItem = new Map<string, Load[]>();
+  const scopeOf = new Map<string, { sellerId: string | null; warehouseId: string | null }>();
   for (const it of items) {
     const p = rows.find((r) => r.id === it.id);
     if (!p) continue;
     const l = orderLoad(p, it.qty);
-    const k = p.seller_id ?? null;
+    const wh = p.warehouse_id && known.has(p.warehouse_id) ? p.warehouse_id : mainId;
+    const k = p.seller_id ? `s:${p.seller_id}` : `w:${wh ?? ""}`;
+    scopeOf.set(k, { sellerId: p.seller_id ?? null, warehouseId: p.seller_id ? null : wh });
     const a = loads.get(k) ?? { kg: 0, m3: 0, rank: 0, serviceMin: 0 };
     loads.set(k, { kg: a.kg + l.kg, m3: a.m3 + l.m3, rank: Math.max(a.rank, l.rank), serviceMin: a.serviceMin + l.serviceMin });
     perItem.set(k, [...(perItem.get(k) ?? []), l]);
@@ -167,11 +197,14 @@ export async function quoteItems(items: { id: string; qty: number }[], comuna: s
 
   const pricing = await getPricing(db);
   const groups: { sellerId: string | null; price: number }[] = [];
-  for (const [sellerId, load] of loads) {
-    const q = await quoteLoad({ load, items: perItem.get(sellerId), address, comuna, sellerId, pricing, db });
+  for (const [k, load] of loads) {
+    const { sellerId, warehouseId } = scopeOf.get(k)!;
+    const q = await quoteLoad({ load, items: perItem.get(k), address, comuna, sellerId, warehouseId, pricing, db });
     if (!q.ok) return { ok: false, reason: q.reason };
     groups.push({ sellerId, price: q.price });
   }
-  const byGroup = Object.fromEntries(groups.map((g) => [g.sellerId ?? "muveo", g.price]));
+  // place_cart recibe un precio por vendedor: las bodegas de MUVEO se suman en "muveo"
+  const byGroup: Record<string, number> = {};
+  for (const g of groups) byGroup[g.sellerId ?? "muveo"] = (byGroup[g.sellerId ?? "muveo"] ?? 0) + g.price;
   return { ok: true, total: groups.reduce((a, g) => a + g.price, 0), groups, byGroup };
 }

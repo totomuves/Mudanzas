@@ -1,4 +1,5 @@
 import "server-only";
+import type { RouteWaypoint } from "@/lib/delivery";
 import { notFound, redirect } from "next/navigation";
 import { getAdminAccess } from "@/lib/admin";
 import { getMarketplaceEnabled } from "@/lib/seller";
@@ -46,6 +47,8 @@ export type RouteRow = {
   planned_end: string | null;
   planned_distance_m: number;
   planned_duration_s: number;
+  /** Parking y bodegas por donde pasa (si ya se corrió la migración de bodegas) */
+  waypoints?: RouteWaypoint[] | null;
   load_kg: number;
   load_m3: number;
   traffic_source: string;

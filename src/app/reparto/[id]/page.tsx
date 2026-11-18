@@ -7,6 +7,7 @@ import { loadRoute } from "@/lib/routing/operations";
 import { getDeliverySettings } from "@/lib/routing/planner";
 import { SIZES, formatDeliveryDate, formatTime, mapsDirections, orderLoad, wazeLink } from "@/lib/delivery";
 import { DriverMap, RouteControls } from "../RouteControls";
+import { Itinerary, waypointPlaces } from "@/components/reparto/Itinerary";
 
 export const metadata: Metadata = { title: "Ruta" };
 export const maxDuration = 30;
@@ -55,11 +56,21 @@ export default async function RutaChoferPage({ params, searchParams }: PageProps
         routes={[{
           id: route.id,
           color: route.color,
+          ...waypointPlaces(route.waypoints),
           stops: stops.filter((s) => s.orders.lat != null).map((s) => ({ lat: s.orders.lat!, lng: s.orders.lng!, seq: s.seq, title: s.orders.products?.title ?? "", status: s.status })),
         }]}
       />
 
       <RouteControls routeId={route.id} status={route.status} hasPending={open.length > 0} />
+
+      {(route.waypoints?.length ?? 0) > 0 && (
+        <section className="space-y-2 rounded-2xl border border-border bg-card p-4">
+          <p className="text-xs font-black uppercase text-muted">Recorrido</p>
+          {done === 0 && <Itinerary waypoints={route.waypoints} part="head" links />}
+          {done === 0 && <p className="text-xs text-muted">Luego las {stops.length} paradas, y al final:</p>}
+          <Itinerary waypoints={route.waypoints} part="tail" links />
+        </section>
+      )}
 
       {current && (
         <section className="space-y-3 rounded-2xl border-2 p-4" style={{ borderColor: route.color }}>

@@ -9,6 +9,7 @@ import { DespachoTabs } from "./Tabs";
 import { PricingPanel } from "./PricingPanel";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPricing } from "@/lib/routing/quote";
+import { getWarehouses } from "@/lib/routing/warehouses";
 
 export const metadata: Metadata = { title: "Precio de despacho" };
 
@@ -44,7 +45,7 @@ export default async function DespachoAdminPage() {
           supabase/migrations/20261117100000_despacho_automatico.sql.
         </p>
       ) : (
-        <PricingPanel pricing={pricing} vehicleCount={vehicles.count ?? 0} />
+        <PricingPanel pricing={pricing} vehicleCount={vehicles.count ?? 0} warehouses={(await getWarehouses(createAdminClient(), true)).map((w) => ({ id: w.id, name: w.name }))} />
       )}
 
       <div className="space-y-1">

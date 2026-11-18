@@ -5,7 +5,8 @@ import { Icon } from "@/components/Icon";
 import { StatusDot, type StatusTone } from "@/components/StatusDot";
 import { COMUNAS } from "@/lib/comunas";
 import { SIZES, SIZE_KEYS, addDays, formatDeliveryDate, formatTime, orderLoad, santiagoParts, slotLabel, whatsappLink, type DeliverySlot, type Vehicle } from "@/lib/delivery";
-import { getDeliverySettings } from "@/lib/routing/planner";
+import { depotPoint, getDeliverySettings } from "@/lib/routing/planner";
+import { loadLogistics, suggestVehicle } from "@/lib/routing/warehouses";
 import { PICKUP_FIELDS, signedPaths, type PickupRow } from "@/lib/routing/operations";
 import { brand } from "@/brand";
 import { acceptRequest, cancelPickup, movePickup, rejectRequest } from "@/app/reparto/retiros/actions";
@@ -71,6 +72,12 @@ export async function PickupsBoard({ fecha, tabs, driverMode, canReview }: { fec
   );
   const open = pickups.filter((p) => p.status === "pendiente" || p.status === "fallido");
   const withoutRoute = open.filter((p) => !stopOf.has(p.id));
+  // Vehículo sugerido para los retiros sin ruta: le cabe todo, parking cerca y menor gasto
+  let suggestedId: string | null = null;
+  if (driverMode && vehicles.length > 1 && withoutRoute.some((p) => p.lat != null)) {
+    const lg = await loadLogistics(db, null, await depotPoint(db, settings, null), settings, vehicles);
+    suggestedId = suggestVehicle(vehicles, withoutRoute.filter((p) => p.lat != null && p.lng != null).map((p) => ({ lat: p.lat!, lng: p.lng!, ...orderLoad(p) })), lg)[0]?.vehicle.id ?? null;
+  }
   const load = open.reduce((a, p) => {
     const l = orderLoad(p);
     return { kg: a.kg + l.kg, m3: a.m3 + l.m3 };
@@ -194,6 +201,7 @@ export async function PickupsBoard({ fecha, tabs, driverMode, canReview }: { fec
               date={selected}
               pending={withoutRoute.length}
               vehicles={vehicles.map((v) => ({ id: v.id, label: `${v.name} · ${Number(v.capacity_m3)} m³` }))}
+              suggestedId={suggestedId}
             />
           )}
           {tabs && (
