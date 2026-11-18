@@ -8,7 +8,8 @@ import { logSearch } from "@/lib/recsys/server";
 import { ProductCard } from "@/components/ProductCard";
 import { SetupNotice } from "@/components/SetupNotice";
 import type { Product } from "@/lib/types";
-import { getPhrase } from "@/lib/phrases";
+import { getHeadline } from "@/lib/headline";
+import { PhraseHeadline } from "@/components/PhraseHeadline";
 
 export async function generateMetadata({ searchParams }: PageProps<"/catalogo">): Promise<Metadata> {
   const sp = await searchParams;
@@ -49,7 +50,7 @@ export default async function CatalogoPage({ searchParams }: PageProps<"/catalog
   const [categories, { data }, headline] = await Promise.all([
     getCategories(),
     query,
-    categoria ? getPhrase(categoria) : Promise.resolve(null),
+    categoria ? getHeadline(categoria) : Promise.resolve(null),
   ]);
   const cats = categoryMap(categories);
   const products = (data ?? []) as Product[];
@@ -59,7 +60,7 @@ export default async function CatalogoPage({ searchParams }: PageProps<"/catalog
       {categoria && headline ? (
         <div className="space-y-1">
           <p className="text-xs font-bold uppercase tracking-widest text-muted">{cats[categoria]?.name ?? "Catálogo"}</p>
-          <h1 className="text-3xl font-black leading-tight">{headline}</h1>
+          <PhraseHeadline text={headline.text} pick={headline.pick} category={cats[categoria]} className="text-3xl font-black leading-tight" />
         </div>
       ) : (
         <h1 className="text-3xl font-black">Catálogo</h1>
