@@ -86,5 +86,13 @@ export async function createBooking(_prev: BookingState, f: FormData): Promise<B
   }
   if (!id) return { error: "¡Se acaba de ocupar ese horario! Elige otro, por favor." };
 
+  // Para "posibles mudanzas": ya reservó (si falta la migración, no pasa nada)
+  if (user?.id) {
+    await createAdminClient()
+      .from("moving_signals")
+      .upsert({ user_id: user.id, kind: "reserva" }, { onConflict: "user_id,kind,day", ignoreDuplicates: true })
+      .then(({ error: e }) => e && console.warn("[booking] señal", e.message));
+  }
+
   redirect(`/mudanzas/reserva/${id}`);
 }

@@ -4,6 +4,7 @@ import { Icon, type IconName } from "@/components/Icon";
 const TABS: { href: string; label: string; icon: IconName }[] = [
   { href: "/admin/mudanzas", label: "Agenda", icon: "calendar" },
   { href: "/admin/mudanzas/nueva", label: "Nueva mudanza", icon: "note" },
+  { href: "/admin/mudanzas/posibles", label: "Posibles mudanzas", icon: "users" },
   { href: "/admin/mudanzas/servicios", label: "Servicios y precios", icon: "calculator" },
   { href: "/admin/mudanzas/ajustes", label: "Horarios y recargos", icon: "clock" },
   { href: "/admin/paginas?pagina=mudanzas", label: "Banners y fotos", icon: "image" },
