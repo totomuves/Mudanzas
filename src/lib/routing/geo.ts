@@ -199,3 +199,39 @@ async function osrmDistances(points: Point[]): Promise<(number | null)[][] | nul
   if (data.code !== "Ok" || !data.distances) throw new Error(`OSRM table ${data.code}`);
   return data.distances;
 }
+
+/**
+ * Km que la ruta va por autopistas con peaje (TAG), ida y vuelta, con OSRM (gratis).
+ * OpenStreetMap marca esas vías con toll=yes y OSRM lo devuelve como clase "toll".
+ * Devuelve null si no se pudo consultar (entonces solo cuentan los peajes fijos del vehículo).
+ */
+export async function tollKmRoundTrip(from: Point, to: Point): Promise<{ out: number; back: number } | null> {
+  const c = (p: Point) => `${p.lng.toFixed(5)},${p.lat.toFixed(5)}`;
+  try {
+    const res = await fetch(
+      `https://router.project-osrm.org/route/v1/driving/${c(from)};${c(to)};${c(from)}?steps=true&overview=false`,
+      {
+        headers: { "User-Agent": "MUVEO-reparto/1.0" },
+        signal: AbortSignal.timeout(8_000),
+        next: { revalidate: 86_400 },
+      },
+    );
+    if (!res.ok) return null;
+    type Step = { distance: number; intersections?: { classes?: string[] }[] };
+    const data = (await res.json()) as { code: string; routes?: { legs: { steps: Step[] }[] }[] };
+    const legs = data.code === "Ok" ? data.routes?.[0]?.legs : null;
+    if (!legs || legs.length < 2) return null;
+    const tolled = (steps: Step[]) =>
+      steps.reduce((sum, s) => {
+        const xs = s.intersections ?? [];
+        if (!xs.length) return sum;
+        // Parte del tramo que va por peaje (cada cruce dice la clase de la vía que sigue)
+        const share = xs.filter((x) => x.classes?.includes("toll")).length / xs.length;
+        return sum + s.distance * share;
+      }, 0) / 1000;
+    return { out: tolled(legs[0].steps), back: tolled(legs[1].steps) };
+  } catch (e) {
+    console.warn("[rutas] peajes OSRM", e);
+    return null;
+  }
+}
