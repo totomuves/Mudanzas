@@ -11,7 +11,7 @@ import { trackEvent } from "@/lib/marketing/track";
 import { useShippingQuote } from "@/components/checkout/useShippingQuote";
 import type { ShippingConfig } from "@/lib/data";
 import { checkCreditCode, loadCart, startCartCheckout, type CartCheckoutState, type CartView, type CreditCheck } from "./actions";
-import { formatCreditCode } from "@/lib/credits";
+import { formatCreditCode, formatCredits } from "@/lib/credits";
 
 const noop = () => () => {};
 
@@ -69,8 +69,28 @@ export function CartScreen({ shipping: config }: { shipping: ShippingConfig }) {
   const subtotal = ready.reduce((a, l) => a + l.unitPrice * l.qty, 0);
   const shipping = delivery === "despacho" && shippingPrice != null ? shippingPrice : 0;
   // Créditos: pagan productos de la tienda, nunca el despacho
-  const storeSubtotal = ready.filter((l) => l.store).reduce((a, l) => a + l.unitPrice * l.qty, 0);
-  const discount = credit && delivery === "despacho" ? Math.min(credit.balance, storeSubtotal) : 0;
+  // (mismo cálculo y orden que la base de datos: por id de producto)
+  const storeLines = ready.filter((l) => l.store && l.creditPrice).sort((a, b) => (a.id < b.id ? -1 : 1));
+  const storeSubtotal = storeLines.reduce((a, l) => a + l.unitPrice * l.qty, 0);
+  let discount = 0;
+  let creditsSpent = 0;
+  if (credit && delivery === "despacho") {
+    let left = credit.balance;
+    for (const l of storeLines) {
+      if (left <= 0) break;
+      const cost = l.creditPrice! * l.qty;
+      const amount = l.unitPrice * l.qty;
+      if (left >= cost) {
+        discount += amount;
+        creditsSpent += cost;
+        left -= cost;
+      } else {
+        discount += Math.floor((amount * left) / cost);
+        creditsSpent += left;
+        left = 0;
+      }
+    }
+  }
   const total = subtotal + shipping - discount;
   const count = ready.reduce((a, l) => a + l.qty, 0);
   const minShipping = config.minPrice;
@@ -125,6 +145,7 @@ export function CartScreen({ shipping: config }: { shipping: ShippingConfig }) {
                   <p className="font-black">
                     {formatCLP(l.unitPrice * l.qty)}
                     {l.qty > 1 && <span className="ml-1 text-xs font-semibold text-muted">({formatCLP(l.unitPrice)} c/u)</span>}
+                    {l.creditPrice ? <span className="block text-xs font-extrabold text-brand">o {formatCredits(l.creditPrice * l.qty)}</span> : null}
                   </p>
                 )}
                 <div className="flex items-center gap-3 pt-1">
@@ -259,14 +280,14 @@ export function CartScreen({ shipping: config }: { shipping: ShippingConfig }) {
               <div className="space-y-1 text-sm">
                 <input type="hidden" name="credit_code" value={credit.code} />
                 <p>
-                  Código <b className="font-mono">{formatCreditCode(credit.code)}</b>: tienes <b>{formatCLP(credit.balance)}</b>, vigentes hasta el {credit.expires}.
+                  Código <b className="font-mono">{formatCreditCode(credit.code)}</b>: tienes <b>{formatCredits(credit.balance)}</b>, vigentes hasta el {credit.expires}.
                 </p>
                 {delivery !== "despacho" ? (
                   <p className="font-bold text-pass">Para usar tus créditos elige despacho. El despacho se paga aparte.</p>
                 ) : storeSubtotal === 0 ? (
                   <p className="font-bold text-pass">Tus créditos sirven para productos de la tienda, y tu carrito no tiene ninguno.</p>
                 ) : (
-                  <p className="text-muted">Se descuentan de los productos. El despacho se paga aparte.</p>
+                  <p className="text-muted">Pagan productos de la tienda según su precio en créditos. El despacho se paga aparte, en pesos.</p>
                 )}
                 <button type="button" onClick={() => setCredit(null)} className="font-semibold text-muted underline-offset-4 hover:underline">Quitar código</button>
               </div>
@@ -326,7 +347,7 @@ export function CartScreen({ shipping: config }: { shipping: ShippingConfig }) {
             </div>
             {discount > 0 && (
               <div className="flex justify-between">
-                <dt className="text-muted">Créditos</dt>
+                <dt className="text-muted">Pagado con {formatCredits(creditsSpent)}</dt>
                 <dd className="font-semibold text-accent">−{formatCLP(discount)}</dd>
               </div>
             )}

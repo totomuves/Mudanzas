@@ -1,13 +1,3 @@
-import { randomInt } from "node:crypto";
-
-/** Letras y números sin los que se confunden (0/O, 1/I/L). */
-const ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
-
-/** Código nuevo de 10 caracteres (se guarda sin guiones). */
-export function newCreditCode() {
-  return Array.from({ length: 10 }, () => ALPHABET[randomInt(ALPHABET.length)]).join("");
-}
-
 /** Lo que escribe la persona, sin espacios ni guiones y en mayúsculas. */
 export function normalizeCreditCode(raw: string) {
   return raw.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10);
@@ -39,4 +29,15 @@ export const CREDIT_FIELDS = "id, code, amount, pickup_id, holder_name, holder_p
 
 export function formatCreditDate(iso: string) {
   return new Date(iso).toLocaleDateString("es-CL", { timeZone: "America/Santiago", day: "numeric", month: "long", year: "numeric" });
+}
+
+/** "1 crédito" / "25 créditos" */
+export function formatCredits(n: number) {
+  const v = Math.max(0, Math.round(n));
+  return `${v.toLocaleString("es-CL")} ${v === 1 ? "crédito" : "créditos"}`;
+}
+
+/** Precio por unidad en créditos (redondeado hacia arriba, mínimo 1). */
+export function creditPrice(pesos: number, creditValue: number) {
+  return Math.max(1, Math.ceil(pesos / Math.max(1, creditValue)));
 }

@@ -1,13 +1,17 @@
 import { currentPrice, formatCLP, isFlashActive, savingsPercent } from "@/lib/format";
 import type { Product } from "@/lib/types";
+import { formatCredits } from "@/lib/credits";
 
 /** Precio grande en negrita con el signo $ pequeño arriba (estilo catálogo). */
 export function PriceTag({
   product,
   size = "md",
+  credits,
 }: {
   product: Pick<Product, "price" | "original_price" | "flash_price" | "flash_until">;
   size?: "md" | "lg";
+  /** Precio en créditos (solo productos de la tienda, con créditos encendidos) */
+  credits?: number | null;
 }) {
   const flash = isFlashActive(product);
   const pct = savingsPercent(product);
@@ -27,6 +31,9 @@ export function PriceTag({
       {crossed ? <span className="text-sm text-muted line-through">{formatCLP(crossed)}</span> : null}
       {pct ? (
         <span className="rounded-full bg-accent/12 px-2 py-0.5 text-xs font-extrabold text-accent">-{pct}%</span>
+      ) : null}
+      {credits ? (
+        <span className={`basis-full font-extrabold text-brand ${lg ? "text-base" : "text-xs"}`}>o {formatCredits(credits)}</span>
       ) : null}
     </div>
   );

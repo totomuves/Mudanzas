@@ -14,8 +14,7 @@ import { PickupForm, PlanMineForm } from "./PickupForms";
 import { ConfirmForm } from "@/components/ConfirmForm";
 import { RouteMap, type MapRoute, type MapStop } from "@/components/RouteMap";
 import { CreditForm } from "./CreditForm";
-import { formatCLP } from "@/lib/format";
-import { formatCreditCode } from "@/lib/credits";
+import { formatCreditCode, formatCredits } from "@/lib/credits";
 import { siteUrl } from "@/lib/env";
 
 const STATUS: Record<PickupRow["status"], { tone: StatusTone; label: string }> = {
@@ -167,7 +166,7 @@ export async function PickupsBoard({ fecha, tabs, driverMode, canReview }: { fec
                       {SIZE_KEYS.map((k) => <option key={k} value={k}>{SIZES[k].label}</option>)}
                     </select>
                     <input name="volume_m3" inputMode="decimal" placeholder="m³ (opcional)" className="w-28 rounded-xl border border-border bg-background px-2 py-2" />
-                    <input name="credit" inputMode="numeric" placeholder="Créditos $ (opcional)" aria-label="Créditos para la tienda" className="w-40 rounded-xl border border-border bg-background px-2 py-2" />
+                    <input name="credit" inputMode="numeric" placeholder="Créditos (opcional)" aria-label="Créditos para la tienda" className="w-40 rounded-xl border border-border bg-background px-2 py-2" />
                     <button className="rounded-full bg-brand px-4 py-2 font-extrabold text-white">Aceptar</button>
                     {waYes && <a href={waYes} target="_blank" rel="noreferrer" className="font-bold text-accent">Avisar por WhatsApp</a>}
                   </form>
@@ -261,8 +260,8 @@ export async function PickupsBoard({ fecha, tabs, driverMode, canReview }: { fec
                       {(() => {
                         const c = creditOf.get(p.id);
                         if (!c) return null;
-                        if (c.status === "pendiente") return <span className="text-muted">{formatCLP(c.amount)} en créditos, se activan al retirar</span>;
-                        const waCode = whatsappLink(p.contact_phone, `Hola ${p.contact_name.split(" ")[0]}, gracias por lo que nos entregaste. Te dejamos ${formatCLP(c.amount)} en créditos para comprar en ${brand.name}. Tu código es ${formatCreditCode(c.code)}. Úsalo en el carrito (${siteUrl()}/carrito) eligiendo despacho; el despacho se paga aparte.`);
+                        if (c.status === "pendiente") return <span className="text-muted">{formatCredits(c.amount)}, se activan al retirar</span>;
+                        const waCode = whatsappLink(p.contact_phone, `Hola ${p.contact_name.split(" ")[0]}, gracias por lo que nos entregaste. Te dejamos ${formatCredits(c.amount)} para comprar en ${brand.name}. Tu código es ${formatCreditCode(c.code)}. Cada producto de la tienda muestra su precio en créditos. Úsalo en el carrito (${siteUrl()}/carrito) eligiendo despacho; el despacho se paga aparte.`);
                         return (
                           <>
                             <span className="text-accent">Código {formatCreditCode(c.code)}</span>

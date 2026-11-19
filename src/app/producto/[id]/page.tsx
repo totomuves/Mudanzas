@@ -15,6 +15,8 @@ import { TrackViewItem } from "@/components/marketing/TrackEvent";
 import { brand } from "@/brand";
 import { siteUrl } from "@/lib/env";
 import type { Product } from "@/lib/types";
+import { getCreditValue } from "@/lib/credits-server";
+import { creditPrice } from "@/lib/credits";
 
 const SCHEMA_CONDITION: Record<Product["condition"], string> = {
   nuevo: "https://schema.org/NewCondition",
@@ -78,6 +80,9 @@ export default async function ProductoPage({ params }: PageProps<"/producto/[id]
   const available = product.available_units ?? product.quantity;
   const reservedByOther = !sold && available <= 0;
   const price = currentPrice(product);
+  // Precio en créditos: solo productos de la tienda (los créditos no pagan productos de vendedores)
+  const creditValue = product.seller_id ? null : await getCreditValue();
+  const credits = creditValue ? creditPrice(price, creditValue) : null;
   const trackItem = { id: product.id, name: product.title, price, category: category?.name };
   const jsonLd = {
     "@context": "https://schema.org",
@@ -120,7 +125,7 @@ export default async function ProductoPage({ params }: PageProps<"/producto/[id]
           <h1 className="text-2xl font-black leading-tight md:text-3xl">{product.title}</h1>
         </div>
         {isFlashActive(product) && product.flash_until && <FlashCountdown until={product.flash_until} />}
-        <PriceTag product={product} size="lg" />
+        <PriceTag product={product} size="lg" credits={credits} />
         {product.description && <p className="whitespace-pre-line text-muted">{product.description}</p>}
 
         {sold ? (

@@ -120,6 +120,8 @@ export type Checkout = {
   paid_at: string | null;
   /** Descontado con créditos (falta si no se corrió la migración de créditos) */
   credit_amount?: number;
+  /** Créditos usados (unidades) */
+  credits_used?: number;
 };
 
 export type SellerStatus = "pending" | "approved" | "rejected" | "suspended";

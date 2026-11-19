@@ -8,7 +8,6 @@ import { formatTime, santiagoParts } from "@/lib/delivery";
 import { haversine, trafficFactor } from "./optimizer";
 import { notifyOrder } from "./notify";
 import { brand } from "@/brand";
-import { formatCLP } from "@/lib/format";
 
 type Db = ReturnType<typeof createAdminClient>;
 
@@ -296,7 +295,7 @@ export async function completeStop(
 export function donationTerms(items: string, brandName: string, credits?: number | null) {
   const base = `Entrego sin costo a ${brandName} lo siguiente: ${items}. Lo hago voluntariamente, es mío o tengo permiso para entregarlo, está en buen estado y funcionando, y acepto que ${brandName} pase a ser su dueño y lo pueda usar, vender o regalar`;
   return credits && credits > 0
-    ? `${base}, sin pagarme dinero. A cambio recibo ${formatCLP(credits)} en créditos para comprar en la tienda de ${brandName}, que no se pueden cambiar por dinero, no pagan el despacho y vencen según sus condiciones.`
+    ? `${base}, sin pagarme dinero. A cambio recibo ${credits} ${credits === 1 ? "crédito" : "créditos"} para comprar en la tienda de ${brandName}, que no se pueden cambiar por dinero, no pagan el despacho y vencen según sus condiciones.`
     : `${base}, sin pagarme nada a cambio.`;
 }
 

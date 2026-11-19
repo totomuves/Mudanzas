@@ -1,6 +1,16 @@
 import "server-only";
+import { cache } from "react";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { newCreditCode } from "@/lib/credits";
+import { randomInt } from "node:crypto";
+
+/** Letras y números sin los que se confunden (0/O, 1/I/L). */
+const ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+
+/** Código nuevo de 10 caracteres (se guarda sin guiones). */
+function newCreditCode() {
+  return Array.from({ length: 10 }, () => ALPHABET[randomInt(ALPHABET.length)]).join("");
+}
+
 
 /**
  * Asigna (o cambia) los créditos de un retiro. Si el retiro aún no se hace,
@@ -61,3 +71,17 @@ export async function setPickupCredit(pickupId: string, amount: number, userId: 
   }
   return "No se pudo crear el código. Intenta de nuevo.";
 }
+
+/**
+ * Valor oculto de 1 crédito en pesos, o null si los créditos están apagados
+ * (o falta la migración). Sirve para mostrar el precio en créditos.
+ */
+export const getCreditValue = cache(async (): Promise<number | null> => {
+  try {
+    const { data, error } = await createAdminClient().from("credit_settings").select("enabled, credit_value").eq("id", 1).maybeSingle();
+    if (error || !data?.enabled || !data.credit_value) return null;
+    return data.credit_value as number;
+  } catch {
+    return null;
+  }
+});

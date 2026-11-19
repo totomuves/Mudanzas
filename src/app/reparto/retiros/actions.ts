@@ -145,7 +145,7 @@ export async function acceptRequest(f: FormData) {
   // Créditos para la tienda (opcional): quedan pendientes hasta que se haga el retiro
   const credit = parseInt(String(f.get("credit") ?? "").replace(/\D/g, ""), 10);
   if (access.user && Number.isFinite(credit) && credit > 0) {
-    const err = await setPickupCredit(id, Math.min(credit, 10_000_000), access.user.id);
+    const err = await setPickupCredit(id, Math.min(credit, 100_000), access.user.id);
     if (err) console.error("[retiros] créditos", err);
   }
   refresh();

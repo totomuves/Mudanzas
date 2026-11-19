@@ -5,7 +5,7 @@ import { SetupNotice } from "@/components/SetupNotice";
 import { StatusDot, type StatusTone } from "@/components/StatusDot";
 import { ConfirmForm } from "@/components/ConfirmForm";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { CREDIT_FIELDS, formatCreditCode, formatCreditDate, type StoreCredit } from "@/lib/credits";
+import { CREDIT_FIELDS, formatCreditCode, formatCreditDate, formatCredits, type StoreCredit } from "@/lib/credits";
 import { formatCLP } from "@/lib/format";
 import { whatsappLink } from "@/lib/delivery";
 import { brand } from "@/brand";
@@ -24,7 +24,7 @@ export default async function CreditosAdminPage() {
   const db = createAdminClient();
 
   const [{ data: settings, error }, { data: rows }] = await Promise.all([
-    db.from("credit_settings").select("enabled, expiry_days").eq("id", 1).maybeSingle(),
+    db.from("credit_settings").select("enabled, expiry_days, credit_value").eq("id", 1).maybeSingle(),
     db.from("store_credits").select(`${CREDIT_FIELDS}, pickups(items)`).order("created_at", { ascending: false }).limit(200),
   ]);
   if (error) {
@@ -59,17 +59,20 @@ export default async function CreditosAdminPage() {
         <h1 className="text-2xl font-black">Créditos por retiros</h1>
         <p className="text-muted">
           Quien nos entrega cosas recibe créditos para comprar en la tienda. Se dan en Retiros, después de revisar las fotos,
-          y se activan cuando el chofer hace el retiro. Pagan productos de {brand.name}, nunca el despacho.
+          y se activan cuando el chofer hace el retiro. Cada producto de {brand.name} muestra su precio en créditos; nunca pagan el despacho.
         </p>
       </div>
 
       <section className="grid grid-cols-3 gap-2">
         <Stat label="Activos" value={String(live.length)} />
-        <Stat label="Saldo por usar" value={formatCLP(owed)} />
-        <Stat label="Por activar" value={formatCLP(pending)} />
+        <Stat label="Saldo por usar" value={formatCredits(owed)} />
+        <Stat label="Por activar" value={formatCredits(pending)} />
       </section>
 
-      <CreditSettingsForm enabled={settings?.enabled ?? true} expiryDays={settings?.expiry_days ?? 180} />
+      <CreditSettingsForm enabled={settings?.enabled ?? true} expiryDays={settings?.expiry_days ?? 180} creditValue={settings?.credit_value ?? 1000} />
+      {settings?.credit_value != null && (
+        <p className="-mt-3 text-sm text-muted">Saldo por usar equivale a {formatCLP(owed * settings.credit_value)} en productos.</p>
+      )}
 
       {credits.length === 0 ? (
         <p className="rounded-2xl border-2 border-dashed border-border p-8 text-center text-muted">
@@ -84,7 +87,7 @@ export default async function CreditosAdminPage() {
               st.tone === "ok"
                 ? whatsappLink(
                     c.holder_phone,
-                    `Hola ${c.holder_name.split(" ")[0]}, te recordamos que tienes ${formatCLP(left)} en créditos para comprar en ${brand.name}. Tu código es ${formatCreditCode(c.code)}${c.expires_at ? ` y vence el ${formatCreditDate(c.expires_at)}` : ""}. Úsalo en ${siteUrl()}/carrito eligiendo despacho.`,
+                    `Hola ${c.holder_name.split(" ")[0]}, te recordamos que tienes ${formatCredits(left)} para comprar en ${brand.name}. Tu código es ${formatCreditCode(c.code)}${c.expires_at ? ` y vence el ${formatCreditDate(c.expires_at)}` : ""}. Úsalo en ${siteUrl()}/carrito eligiendo despacho.`,
                   )
                 : null;
             return (
@@ -92,8 +95,8 @@ export default async function CreditosAdminPage() {
                 <div className="flex items-start gap-3">
                   <div className="min-w-0 flex-1">
                     <p className="font-bold">
-                      {c.holder_name} · {formatCLP(c.amount)}
-                      {left !== c.amount && c.status === "activo" ? <span className="font-semibold text-muted"> (quedan {formatCLP(left)})</span> : null}
+                      {c.holder_name} · {formatCredits(c.amount)}
+                      {left !== c.amount && c.status === "activo" ? <span className="font-semibold text-muted"> (quedan {formatCredits(left)})</span> : null}
                     </p>
                     <p className="text-muted">
                       <span className="font-mono font-bold text-foreground">{formatCreditCode(c.code)}</span>

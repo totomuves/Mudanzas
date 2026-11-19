@@ -11,7 +11,8 @@ import { deliveryDateFor } from "@/lib/routing/planner";
 import { getPricing, quoteItems } from "@/lib/routing/quote";
 import type { Checkout, Product } from "@/lib/types";
 import type { CartItem } from "@/lib/cart";
-import { formatCreditDate, normalizeCreditCode } from "@/lib/credits";
+import { creditPrice, formatCreditDate, normalizeCreditCode } from "@/lib/credits";
+import { getCreditValue } from "@/lib/credits-server";
 
 export type CartLine = {
   id: string;
@@ -26,6 +27,8 @@ export type CartLine = {
   group: number;
   /** Producto de la tienda (no de un vendedor): se puede pagar con créditos */
   store: boolean;
+  /** Precio por unidad en créditos (null: no se paga con créditos) */
+  creditPrice: number | null;
 };
 
 export type CartView = {
@@ -68,6 +71,7 @@ export async function loadCart(items: CartItem[]): Promise<CartView> {
   // MUVEO primero
   if (rows.some((r) => !r.seller_id)) scopeOf(null);
 
+  const creditValue = await getCreditValue();
   const lines: CartLine[] = [];
   for (const it of clean) {
     const p = rows.find((r) => r.id === it.id);
@@ -82,6 +86,7 @@ export async function loadCart(items: CartItem[]): Promise<CartView> {
       available: p.status === "available" ? Math.max(0, p.available_units ?? p.quantity) : 0,
       group: scopeOf(p.seller_id ?? null),
       store: !p.seller_id,
+      creditPrice: !p.seller_id && creditValue ? creditPrice(currentPrice(p), creditValue) : null,
     });
   }
 

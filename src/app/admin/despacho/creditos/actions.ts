@@ -21,7 +21,7 @@ function refresh() {
 
 function parseAmount(raw: FormDataEntryValue | null) {
   const n = parseInt(String(raw ?? "").replace(/\D/g, ""), 10);
-  return Number.isFinite(n) && n > 0 ? Math.min(n, 10_000_000) : 0;
+  return Number.isFinite(n) && n > 0 ? Math.min(n, 100_000) : 0;
 }
 
 export type CreditFormState = { error?: string; ok?: string };
@@ -66,10 +66,12 @@ export async function saveCreditSettings(_prev: CreditFormState, f: FormData): P
   if (!(await requireDespacho())) return { error: "No tienes permiso." };
   const days = parseInt(String(f.get("expiry_days") ?? ""), 10);
   if (!Number.isFinite(days) || days < 1 || days > 3650) return { error: "Los días de vigencia van de 1 a 3650." };
+  const value = parseInt(String(f.get("credit_value") ?? "").replace(/\D/g, ""), 10);
+  if (!Number.isFinite(value) || value < 1 || value > 1_000_000) return { error: "El valor de 1 crédito va de $1 a $1.000.000." };
   const { error } = await createAdminClient()
     .from("credit_settings")
-    .upsert({ id: 1, enabled: f.get("enabled") === "on", expiry_days: days, updated_at: new Date().toISOString() });
-  if (error) return { error: "Falta correr la migración de créditos en Supabase (20261118110000_creditos_retiros.sql)." };
+    .upsert({ id: 1, enabled: f.get("enabled") === "on", expiry_days: days, credit_value: value, updated_at: new Date().toISOString() });
+  if (error) return { error: "Falta correr la migración de créditos en Supabase (20261119100000_creditos_unidades.sql)." };
   refresh();
   return { ok: "Ajustes guardados. La vigencia nueva corre para los créditos que se activen desde ahora." };
 }
