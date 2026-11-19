@@ -33,6 +33,12 @@ export type OptStop = {
   twEnd: number;
   /** Retiro: la carga se sube en esta parada (las entregas se bajan). */
   pickup?: boolean;
+  /**
+   * Entrega: bodega donde se carga el producto (índice en la matriz).
+   * El vehículo pasa por cada bodega que necesita antes de la primera entrega.
+   * Sin valor: el producto ya va cargado al salir.
+   */
+  originNode?: number;
 };
 
 export type OptVehicle = {
@@ -46,6 +52,10 @@ export type OptVehicle = {
   startNode: number;
   endNode: number;
   fixedCost?: number;
+  /** Bodega donde se descargan los retiros antes de volver (sin valor: en endNode). */
+  dropNode?: number;
+  /** Segundos para cargar o descargar en cada bodega. */
+  loadService?: number;
 };
 
 export type OptMatrix = {
@@ -68,9 +78,13 @@ export type OptOptions = {
 };
 
 export type OptVisit = { id: string; arrival: number; start: number; departure: number; wait: number; late: number; legDist: number };
+/** Paso por una bodega o el parking (salida, carga, descarga, llegada). */
+export type OptWaypoint = { node: number; kind: "salida" | "carga" | "descarga" | "llegada"; arrival: number; departure: number; legDist: number };
 export type OptRoute = {
   vehicleId: string;
   visits: OptVisit[];
+  /** Recorrido completo: salida del parking, bodegas y vuelta al parking. */
+  waypoints: OptWaypoint[];
   departure: number;
   end: number;
   distance: number;
@@ -125,11 +139,11 @@ export function optimizeRoutes(stops: OptStop[], vehicles: OptVehicle[], m: OptM
       return { cost: 0, feasible: true, detail: detail ? emptyRoute(v) : undefined };
     }
     // Carga al salir = todas las entregas; luego baja con cada entrega y sube con cada retiro
-    let dKg = 0, dM3 = 0, pKg = 0, pM3 = 0;
+    let dKg = 0, dM3 = 0, pKg = 0, pM3 = 0, hasPickup = false;
     for (const si of seq) {
       const s = stops[si];
       if (s.sizeRank > v.maxSizeRank) return { cost: Infinity, feasible: false };
-      if (s.pickup) { pKg += s.kg; pM3 += s.m3; } else { dKg += s.kg; dM3 += s.m3; }
+      if (s.pickup) { hasPickup = true; pKg += s.kg; pM3 += s.m3; } else { dKg += s.kg; dM3 += s.m3; }
     }
     // Ni las entregas solas ni los retiros solos caben: no cabe en ningún orden
     if (Math.max(dKg, pKg) > v.capKg + 1e-6 || Math.max(dM3, pM3) > v.capM3 + 1e-6) return { cost: Infinity, feasible: false };
@@ -151,13 +165,55 @@ export function optimizeRoutes(stops: OptStop[], vehicles: OptVehicle[], m: OptM
       m3 = pM3;
     }
 
+    // Bodegas donde hay que cargar (en el orden más corto desde la salida, vecino más cercano)
+    let origins: number[] | null = null;
+    for (const si of seq) {
+      const o = stops[si].originNode;
+      if (o == null || stops[si].pickup) continue;
+      if (!origins) origins = [o];
+      else if (!origins.includes(o)) origins.push(o);
+    }
+    const loadSvc = v.loadService ?? 0;
+    if (origins && origins.length > 1) {
+      const ordered: number[] = [];
+      let at = v.startNode;
+      const left = origins.slice();
+      while (left.length) {
+        let bi = 0;
+        for (let i = 1; i < left.length; i++) if (m.dur[at][left[i]] < m.dur[at][left[bi]]) bi = i;
+        at = left.splice(bi, 1)[0];
+        ordered.push(at);
+      }
+      origins = ordered;
+    }
+
+    // Tramo previo: parking → bodega(s) (cargar). Se estima con el tráfico de la salida.
+    let prefix = 0;
+    {
+      let at = v.startNode;
+      for (const o of origins ?? []) {
+        prefix += tt(at, o, v.start) + loadSvc;
+        at = o;
+      }
+    }
+    const firstFrom = origins?.length ? origins[origins.length - 1] : v.startNode;
     // Sale lo más tarde posible sin esperar en la primera parada
     const first = stops[seq[0]];
-    const firstLeg = tt(v.startNode, first.node, v.start);
-    const departure = Math.max(v.start, first.twStart - firstLeg);
+    const firstLeg = tt(firstFrom, first.node, v.start);
+    const departure = Math.max(v.start, first.twStart - firstLeg - prefix);
     let t = departure;
     let prev = v.startNode;
     let dist = 0, late = 0, maxLate = 0;
+    const waypoints: OptWaypoint[] = [];
+    if (detail) waypoints.push({ node: v.startNode, kind: "salida", arrival: departure, departure, legDist: 0 });
+    for (const o of origins ?? []) {
+      const arrival = t + tt(prev, o, t);
+      const legDist = m.dist[prev][o];
+      dist += legDist;
+      t = arrival + loadSvc;
+      if (detail) waypoints.push({ node: o, kind: "carga", arrival, departure: t, legDist });
+      prev = o;
+    }
     const visits: OptVisit[] = [];
     for (const si of seq) {
       const s = stops[si];
@@ -172,8 +228,21 @@ export function optimizeRoutes(stops: OptStop[], vehicles: OptVehicle[], m: OptM
       if (detail) visits.push({ id: s.id, arrival, start, departure: t, wait: start - arrival, late: lateHere, legDist });
       prev = s.node;
     }
+    // Los retiros se dejan en la bodega antes de volver al parking
+    if (hasPickup && v.dropNode != null && v.dropNode !== v.endNode) {
+      const arrival = t + tt(prev, v.dropNode, t);
+      const legDist = m.dist[prev][v.dropNode];
+      dist += legDist;
+      t = arrival + loadSvc;
+      if (detail) waypoints.push({ node: v.dropNode, kind: "descarga", arrival, departure: t, legDist });
+      prev = v.dropNode;
+    } else if (hasPickup && v.dropNode != null) {
+      t += loadSvc;
+    }
     const end = t + tt(prev, v.endNode, t);
-    dist += m.dist[prev][v.endNode];
+    const lastLeg = m.dist[prev][v.endNode];
+    dist += lastLeg;
+    if (detail) waypoints.push({ node: v.endNode, kind: "llegada", arrival: end, departure: end, legDist: lastLeg });
     const overtime = Math.max(0, end - v.end);
     // Límites duros: más de 1 hora extra o llegar más de 45 min tarde a alguien no se acepta
     if (!detail && hard && (overtime > HARD_OVERTIME || maxLate > HARD_LATE)) return { cost: Infinity, feasible: true };
@@ -184,13 +253,13 @@ export function optimizeRoutes(stops: OptStop[], vehicles: OptVehicle[], m: OptM
       cost,
       feasible: true,
       detail: detail
-        ? { vehicleId: v.id, visits, departure, end, distance: dist, duration, kg, m3, late, overtime }
+        ? { vehicleId: v.id, visits, waypoints, departure, end, distance: dist, duration, kg, m3, late, overtime }
         : undefined,
     };
   }
 
   function emptyRoute(v: OptVehicle): OptRoute {
-    return { vehicleId: v.id, visits: [], departure: v.start, end: v.start, distance: 0, duration: 0, kg: 0, m3: 0, late: 0, overtime: 0 };
+    return { vehicleId: v.id, visits: [], waypoints: [], departure: v.start, end: v.start, distance: 0, duration: 0, kg: 0, m3: 0, late: 0, overtime: 0 };
   }
 
   // ---------- Estado de la solución ----------

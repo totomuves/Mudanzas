@@ -4,6 +4,7 @@ import { requireSection } from "@/lib/admin";
 import { SetupNotice } from "@/components/SetupNotice";
 import type { Vehicle } from "@/lib/delivery";
 import { readDeliverySettings, getDeliverySettings } from "@/lib/routing/planner";
+import { readWarehouses } from "@/lib/routing/warehouses";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SetupBoard } from "@/components/reparto/SetupBoard";
 import type { Driver } from "@/components/reparto/SetupForms";
@@ -17,10 +18,11 @@ export default async function AjustesRepartoPage() {
   if (!hasSupabaseEnv()) return <SetupNotice />;
   const { supabase, owner } = await requireSection("despacho");
   const db = createAdminClient();
-  const [s, v, d] = await Promise.all([
+  const [s, v, d, w] = await Promise.all([
     readDeliverySettings(db, null),
     db.from("vehicles").select("*").is("seller_id", null).order("created_at"),
     supabase.rpc("list_drivers"),
+    readWarehouses(db, true),
   ]);
   // Choferes invitados que todavía no entran a la app (solo lo ve un administrador total)
   let invited: string[] = [];
@@ -51,6 +53,7 @@ export default async function AjustesRepartoPage() {
       settings={s.settings ?? (await getDeliverySettings(db))}
       vehicles={(v.data ?? []) as Vehicle[]}
       drivers={drivers}
+      parking={w.migrated ? w.warehouses.map((x) => ({ id: x.id, name: x.name })) : null}
       actions={{ saveSettings: saveDeliverySettings, saveVehicle, deleteVehicle }}
       driversHint={<DriversPanel drivers={drivers} invited={invited} canInvite={owner} />}
     />

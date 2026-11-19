@@ -13,7 +13,7 @@ const input = "w-full rounded-xl border border-border bg-background px-3 py-2";
 const km = (n: number) => `${n.toLocaleString("es-CL", { maximumFractionDigits: 1 })} km`;
 const hrs = (h: number) => (h < 1 ? `${Math.round(h * 60)} min` : `${h.toLocaleString("es-CL", { maximumFractionDigits: 1 })} h`);
 
-export function PricingPanel({ pricing, vehicleCount }: { pricing: PricingSettings; vehicleCount: number }) {
+export function PricingPanel({ pricing, vehicleCount, warehouses = [] }: { pricing: PricingSettings; vehicleCount: number; warehouses?: { id: string; name: string }[] }) {
   const [state, action, pending] = useActionState<ShippingState, FormData>(savePricing, {});
   const [mode, setMode] = useState(pricing.pricing_mode);
   const [margin, setMargin] = useState(String(pricing.margin_pct));
@@ -33,6 +33,7 @@ export function PricingPanel({ pricing, vehicleCount }: { pricing: PricingSettin
   const [size, setSize] = useState("grande");
   const [qty, setQty] = useState("1");
   const [kg, setKg] = useState("");
+  const [bodega, setBodega] = useState("");
   const [care, setCare] = useState("");
   const [value, setValue] = useState("");
   const [needs, setNeeds] = useState<string[]>([]);
@@ -44,7 +45,7 @@ export function PricingPanel({ pricing, vehicleCount }: { pricing: PricingSettin
     startSim(async () => {
       setSim(
         await simulateShipping({
-          comuna, address, size, quantity: n(qty), kg: n(kg) || undefined,
+          comuna, address, size, quantity: n(qty), kg: n(kg) || undefined, warehouse_id: bodega || null,
           margin_pct: n(margin), min_price: n(min), max_km: n(maxKm) || 60, round_to: n(roundTo) || 1, trip_share_pct: n(share) || 100,
           fragile_fee: n(fragileFee), luxury_fee: n(luxuryFee), luxury_pct: n(luxuryPct), toll_per_km: n(tollKm), truck_toll_factor: n(truckToll) || 1,
           care, value: n(value), needs,
@@ -81,7 +82,7 @@ export function PricingPanel({ pricing, vehicleCount }: { pricing: PricingSettin
         {mode === "automatico" && (
           <div className="space-y-3">
             <p className="text-sm text-muted">
-              Costo del viaje = km de ida y vuelta × bencina por km + peajes + horas (manejo, carga y descarga) × chofer por hora.
+              Costo del viaje = km (parking del vehículo → bodega → dirección → parking) × bencina por km + peajes + horas (manejo, carga y descarga) × chofer por hora.
               Se elige el vehículo más barato que pueda llevar el peso y el volumen. Los gastos de cada vehículo se ingresan en{" "}
               <Link href="/admin/despacho/ajustes" className="font-bold underline">Vehículos y horarios</Link>.
             </p>
@@ -205,6 +206,12 @@ export function PricingPanel({ pricing, vehicleCount }: { pricing: PricingSettin
           <select value={size} onChange={(e) => setSize(e.target.value)} className={input} aria-label="Tamaño">
             {SIZE_KEYS.map((k) => <option key={k} value={k}>{SIZES[k].label}: {SIZES[k].hint}</option>)}
           </select>
+          {warehouses.length > 1 && (
+            <select value={bodega} onChange={(e) => setBodega(e.target.value)} className={input} aria-label="Bodega">
+              <option value="">Sale de {warehouses[0].name} (principal)</option>
+              {warehouses.slice(1).map((w) => <option key={w.id} value={w.id}>Sale de {w.name}</option>)}
+            </select>
+          )}
           <div className="grid grid-cols-2 gap-2">
             <input value={qty} onChange={(e) => setQty(e.target.value)} inputMode="numeric" placeholder="Cantidad" aria-label="Cantidad" className={input} />
             <input value={kg} onChange={(e) => setKg(e.target.value)} inputMode="decimal" placeholder="Peso c/u kg (opcional)" aria-label="Peso" className={input} />
@@ -246,7 +253,7 @@ export function PricingPanel({ pricing, vehicleCount }: { pricing: PricingSettin
         {sim?.options && sim.options.length > 0 && (
           <div className="space-y-2">
             <p className="text-sm text-muted">
-              {km(sim.kmOneWay ?? 0)} y unos {Math.round(sim.minOneWay ?? 0)} min desde la bodega
+              {km(sim.kmOneWay ?? 0)} y unos {Math.round(sim.minOneWay ?? 0)} min desde {sim.bodega ?? "la bodega"}
               {sim.source === "google" ? " (con tráfico de Google)" : sim.roads === "osm" ? " (km por calles reales con OpenStreetMap, gratis; tiempo estimado)" : " (estimado)"}
               {sim.geoSource === "comuna" ? ". Sin dirección exacta: se usó el centro de la comuna." : "."}
               {sim.usingPresets ? " Con vehículos de referencia." : ""}
@@ -286,6 +293,7 @@ export function PricingPanel({ pricing, vehicleCount }: { pricing: PricingSettin
                     </p>
                   </div>
                   <p className="mt-1 text-xs text-muted">
+                    {o.parking ? `Sale de ${o.parking} · ` : ""}
                     {o.trips > 1 ? `${o.trips} viajes · ` : ""}
                     {km(o.km)} · {hrs(o.hours)} · bencina {formatCLP(o.fuel)} · peajes {formatCLP(o.tolls)}
                     {o.routeTolls > 0 ? ` (autopista ${formatCLP(o.routeTolls)})` : ""} · equipo {formatCLP(o.crew)}

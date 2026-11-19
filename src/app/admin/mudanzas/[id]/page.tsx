@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { hasSupabaseEnv } from "@/lib/env";
@@ -6,6 +7,7 @@ import { SetupNotice } from "@/components/SetupNotice";
 import type { MovingSettings, ServiceType } from "@/lib/moving";
 import { MudanzasTabs } from "../Tabs";
 import { BookingForm, type BookingValues } from "../BookingForm";
+import { VehicleSuggestion } from "./VehicleSuggestion";
 
 export const metadata: Metadata = { title: "Editar mudanza" };
 
@@ -35,6 +37,12 @@ export default async function EditarMudanzaPage({ params }: PageProps<"/admin/mu
         settings={settings as MovingSettings | null}
         values={booking as BookingValues}
       />
+      <Suspense fallback={<p className="text-sm text-muted">Calculando qué vehículo conviene…</p>}>
+        <VehicleSuggestion
+          booking={booking}
+          estHours={Number(((services ?? []) as ServiceType[]).find((s) => s.slug === booking.service_slug)?.est_hours ?? 4)}
+        />
+      </Suspense>
     </div>
   );
 }

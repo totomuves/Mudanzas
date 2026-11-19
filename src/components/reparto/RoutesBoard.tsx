@@ -15,6 +15,7 @@ import { STOP_SELECT, normalizeStops, type RouteRow, type StopOrder, type StopRo
 import { SANTIAGO_CENTER } from "@/lib/routing/geo";
 import type { PlanState } from "@/lib/routing/manage";
 import { PlanForm } from "./PlanForm";
+import { Itinerary, waypointPlaces } from "./Itinerary";
 
 export type RoutesActions = {
   plan: (p: PlanState, f: FormData) => Promise<PlanState>;
@@ -176,6 +177,7 @@ export async function RoutesBoard({
           routes={routes.map((r) => ({
             id: r.id,
             color: r.color,
+            ...waypointPlaces(r.waypoints),
             stops: stops.filter((s) => s.route_id === r.id && s.orders.lat != null).map((s) => ({
               lat: s.orders.lat!, lng: s.orders.lng!, seq: s.seq, title: `${s.orders.products?.title ?? ""} · ${s.orders.comuna ?? ""}`, status: s.status,
             })),
@@ -204,6 +206,12 @@ export async function RoutesBoard({
                 </div>
                 <Link href={`/reparto/${r.id}`} className="rounded-full border border-border px-3 py-1.5 text-xs font-bold">Vista chofer</Link>
               </div>
+
+              {(r.waypoints?.length ?? 0) > 0 && (
+                <div className="rounded-xl bg-surface p-3">
+                  <Itinerary waypoints={r.waypoints} />
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <Bar label="Volumen" pct={pctM3} text={`${Number(r.load_m3).toFixed(2)} de ${v?.capacity_m3 ?? "?"} m³`} color={r.color} />

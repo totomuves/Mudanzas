@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Icon } from "@/components/Icon";
 import type { DeliverySettings, Vehicle } from "@/lib/delivery";
 import { hasGoogleMaps } from "@/lib/routing/geo";
-import { SettingsForm, VehicleForm, VehicleItem, type Driver, type SetupActions } from "./SetupForms";
+import { SettingsForm, VehicleForm, VehicleItem, type Driver, type ParkingOptions, type SetupActions } from "./SetupForms";
 
 /** Vehículos y horarios de despacho (admin de MUVEO y panel del vendedor). */
 export function SetupBoard({
@@ -13,6 +13,7 @@ export function SetupBoard({
   actions,
   driversHint,
   showTraffic = true,
+  parking = null,
 }: {
   tabs?: ReactNode;
   settings: DeliverySettings;
@@ -21,6 +22,8 @@ export function SetupBoard({
   actions: SetupActions;
   driversHint?: ReactNode;
   showTraffic?: boolean;
+  /** Bodegas para elegir el parking de cada vehículo (null = falta la migración). */
+  parking?: ParkingOptions;
 }) {
   return (
     <div className="space-y-8">
@@ -37,12 +40,12 @@ export function SetupBoard({
         </div>
         {vehicles.length > 0 && (
           <ul className="grid gap-3 sm:grid-cols-2">
-            {vehicles.map((x) => <VehicleItem key={x.id} vehicle={x} drivers={drivers} actions={actions} />)}
+            {vehicles.map((x) => <VehicleItem key={x.id} vehicle={x} drivers={drivers} actions={actions} parking={parking} />)}
           </ul>
         )}
         <details open={vehicles.length === 0} className="rounded-2xl border border-border bg-card p-4">
           <summary className="cursor-pointer font-extrabold">+ Agregar vehículo</summary>
-          <div className="pt-3"><VehicleForm drivers={drivers} saveAction={actions.saveVehicle} /></div>
+          <div className="pt-3"><VehicleForm drivers={drivers} saveAction={actions.saveVehicle} parking={parking} /></div>
         </details>
         {driversHint}
       </section>

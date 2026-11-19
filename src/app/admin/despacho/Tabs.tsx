@@ -6,6 +6,7 @@ const TABS: Tab[] = [
   { href: "/admin/despacho/rutas", label: "Rutas del día", icon: "route" },
   { href: "/admin/despacho/retiros", label: "Retiros", icon: "boxOpen" },
   { href: "/admin/despacho/ajustes", label: "Vehículos y horarios", icon: "truck" },
+  { href: "/admin/despacho/bodegas", label: "Bodegas", icon: "warehouse" },
   { href: "/admin/despacho", label: "Precio de despacho", icon: "calculator" },
 ];
 

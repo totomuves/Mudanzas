@@ -139,6 +139,42 @@ export type Vehicle = {
   active: boolean;
   /** Accesorios: claves de ACCESSORIES o textos propios */
   accessories?: string[] | null;
+  /** Parking: en una bodega, o en una dirección propia (si no, en la bodega principal) */
+  parking_warehouse_id?: string | null;
+  parking_address?: string | null;
+  parking_lat?: number | null;
+  parking_lng?: number | null;
+};
+
+// -------------------------------------------------------------
+// Bodegas (dónde están guardados los productos de la tienda)
+// -------------------------------------------------------------
+export type Warehouse = {
+  id: string;
+  name: string;
+  address: string | null;
+  comuna: string | null;
+  lat: number | null;
+  lng: number | null;
+  is_default: boolean;
+  active: boolean;
+  notes: string | null;
+};
+
+/** Parada fija de una ruta: salida/llegada al parking y paso por bodegas. */
+export type RouteWaypoint = {
+  kind: "salida" | "carga" | "descarga" | "llegada";
+  name: string;
+  lat: number;
+  lng: number;
+  eta: string;
+};
+
+export const WAYPOINT_LABEL: Record<RouteWaypoint["kind"], string> = {
+  salida: "Sale del parking",
+  carga: "Carga en",
+  descarga: "Deja los retiros en",
+  llegada: "Vuelve al parking",
 };
 
 // -------------------------------------------------------------
