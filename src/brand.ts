@@ -23,7 +23,7 @@ export const brand = {
    * Logo: reemplaza public/brand/logo.svg por el logo definitivo (mismo nombre) o
    * pon aquí la ruta de otro archivo dentro de public/. Si queda vacío se dibuja
    * un cuadrado con el color de la marca. Los íconos de la app instalada están en
-   * public/icons/ y src/app/icon.png.
+   * public/icons/, src/app/icon.svg, src/app/apple-icon.png y src/app/favicon.ico.
    */
   logoImage: "/brand/logo.svg",
   /** Lo que aparece en el resumen de la tarjeta del comprador (máx. 13 caracteres) */

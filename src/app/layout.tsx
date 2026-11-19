@@ -39,7 +39,6 @@ export const metadata: Metadata = {
     other: siteVerification.meta ? { "facebook-domain-verification": siteVerification.meta } : undefined,
   },
   appleWebApp: { capable: true, title: brand.name, statusBarStyle: "default" },
-  icons: { apple: "/icons/apple-touch-icon.png" },
 };
 
 export const viewport: Viewport = {

@@ -8,19 +8,29 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { SetupBoard } from "@/components/reparto/SetupBoard";
 import type { Driver } from "@/components/reparto/SetupForms";
 import { DespachoTabs } from "../Tabs";
+import { DriversPanel } from "./DriversPanel";
 import { deleteVehicle, saveDeliverySettings, saveVehicle } from "./actions";
 
 export const metadata: Metadata = { title: "Vehículos y horarios" };
 
 export default async function AjustesRepartoPage() {
   if (!hasSupabaseEnv()) return <SetupNotice />;
-  const { supabase } = await requireSection("despacho");
+  const { supabase, owner } = await requireSection("despacho");
   const db = createAdminClient();
   const [s, v, d] = await Promise.all([
     readDeliverySettings(db, null),
     db.from("vehicles").select("*").is("seller_id", null).order("created_at"),
     supabase.rpc("list_drivers"),
   ]);
+  // Choferes invitados que todavía no entran a la app (solo lo ve un administrador total)
+  let invited: string[] = [];
+  if (owner) {
+    const [team, roles] = await Promise.all([supabase.rpc("list_team"), supabase.rpc("list_admin_roles")]);
+    const reparto = new Set(((roles.data ?? []) as { id: string; sections: string[] }[]).filter((r) => r.sections.includes("reparto")).map((r) => r.id));
+    invited = ((team.data ?? []) as { email: string; is_owner: boolean; role_id: string | null; status: string }[])
+      .filter((m) => m.status === "invitado" && (m.is_owner || (m.role_id && reparto.has(m.role_id))))
+      .map((m) => m.email);
+  }
 
   if (s.error || v.error) {
     return (
@@ -42,11 +52,7 @@ export default async function AjustesRepartoPage() {
       vehicles={(v.data ?? []) as Vehicle[]}
       drivers={drivers}
       actions={{ saveSettings: saveDeliverySettings, saveVehicle, deleteVehicle }}
-      driversHint={drivers.length === 0 ? (
-        <p className="text-sm text-muted">
-          Para asignar choferes, crea en Admin → Equipo un rol con la sección <b>Reparto (chofer)</b> e invita a cada chofer con su correo.
-        </p>
-      ) : null}
+      driversHint={<DriversPanel drivers={drivers} invited={invited} canInvite={owner} />}
     />
   );
 }
