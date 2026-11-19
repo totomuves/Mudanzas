@@ -28,6 +28,12 @@ export type Product = {
   size?: "chico" | "mediano" | "grande" | "muy_grande" | null;
   weight_kg?: number | null;
   volume_m3?: number | null;
+  /** Frágil: recargo de despacho por unidad */
+  fragile?: boolean | null;
+  /** Lujo u obra de arte: recargo de manejo + % del valor */
+  high_value?: boolean | null;
+  /** Accesorios que necesita el vehículo (porta bicicleta, parrilla…) */
+  needs_accessories?: string[] | null;
   flash_price: number | null;
   flash_until: string | null;
   reserved_by: string | null;

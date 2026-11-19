@@ -63,7 +63,7 @@ async function suggestion({ booking, estHours }: { booking: Booking; estHours: n
   const options = rankVehicles(fleet, load, (v) => {
     const p = park.get(v.id) ?? 0;
     return { kmOut: km(0, 1), kmBack: km(1, 0), minOut: min(0, 1), minBack: min(1, 0), kmToStart: km(p, 0), minToStart: min(p, 0), kmHome: km(1, p), minHome: min(1, p) };
-  }, estHours * 60).slice(0, 3);
+  }, estHours * 60).options.slice(0, 3);
   if (!options.length) return null;
 
   return (

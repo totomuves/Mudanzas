@@ -3,9 +3,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { COMUNAS } from "@/lib/comunas";
 import { orderLoad, santiagoToDate, upcomingDeliveryDates, addDays, santiagoParts, type DeliverySettings, type Vehicle } from "@/lib/delivery";
 import {
-  DEFAULT_PRICING, presetFleet, priceFromCost, rankVehicles, readPricing, type Load, type PricingSettings, type TripCost,
+  DEFAULT_PRICING, PRICING_COLUMNS, PRICING_COLUMNS_BASE, addLoads, handlingFee, presetFleet, priceFromCost, rankVehicles, readPricing,
+  type Load, type PricingSettings, type TripCost,
 } from "@/lib/shipping-pricing";
-import { SANTIAGO_CENTER, comunaCenter, geocode, travelMatrix, type GeoSource, type Point } from "./geo";
+import { SANTIAGO_CENTER, comunaCenter, geocode, tollKmRoundTrip, travelMatrix, type GeoSource, type Point } from "./geo";
 import { depotPoint, getVehicles, readDeliverySettings, type SellerScope } from "./planner";
 import { NodeIndex, getWarehouses, loadLogistics } from "./warehouses";
 
@@ -23,11 +24,10 @@ type Db = ReturnType<typeof createAdminClient>;
 
 /** Ajustes de precio de despacho (si falta la migración, queda en "fijo"). */
 export async function getPricing(db: Db = createAdminClient()): Promise<PricingSettings> {
-  const { data, error } = await db
-    .from("delivery_settings")
-    .select("pricing_mode, margin_pct, min_price, max_km, round_to, trip_share_pct")
-    .eq("id", 1)
-    .maybeSingle();
+  const full = await db.from("delivery_settings").select(PRICING_COLUMNS).eq("id", 1).maybeSingle();
+  if (!full.error && full.data) return readPricing(full.data);
+  // Sin la migración de recargos: los ajustes de antes y los recargos por defecto
+  const { data, error } = await db.from("delivery_settings").select(PRICING_COLUMNS_BASE).eq("id", 1).maybeSingle();
   if (error || !data) return DEFAULT_PRICING;
   return readPricing(data);
 }
@@ -44,10 +44,22 @@ async function cachedGeocode(address: string, comuna: string) {
   return p;
 }
 
+/** Carga de un producto con lo necesario para los recargos. */
+export type ItemLoad = Load & { fragile?: boolean; high_value?: boolean; price?: number; quantity?: number };
+
 export type GroupQuote =
   | {
       ok: true;
+      /** Precio total: viaje + recargos */
       price: number;
+      /** Solo el viaje (el producto más caro de llevar) */
+      tripPrice: number;
+      /** Recargos por productos frágiles y de lujo/arte */
+      handling: { fragile: number; luxury: number; total: number };
+      /** km por autopista con peaje, ida y vuelta (null si no se pudo saber) */
+      tollKm: number | null;
+      /** Accesorios que pide la carga y ningún vehículo tiene */
+      missing: string[];
       best: TripCost;
       options: TripCost[];
       kmOneWay: number;
@@ -71,7 +83,7 @@ export async function quoteLoad(args: {
    * Productos de la misma compra por separado. Si vienen, se cobra el despacho del
    * producto más caro de llevar, una sola vez (regla de Andrés, 17 nov 2026).
    */
-  items?: Load[];
+  items?: ItemLoad[];
   address: string;
   comuna: string;
   sellerId?: SellerScope;
@@ -113,25 +125,43 @@ export async function quoteLoad(args: {
   const min = (i: number, j: number) => (m.dur[i][j] * f) / 60;
   const base = { kmOut: km(0, 1), kmBack: km(1, 0), minOut: min(0, 1), minBack: min(1, 0) };
   if (base.kmOut > pricing.max_km) return { ok: false, reason: "far", kmOneWay: base.kmOut };
+  // Km por autopistas con peaje (TAG) entre la bodega y la dirección
+  const tolls = pricing.toll_per_km > 0 ? await cachedTollKm(bodega, dest) : null;
+  const tollKm = tolls ? tolls.out + tolls.back : 0;
   const legOf = (v: Vehicle) => {
     const p = parkNode.get(v.id) ?? 0;
-    return { ...base, kmToStart: km(p, 0), minToStart: min(p, 0), kmHome: km(1, p), minHome: min(1, p), loadMin: lg.migrated ? LOAD_MINUTES : 0 };
+    return { ...base, tollKm, kmToStart: km(p, 0), minToStart: min(p, 0), kmHome: km(1, p), minHome: min(1, p), loadMin: lg.migrated ? LOAD_MINUTES : 0 };
   };
 
   const svc = settings?.service_minutes ?? 12;
-  const loads = args.items && args.items.length > 0 ? args.items : [args.load];
-  // Precio de cada producto por separado; se cobra el más caro
+  const loads: ItemLoad[] = args.items && args.items.length > 0 ? args.items : [args.load];
+  // Precio del viaje de cada producto por separado; se cobra el más caro
   let top: { price: number; options: TripCost[] } | null = null;
+  const missingSet = new Set<string>();
   for (const l of loads) {
-    const options = rankVehicles(fleet, l, legOf, svc);
+    const { options, missing } = rankVehicles(fleet, l, legOf, svc, pricing);
+    missing.forEach((x) => missingSet.add(x));
     const price = priceFromCost(options[0].cost, pricing);
     if (!top || price > top.price) top = { price, options };
   }
-  const { price, options } = top!;
+  const { price: tripPrice, options } = top!;
+  // Los recargos de manejo (frágil, lujo u obra de arte) son por producto: se suman todos
+  const handling = { fragile: 0, luxury: 0, total: 0 };
+  for (const l of loads) {
+    const h = handlingFee(l, pricing);
+    handling.fragile += h.fragile;
+    handling.luxury += h.luxury;
+    handling.total += h.total;
+  }
+  const missing = Array.from(missingSet);
   const best = options[0];
   return {
     ok: true,
-    price,
+    price: tripPrice + handling.total,
+    tripPrice,
+    handling,
+    tollKm: tolls ? tolls.out + tolls.back : null,
+    missing,
     best,
     options,
     kmOneWay: base.kmOut,
@@ -145,6 +175,19 @@ export async function quoteLoad(args: {
   };
 }
 
+// Km de peaje ya calculados entre los mismos puntos
+const tollCache = new Map<string, { out: number; back: number } | null>();
+async function cachedTollKm(a: Point, b: Point) {
+  const k = [a.lat, a.lng, b.lat, b.lng].map((x) => x.toFixed(4)).join(",");
+  if (tollCache.has(k)) return tollCache.get(k)!;
+  const r = await tollKmRoundTrip(a, b);
+  if (r) {
+    if (tollCache.size > 500) tollCache.delete(tollCache.keys().next().value!);
+    tollCache.set(k, r);
+  }
+  return r;
+}
+
 type ProductLoadRow = {
   id: string;
   seller_id: string | null;
@@ -152,8 +195,30 @@ type ProductLoadRow = {
   category_slug: string | null;
   weight_kg: number | null;
   volume_m3: number | null;
+  price?: number | null;
+  flash_price?: number | null;
+  flash_until?: string | null;
+  fragile?: boolean | null;
+  high_value?: boolean | null;
+  needs_accessories?: string[] | null;
   warehouse_id?: string | null;
 };
+
+const LOAD_COLUMNS = "id, seller_id, size, category_slug, weight_kg, volume_m3, price, flash_price, flash_until";
+
+/** Productos con su carga; los datos de manejo solo si ya se corrió la migración. */
+async function productLoads(db: Db, ids: string[]): Promise<ProductLoadRow[]> {
+  const full = await db.from("products").select(`${LOAD_COLUMNS}, fragile, high_value, needs_accessories`).in("id", ids);
+  if (!full.error) return (full.data ?? []) as ProductLoadRow[];
+  const { data } = await db.from("products").select(LOAD_COLUMNS).in("id", ids);
+  return (data ?? []) as ProductLoadRow[];
+}
+
+/** Precio que paga el comprador (con relámpago vigente): base del % de lujo. */
+function unitPrice(p: ProductLoadRow) {
+  const flash = p.flash_price != null && p.flash_until && new Date(p.flash_until).getTime() > Date.now();
+  return Number(flash ? p.flash_price : p.price) || 0;
+}
 
 export type CartQuote =
   | { ok: true; total: number; groups: { sellerId: string | null; price: number }[]; byGroup: Record<string, number> }
@@ -167,13 +232,7 @@ export type CartQuote =
  */
 export async function quoteItems(items: { id: string; qty: number }[], comuna: string, address: string, db: Db = createAdminClient()): Promise<CartQuote> {
   if (!items.length) return { ok: false, reason: "empty" };
-  const ids = items.map((i) => i.id);
-  const first = await db.from("products").select("id, seller_id, size, category_slug, weight_kg, volume_m3, warehouse_id").in("id", ids);
-  // Sin la migración de bodegas: todo sale de la bodega principal
-  const data = first.error
-    ? (await db.from("products").select("id, seller_id, size, category_slug, weight_kg, volume_m3").in("id", ids)).data
-    : first.data;
-  const rows = (data ?? []) as ProductLoadRow[];
+  const rows = await productLoads(db, items.map((i) => i.id));
   if (!rows.length) return { ok: false, reason: "empty" };
   const warehouses = rows.some((r) => !r.seller_id) ? await getWarehouses(db, true) : [];
   const mainId = warehouses[0]?.id ?? null;
@@ -181,7 +240,7 @@ export async function quoteItems(items: { id: string; qty: number }[], comuna: s
 
   // Una entrega por bodega (cada bodega de MUVEO y cada vendedor). En cada una se cobra el producto más caro de llevar.
   const loads = new Map<string, Load>();
-  const perItem = new Map<string, Load[]>();
+  const perItem = new Map<string, ItemLoad[]>();
   const scopeOf = new Map<string, { sellerId: string | null; warehouseId: string | null }>();
   for (const it of items) {
     const p = rows.find((r) => r.id === it.id);
@@ -190,9 +249,11 @@ export async function quoteItems(items: { id: string; qty: number }[], comuna: s
     const wh = p.warehouse_id && known.has(p.warehouse_id) ? p.warehouse_id : mainId;
     const k = p.seller_id ? `s:${p.seller_id}` : `w:${wh ?? ""}`;
     scopeOf.set(k, { sellerId: p.seller_id ?? null, warehouseId: p.seller_id ? null : wh });
-    const a = loads.get(k) ?? { kg: 0, m3: 0, rank: 0, serviceMin: 0 };
-    loads.set(k, { kg: a.kg + l.kg, m3: a.m3 + l.m3, rank: Math.max(a.rank, l.rank), serviceMin: a.serviceMin + l.serviceMin });
-    perItem.set(k, [...(perItem.get(k) ?? []), l]);
+    loads.set(k, addLoads(loads.get(k) ?? { kg: 0, m3: 0, rank: 0, serviceMin: 0, needs: [] }, l));
+    perItem.set(k, [
+      ...(perItem.get(k) ?? []),
+      { ...l, fragile: Boolean(p.fragile), high_value: Boolean(p.high_value), price: unitPrice(p), quantity: it.qty },
+    ]);
   }
 
   const pricing = await getPricing(db);

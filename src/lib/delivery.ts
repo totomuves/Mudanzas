@@ -33,14 +33,34 @@ export function itemSize(p: { size?: string | null; category_slug?: string | nul
 
 /** Carga que ocupa un pedido (usa peso y volumen exactos si se ingresaron). */
 export function orderLoad(
-  p: { size?: string | null; category_slug?: string | null; weight_kg?: number | string | null; volume_m3?: number | string | null },
+  p: {
+    size?: string | null;
+    category_slug?: string | null;
+    weight_kg?: number | string | null;
+    volume_m3?: number | string | null;
+    fragile?: boolean | null;
+    high_value?: boolean | null;
+    needs_accessories?: string[] | null;
+  },
   quantity = 1,
 ) {
   const s = SIZES[itemSize(p)];
   const kg = p.weight_kg != null && Number(p.weight_kg) > 0 ? Number(p.weight_kg) : s.kg;
   const m3 = p.volume_m3 != null && Number(p.volume_m3) > 0 ? Number(p.volume_m3) : s.m3;
-  return { size: itemSize(p), rank: s.rank, kg: kg * quantity, m3: m3 * quantity, serviceMin: s.serviceMin + Math.max(0, quantity - 1) * 2 };
+  // Lo frágil y lo de valor se carga y envuelve con más calma
+  const care = p.high_value ? HANDLING_MINUTES.lujo : p.fragile ? HANDLING_MINUTES.fragil : 0;
+  return {
+    size: itemSize(p),
+    rank: s.rank,
+    kg: kg * quantity,
+    m3: m3 * quantity,
+    serviceMin: s.serviceMin + Math.max(0, quantity - 1) * 2 + care * quantity,
+    needs: cleanAccessories(p.needs_accessories),
+  };
 }
+
+/** Minutos extra por unidad para envolver y cargar con cuidado. */
+export const HANDLING_MINUTES = { fragil: 5, lujo: 12 };
 
 // -------------------------------------------------------------
 // Vehículos
@@ -55,6 +75,50 @@ export const VEHICLE_KINDS: Record<VehicleKind, { label: string; m3: number; kg:
   camion: { label: "Camión", m3: 20, kg: 3500, maxSize: "muy_grande", costPerKm: 450, crew: 2, hourlyCost: 16000 },
 };
 export const VEHICLE_KEYS = Object.keys(VEHICLE_KINDS) as VehicleKind[];
+
+/**
+ * Accesorios de los vehículos. Un producto puede pedir uno (ej: bicicleta → porta
+ * bicicleta) y entonces solo se sugieren los vehículos que lo tienen.
+ * Cada vehículo también puede tener accesorios propios escritos a mano.
+ */
+export const ACCESSORIES = {
+  porta_bicicleta: { label: "Porta bicicleta", hint: "Bicicletas sin ocupar el espacio de carga" },
+  parrilla: { label: "Parrilla de techo", hint: "Cosas largas: escaleras, tablas, kayak" },
+  rampa: { label: "Rampa", hint: "Subir cosas con ruedas o muy pesadas" },
+  plataforma: { label: "Plataforma hidráulica", hint: "Levanta lo pesado hasta la caja (refrigerador, piano)" },
+  carro_arrastre: { label: "Carro de arrastre", hint: "Espacio extra enganchado atrás" },
+  mantas: { label: "Mantas y amarras", hint: "Protegen y fijan lo delicado o de valor" },
+  carro_carga: { label: "Carro de carga (diablito)", hint: "Mover lo pesado por escaleras o pasillos" },
+  carga_cerrada: { label: "Carga cerrada", hint: "Protegida de la lluvia y el polvo" },
+} as const;
+export type AccessoryKey = keyof typeof ACCESSORIES;
+export const ACCESSORY_KEYS = Object.keys(ACCESSORIES) as AccessoryKey[];
+
+/** Nombre para mostrar de un accesorio (los propios se muestran tal cual). */
+export function accessoryLabel(a: string) {
+  return a in ACCESSORIES ? ACCESSORIES[a as AccessoryKey].label : a;
+}
+
+/** Limpia una lista de accesorios: claves conocidas o textos propios cortos, sin repetir. */
+export function cleanAccessories(list: unknown): string[] {
+  const arr = Array.isArray(list) ? list : [];
+  const out: string[] = [];
+  for (const raw of arr) {
+    const t = String(raw ?? "").trim().replace(/\s+/g, " ").slice(0, 40);
+    if (!t) continue;
+    const known = ACCESSORY_KEYS.find((k) => k === t || ACCESSORIES[k].label.toLowerCase() === t.toLowerCase());
+    const v = known ?? t;
+    if (!out.some((o) => o.toLowerCase() === v.toLowerCase())) out.push(v);
+  }
+  return out.slice(0, 20);
+}
+
+/** ¿El vehículo tiene todos los accesorios que pide la carga? */
+export function hasAccessories(v: { accessories?: string[] | null }, needs: string[] | null | undefined) {
+  if (!needs?.length) return true;
+  const own = (v.accessories ?? []).map((a) => a.toLowerCase());
+  return needs.every((n) => own.includes(n.toLowerCase()));
+}
 
 export type Vehicle = {
   id: string;
@@ -73,6 +137,8 @@ export type Vehicle = {
   crew: number;
   driver_id: string | null;
   active: boolean;
+  /** Accesorios: claves de ACCESSORIES o textos propios */
+  accessories?: string[] | null;
   /** Parking: en una bodega, o en una dirección propia (si no, en la bodega principal) */
   parking_warehouse_id?: string | null;
   parking_address?: string | null;
