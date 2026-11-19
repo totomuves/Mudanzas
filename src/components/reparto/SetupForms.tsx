@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { Icon } from "@/components/Icon";
 import {
-  SIZES, SIZE_KEYS, VEHICLE_KINDS, VEHICLE_KEYS, WEEKDAYS, hhmm,
+  ACCESSORIES, ACCESSORY_KEYS, SIZES, SIZE_KEYS, VEHICLE_KINDS, VEHICLE_KEYS, WEEKDAYS, accessoryLabel, hhmm,
   type DeliverySettings, type ItemSize, type Vehicle, type VehicleKind,
 } from "@/lib/delivery";
 import type { FormState } from "@/lib/routing/manage";
@@ -187,6 +187,30 @@ export function VehicleForm({ vehicle, drivers, saveAction, onDone }: { vehicle?
           </select>
         </label>
       </div>
+      <fieldset className="space-y-2 rounded-xl bg-surface p-3">
+        <legend className="text-sm font-bold">Accesorios</legend>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {ACCESSORY_KEYS.map((k) => (
+            <label key={k} className="flex items-start gap-2 rounded-xl border border-border bg-background p-2 text-sm">
+              <input type="checkbox" name="accessories" value={k} defaultChecked={vehicle?.accessories?.includes(k)} className="mt-1" />
+              <span>
+                <span className="block font-bold">{ACCESSORIES[k].label}</span>
+                <span className="text-xs text-muted">{ACCESSORIES[k].hint}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+        <label className="block space-y-1">
+          <span className="block text-xs font-bold">Otros accesorios (separados por coma)</span>
+          <input
+            name="accessories_custom"
+            defaultValue={(vehicle?.accessories ?? []).filter((a) => !(a in ACCESSORIES)).join(", ")}
+            placeholder="Ej: Porta kayak, Gancho de remolque"
+            className={input}
+          />
+        </label>
+        <p className="text-xs text-muted">Si un producto necesita un accesorio (ej: una bicicleta, porta bicicleta), solo se sugieren los vehículos que lo tienen.</p>
+      </fieldset>
       <div className="space-y-2 rounded-xl bg-surface p-3">
         <p className="text-sm font-bold">Gasto del vehículo</p>
         <div className="grid gap-2 sm:grid-cols-3">
@@ -195,8 +219,9 @@ export function VehicleForm({ vehicle, drivers, saveAction, onDone }: { vehicle?
             <input name="cost_per_km" value={cost} onChange={(e) => setCost(e.target.value)} inputMode="numeric" className={input} />
           </label>
           <label className="space-y-1">
-            <span className="block text-xs font-bold">Peajes por viaje, ida y vuelta (CLP)</span>
+            <span className="block text-xs font-bold">Peajes fijos por viaje (CLP)</span>
             <input name="toll_per_trip" defaultValue={vehicle?.toll_per_trip ?? 0} inputMode="numeric" className={input} />
+            <span className="block text-[11px] text-muted">Peajes fijos (ej: pórtico de salida). Los de autopistas se calculan solos por la ruta.</span>
           </label>
           <label className="space-y-1">
             <span className="block text-xs font-bold">Chofer y ayudantes por hora (CLP)</span>
@@ -250,6 +275,7 @@ export function VehicleItem({ vehicle: v, drivers, actions }: { vehicle: Vehicle
         <p className="text-xs text-muted">
           Hasta {SIZES[v.max_item_size]?.label.toLowerCase()} · {v.crew} {v.crew === 1 ? "persona" : "personas"} · ${v.cost_per_km}/km{v.toll_per_trip ? ` · peajes $${v.toll_per_trip}` : ""}{v.hourly_cost ? ` · $${v.hourly_cost}/h` : ""}
         </p>
+        {!!v.accessories?.length && <p className="text-xs text-muted">Accesorios: {v.accessories.map(accessoryLabel).join(", ")}</p>}
         <p className="text-xs text-muted">{driver ? `Chofer: ${driver.name}` : "Sin chofer asignado"}{v.active ? "" : " · Pausado"}</p>
       </div>
       <div className="flex flex-col gap-1">

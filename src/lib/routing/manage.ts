@@ -1,6 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { SIZE_KEYS, VEHICLE_KEYS, type ItemSize, type VehicleKind } from "@/lib/delivery";
+import { SIZE_KEYS, VEHICLE_KEYS, cleanAccessories, type ItemSize, type VehicleKind } from "@/lib/delivery";
 import { geocode } from "./geo";
 import { nextDeliveryDateAfter, planDeliveryDay, publishDay, readDeliverySettings, reoptimizeRoute, type SellerScope } from "./planner";
 
@@ -100,16 +100,28 @@ export async function saveVehicleFor(scope: SellerScope, f: FormData, allowedDri
     driver_id: driverOk ? driver : null,
     active: f.get("active") === "on",
   };
-  let res;
-  if (isId(id)) {
-    let q = db.from("vehicles").update(row).eq("id", id);
-    q = scope ? q.eq("seller_id", scope) : q.is("seller_id", null);
-    res = await q;
-  } else {
-    res = await db.from("vehicles").insert({ ...row, seller_id: scope });
+  // Accesorios marcados + los propios escritos a mano (separados por coma)
+  const accessories = cleanAccessories([
+    ...f.getAll("accessories").map(String),
+    ...String(f.get("accessories_custom") ?? "").split(","),
+  ]);
+  const save = (r: Record<string, unknown>) => {
+    if (isId(id)) {
+      let q = db.from("vehicles").update(r).eq("id", id);
+      q = scope ? q.eq("seller_id", scope) : q.is("seller_id", null);
+      return q;
+    }
+    return db.from("vehicles").insert({ ...r, seller_id: scope });
+  };
+  let res = await save({ ...row, accessories });
+  let note = "";
+  // Sin la migración de accesorios se guarda el resto
+  if (res.error && /accessories/.test(res.error.message)) {
+    res = await save(row);
+    if (accessories.length) note = " Los accesorios se guardan cuando corras la migración 20261118123000_recargos_accesorios.sql.";
   }
   if (res.error) return { error: res.error.message };
-  return { ok: "Vehículo guardado." };
+  return { ok: `Vehículo guardado.${note}` };
 }
 
 export async function deleteVehicleFor(scope: SellerScope, id: string) {

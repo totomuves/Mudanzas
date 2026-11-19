@@ -10,7 +10,7 @@ import type { Category, Condition, Product } from "@/lib/types";
 import { compress, photoExt, rotate, whiteBackground, type BgProvider } from "@/lib/photo";
 import { Icon } from "@/components/Icon";
 import { requestIndexing } from "@/lib/recsys/track";
-import { SIZES, SIZE_KEYS, itemSize } from "@/lib/delivery";
+import { ACCESSORIES, ACCESSORY_KEYS, SIZES, SIZE_KEYS, itemSize } from "@/lib/delivery";
 
 const MAX_PHOTOS = 6;
 const STORAGE_PREFIX = "/storage/v1/object/public/products/";
@@ -236,6 +236,13 @@ export function ProductForm({
     // Volumen a partir de las medidas en cm (largo × ancho × alto)
     const [dl, da, dh] = ["dim_l", "dim_a", "dim_h"].map((k) => parseFloat(String(f.get(k) ?? "").replace(",", ".")));
     if (dl > 0 && da > 0 && dh > 0) Object.assign(payload, { volume_m3: Math.round(((dl * da * dh) / 1e6) * 1000) / 1000 });
+    // Manejo especial y accesorios (solo si se usan, así funciona aunque falte la migración de recargos)
+    const care = String(f.get("care") ?? "");
+    const needs = f.getAll("needs_accessories").map(String);
+    const hadCare = Boolean(product?.fragile || product?.high_value || product?.needs_accessories?.length);
+    if (care || needs.length || hadCare) {
+      Object.assign(payload, { fragile: care === "fragil", high_value: care === "lujo", needs_accessories: needs });
+    }
     if (payload.title.length < 2) return setError("Ponle un título.");
     if (flashOn && (payload.flash_price == null || payload.flash_price >= payload.price)) {
       return setError("El precio relámpago debe ser menor al precio normal.");
@@ -435,6 +442,26 @@ export function ProductForm({
           <span className="font-bold">Peso aprox. en kg (opcional)</span>
           <input name="weight_kg" inputMode="decimal" defaultValue={(product as { weight_kg?: number | null } | undefined)?.weight_kg ?? ""} className={input} placeholder="Ej: 45" />
         </label>
+        <label className="block space-y-1">
+          <span className="font-bold">Cuidado en el despacho</span>
+          <select name="care" defaultValue={product?.high_value ? "lujo" : product?.fragile ? "fragil" : ""} className={input}>
+            <option value="">Normal</option>
+            <option value="fragil">Frágil (vidrio, loza, espejos): recargo fijo</option>
+            <option value="lujo">Lujo u obra de arte: recargo + % del valor</option>
+          </select>
+        </label>
+        <fieldset className="space-y-1">
+          <legend className="font-bold">El vehículo necesita (opcional)</legend>
+          <div className="flex flex-wrap gap-2">
+            {ACCESSORY_KEYS.map((k) => (
+              <label key={k} className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-sm" title={ACCESSORIES[k].hint}>
+                <input type="checkbox" name="needs_accessories" value={k} defaultChecked={product?.needs_accessories?.includes(k)} />
+                {ACCESSORIES[k].label}
+              </label>
+            ))}
+          </div>
+          <span className="block text-xs text-muted">Ej: una bicicleta, porta bicicleta; una escalera larga, parrilla. Solo se sugieren vehículos que lo tengan.</span>
+        </fieldset>
         <label className="block space-y-1">
           <span className="font-bold">Publicación</span>
           <select name="status" defaultValue={product?.status ?? "available"} className={input}>
