@@ -55,7 +55,8 @@ export function PickupForm({ date, comunas, slots, sizes }: { date: string; comu
 }
 
 /** El chofer arma su ruta de retiros (los que aún no van en otra ruta). */
-export function PlanMineForm({ date, pending, vehicles }: { date: string; pending: number; vehicles: { id: string; label: string }[] }) {
+export function PlanMineForm({ date, pending, vehicles, suggestedId = null }: { date: string; pending: number; vehicles: { id: string; label: string }[]; suggestedId?: string | null }) {
+  const suggested = vehicles.find((v) => v.id === suggestedId);
   const [state, action, working] = useActionState<PickupPlanState, FormData>(planMyPickups, {});
   return (
     <form action={action} className="space-y-2 rounded-2xl border-2 border-foreground p-4">
@@ -67,14 +68,17 @@ export function PlanMineForm({ date, pending, vehicles }: { date: string; pendin
       </p>
       {vehicles.length > 1 && (
         <select name="vehicle_id" defaultValue="" className={input} aria-label="Vehículo">
-          <option value="">Vehículo: el mío (o el más grande libre)</option>
-          {vehicles.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
+          <option value="">Vehículo: el mío{suggested ? ` (si no tengo, ${suggested.label.split(" · ")[0]})` : " (o el sugerido)"}</option>
+          {vehicles.map((v) => <option key={v.id} value={v.id}>{v.label}{v.id === suggestedId ? " · sugerido" : ""}</option>)}
         </select>
       )}
       <button disabled={working || vehicles.length === 0} className="flex w-full items-center justify-center gap-2 rounded-full bg-foreground py-3 font-extrabold text-background disabled:opacity-60">
         <Icon name={working ? "clock" : "sparkle"} className="h-5 w-5" />
         {working ? "Calculando la mejor ruta…" : "Armar mi ruta de retiros"}
       </button>
+      {suggested && vehicles.length > 1 && (
+        <p className="text-xs text-muted">Sugerido: <b>{suggested.label}</b>, porque le cabe todo y su parking queda más a mano (menos km y gasto).</p>
+      )}
       {vehicles.length === 0 && <p className="text-xs text-muted">Falta agregar vehículos en Despacho → Vehículos y horarios.</p>}
       {state.error && <p className="rounded-xl bg-pass/10 p-3 text-sm font-bold text-pass">{state.error}</p>}
       {state.ok && <p className="rounded-xl bg-accent/10 p-3 text-sm font-bold text-accent">{state.ok}</p>}

@@ -27,6 +27,7 @@ export function ProductForm({
   ai,
   sellerId = null,
   basePath = "/admin",
+  warehouses = [],
 }: {
   categories: Category[];
   product?: Product;
@@ -35,6 +36,8 @@ export function ProductForm({
   sellerId?: string | null;
   /** A dónde volver al guardar ("/admin" o "/vendedor"). */
   basePath?: string;
+  /** Bodegas de MUVEO (la principal primero). Vacío = no se muestra. */
+  warehouses?: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -236,6 +239,8 @@ export function ProductForm({
     // Volumen a partir de las medidas en cm (largo × ancho × alto)
     const [dl, da, dh] = ["dim_l", "dim_a", "dim_h"].map((k) => parseFloat(String(f.get(k) ?? "").replace(",", ".")));
     if (dl > 0 && da > 0 && dh > 0) Object.assign(payload, { volume_m3: Math.round(((dl * da * dh) / 1e6) * 1000) / 1000 });
+    // Bodega donde está guardado (vacío = la principal)
+    if (warehouses.length) Object.assign(payload, { warehouse_id: String(f.get("warehouse_id") ?? "") || null });
     // Manejo especial y accesorios (solo si se usan, así funciona aunque falte la migración de recargos)
     const care = String(f.get("care") ?? "");
     const needs = f.getAll("needs_accessories").map(String);
@@ -418,6 +423,16 @@ export function ProductForm({
             ))}
           </select>
         </label>
+        {warehouses.length > 0 && (
+          <label className="block space-y-1">
+            <span className="font-bold">Bodega donde está</span>
+            <select name="warehouse_id" defaultValue={(product as { warehouse_id?: string | null } | undefined)?.warehouse_id ?? ""} className={input}>
+              <option value="">{warehouses[0].name} (principal)</option>
+              {warehouses.slice(1).map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </select>
+            <span className="block text-xs text-muted">La ruta pasa a buscarlo ahí. Productos de bodegas distintas son despachos distintos.</span>
+          </label>
+        )}
         <label className="block space-y-1">
           <span className="font-bold">Tamaño para despacho</span>
           <select name="size" defaultValue={(product as { size?: string | null } | undefined)?.size ?? ""} className={input}>

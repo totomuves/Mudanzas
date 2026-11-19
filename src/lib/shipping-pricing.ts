@@ -145,20 +145,35 @@ export type TripCost = {
   cost: number;
 };
 
-/** Tramo de ida y vuelta. tollKm: km por autopistas con peaje (ida + vuelta). */
-export type Leg = { kmOut: number; kmBack: number; minOut: number; minBack: number; tollKm?: number };
 type TollRates = Pick<PricingSettings, "toll_per_km" | "truck_toll_factor">;
 
 /**
- * Costo de llevar la carga con un vehículo.
- * kmOneWay / minutesOneWay: de la bodega a la dirección (la vuelta se asume igual si no se da).
+ * Tramos de un despacho. Out/Back: bodega → dirección → bodega.
+ * ToStart/Home: del parking del vehículo a la bodega, y de la dirección de vuelta
+ * al parking (si el parking es la bodega, ToStart = 0 y Home = Back).
+ */
+export type Leg = {
+  kmOut: number; kmBack: number; minOut: number; minBack: number;
+  kmToStart?: number; minToStart?: number; kmHome?: number; minHome?: number;
+  /** Minutos de carga en la bodega */
+  loadMin?: number;
+  /** Km por autopistas con peaje (ida y vuelta) */
+  tollKm?: number;
+};
+
+/**
+ * Costo de llevar la carga con un vehículo: parking → bodega → dirección → parking.
+ * Si no cabe en un viaje, cada viaje extra es dirección → bodega → dirección.
  */
 export function tripCost(v: Vehicle, load: Load, leg: Leg, serviceMinutes: number, tollRates?: TollRates): TripCost {
   const capKg = Math.max(1, Number(v.capacity_kg));
   const capM3 = Math.max(0.01, Number(v.capacity_m3));
   const trips = Math.max(1, Math.ceil(Math.max(load.kg / capKg, load.m3 / capM3) - 1e-9));
-  const km = (leg.kmOut + leg.kmBack) * trips;
-  const hours = (((leg.minOut + leg.minBack) + serviceMinutes + load.serviceMin) * trips) / 60;
+  const toStart = leg.kmToStart ?? 0, home = leg.kmHome ?? leg.kmBack;
+  const minToStart = leg.minToStart ?? 0, minHome = leg.minHome ?? leg.minBack;
+  const km = toStart + leg.kmOut + (trips - 1) * (leg.kmBack + leg.kmOut) + home;
+  const drive = minToStart + leg.minOut + (trips - 1) * (leg.minBack + leg.minOut) + minHome;
+  const hours = (drive + (serviceMinutes + load.serviceMin + (leg.loadMin ?? 0)) * trips) / 60;
   const fuel = km * Number(v.cost_per_km || 0);
   const routeTolls = tollRates ? (leg.tollKm ?? 0) * tollRates.toll_per_km * tollFactor(v.kind, tollRates) * trips : 0;
   const tolls = Number(v.toll_per_trip || 0) * trips + routeTolls;
@@ -187,11 +202,14 @@ export function ableVehicles(fleet: Vehicle[], load: Load): { vehicles: Vehicle[
   return { vehicles: bySize, missing: missing.length ? missing : needs };
 }
 
-/** El más barato primero; a igual costo, el que lo hace en menos viajes. */
-export function rankVehicles(fleet: Vehicle[], load: Load, leg: Leg, serviceMinutes: number, tollRates?: TollRates) {
+/**
+ * El más barato primero; a igual costo, el que lo hace en menos viajes.
+ * `leg` puede depender del vehículo (cada uno sale de su parking).
+ */
+export function rankVehicles(fleet: Vehicle[], load: Load, leg: Leg | ((v: Vehicle) => Leg), serviceMinutes: number, tollRates?: TollRates) {
   const { vehicles, missing } = ableVehicles(fleet, load);
   const options = vehicles
-    .map((v) => tripCost(v, load, leg, serviceMinutes, tollRates))
+    .map((v) => tripCost(v, load, typeof leg === "function" ? leg(v) : leg, serviceMinutes, tollRates))
     .sort((a, b) => a.cost - b.cost || a.trips - b.trips);
   return { options, missing };
 }

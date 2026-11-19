@@ -6,7 +6,8 @@ import { createClient } from "@/lib/supabase/server";
 import { ProductCard } from "@/components/ProductCard";
 import { getMarketplaceEnabled } from "@/lib/seller";
 import { BannerCard } from "@/components/BannerCard";
-import { getPhrase } from "@/lib/phrases";
+import { getHeadline } from "@/lib/headline";
+import { PhraseHeadline } from "@/components/PhraseHeadline";
 import { CategoryIcon, Icon } from "@/components/Icon";
 import { SetupNotice } from "@/components/SetupNotice";
 import type { Product } from "@/lib/types";
@@ -34,7 +35,7 @@ export default async function Home() {
       .order("flash_until")
       .limit(4),
     getMarketplaceEnabled(),
-    getPhrase(undefined, brand.hero.title),
+    getHeadline(undefined, brand.hero.title),
   ]);
   const cats = categoryMap(categories);
   const latestProducts = (latest.data ?? []) as Product[];
@@ -66,7 +67,7 @@ export default async function Home() {
       </form>
 
       <section className="space-y-4">
-        <h1 className="text-[28px] font-black leading-tight md:text-4xl">{headline}</h1>
+        <PhraseHeadline text={headline.text} pick={headline.pick} category={headline.pick ? cats[headline.pick.product.category_slug] : undefined} className="text-[28px] font-black leading-tight md:text-4xl" />
         <div className="scroll-row -mx-4 flex gap-4 overflow-x-auto px-4 pb-1">
           {categories.map((c) => (
             <Link key={c.slug} href={`/catalogo?categoria=${c.slug}`} className="group flex w-[72px] shrink-0 flex-col items-center gap-1.5 text-center md:w-20">

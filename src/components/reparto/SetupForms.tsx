@@ -12,6 +12,8 @@ type FormAction = (prev: FormState, f: FormData) => Promise<FormState>;
 export type SetupActions = { saveSettings: FormAction; saveVehicle: FormAction; deleteVehicle: (f: FormData) => Promise<void> };
 
 export type Driver = { id: string; email: string; name: string };
+/** Opciones de parking: bodegas de MUVEO (para vendedores, [] = su bodega). null = falta la migración. */
+export type ParkingOptions = { id: string; name: string }[] | null;
 
 const input = "w-full rounded-xl border border-border bg-background px-3 py-2";
 
@@ -91,7 +93,31 @@ export function SettingsForm({ settings: s, saveAction }: { settings: DeliverySe
   );
 }
 
-export function VehicleForm({ vehicle, drivers, saveAction, onDone }: { vehicle?: Vehicle; drivers: Driver[]; saveAction: FormAction; onDone?: () => void }) {
+function ParkingField({ vehicle, options }: { vehicle?: Vehicle; options: { id: string; name: string }[] }) {
+  const initial = vehicle?.parking_warehouse_id ?? (vehicle?.parking_address ? "direccion" : "");
+  const [mode, setMode] = useState(initial);
+  return (
+    <div className="space-y-2 rounded-xl bg-surface p-3">
+      <p className="text-sm font-bold">Dónde se estaciona (parking)</p>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <select name="parking_mode" value={mode} onChange={(e) => setMode(e.target.value)} className={input} aria-label="Parking">
+          <option value="">{options.length ? `En la bodega principal (${options[0]?.name})` : "En la bodega"}</option>
+          {options.slice(1).map((o) => <option key={o.id} value={o.id}>En {o.name}</option>)}
+          <option value="direccion">En otra dirección…</option>
+        </select>
+        {mode === "direccion" && (
+          <input name="parking_address" defaultValue={vehicle?.parking_address ?? ""} placeholder="Calle 123, Ñuñoa" className={input} aria-label="Dirección del parking" />
+        )}
+      </div>
+      <p className="text-xs text-muted">
+        Cada ruta sale de aquí, pasa a cargar a la bodega, entrega o retira y vuelve aquí. Si se estaciona en una bodega,
+        ese tramo no suma kilómetros. El costo del despacho incluye la ida desde el parking y la vuelta.
+      </p>
+    </div>
+  );
+}
+
+export function VehicleForm({ vehicle, drivers, saveAction, onDone, parking = null }: { vehicle?: Vehicle; drivers: Driver[]; saveAction: FormAction; onDone?: () => void; parking?: ParkingOptions }) {
   const [state, action, pending] = useActionState<FormState, FormData>(async (p, f) => {
     const r = await saveAction(p, f);
     if (r.ok) onDone?.();
@@ -233,6 +259,7 @@ export function VehicleForm({ vehicle, drivers, saveAction, onDone }: { vehicle?
           Ejemplo de bencina: si rinde 8 km por litro y el litro está a $1.300, son $163 por km (súmale algo por desgaste).
         </p>
       </div>
+      {parking && <ParkingField vehicle={vehicle} options={parking} />}
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="space-y-1">
           <span className="block text-sm font-bold">Chofer habitual</span>
@@ -253,13 +280,18 @@ export function VehicleForm({ vehicle, drivers, saveAction, onDone }: { vehicle?
   );
 }
 
-export function VehicleItem({ vehicle: v, drivers, actions }: { vehicle: Vehicle; drivers: Driver[]; actions: SetupActions }) {
+export function VehicleItem({ vehicle: v, drivers, actions, parking = null }: { vehicle: Vehicle; drivers: Driver[]; actions: SetupActions; parking?: ParkingOptions }) {
   const [editing, setEditing] = useState(false);
   const driver = drivers.find((d) => d.id === v.driver_id);
+  const parkedAt = parking
+    ? v.parking_address
+      ? v.parking_address
+      : (parking.find((o) => o.id === v.parking_warehouse_id) ?? parking[0])?.name ?? "la bodega"
+    : null;
   if (editing) {
     return (
       <li className="rounded-2xl border border-border bg-card p-4 sm:col-span-2">
-        <VehicleForm vehicle={v} drivers={drivers} saveAction={actions.saveVehicle} onDone={() => setEditing(false)} />
+        <VehicleForm vehicle={v} drivers={drivers} saveAction={actions.saveVehicle} onDone={() => setEditing(false)} parking={parking} />
         <button onClick={() => setEditing(false)} className="mt-2 text-sm font-bold text-muted">Cancelar</button>
       </li>
     );
@@ -277,6 +309,7 @@ export function VehicleItem({ vehicle: v, drivers, actions }: { vehicle: Vehicle
         </p>
         {!!v.accessories?.length && <p className="text-xs text-muted">Accesorios: {v.accessories.map(accessoryLabel).join(", ")}</p>}
         <p className="text-xs text-muted">{driver ? `Chofer: ${driver.name}` : "Sin chofer asignado"}{v.active ? "" : " · Pausado"}</p>
+        {parkedAt && <p className="text-xs text-muted">Parking: {parkedAt}</p>}
       </div>
       <div className="flex flex-col gap-1">
         <button onClick={() => setEditing(true)} className="rounded-full border border-border px-3 py-1 text-xs font-bold">Editar</button>

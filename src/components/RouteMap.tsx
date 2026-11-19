@@ -6,7 +6,15 @@ import type { Map as LeafletMap } from "leaflet";
 
 export type MapStop = { lat: number; lng: number; seq: number; title: string; status?: string };
 /** noLine: puntos sueltos (sin ruta todavía), sin línea ni bodega. */
-export type MapRoute = { id: string; color: string; stops: MapStop[]; noLine?: boolean };
+/** Parking (P) o bodega (B) por donde pasa la ruta antes o después de las paradas. */
+export type MapPlace = { lat: number; lng: number; letter: "P" | "B"; title: string };
+export type MapRoute = {
+  id: string; color: string; stops: MapStop[]; noLine?: boolean;
+  /** Recorrido antes de la primera parada (parking, bodegas de carga). Si viene, reemplaza a la bodega. */
+  head?: MapPlace[];
+  /** Recorrido después de la última parada (bodega de descarga, parking). */
+  tail?: MapPlace[];
+};
 
 /**
  * Mapa de rutas (Leaflet + OpenStreetMap, gratis y sin clave).
@@ -87,9 +95,19 @@ export function RouteMap({
         }).addTo(map);
         bounds.extend([depot.lat, depot.lng]);
       }
+      const place = (p: MapPlace) => {
+        L.marker([p.lat, p.lng], {
+          icon: icon(`<div style="width:28px;height:28px;border-radius:8px;background:${p.letter === "P" ? "#5b3fe0" : "#121212"};color:#fff;display:flex;align-items:center;justify-content:center;font:800 11px system-ui;box-shadow:0 1px 4px #0005">${p.letter}</div>`),
+          title: p.title,
+        })
+          .bindTooltip(p.title.replace(/</g, "&lt;"))
+          .addTo(map);
+        bounds.extend([p.lat, p.lng]);
+      };
       for (const r of routes) {
         const line: [number, number][] = [];
-        if (depot && !r.noLine) line.push([depot.lat, depot.lng]);
+        if (r.head?.length) for (const p of r.head) { place(p); if (!r.noLine) line.push([p.lat, p.lng]); }
+        else if (depot && !r.noLine) line.push([depot.lat, depot.lng]);
         for (const s of r.stops) {
           line.push([s.lat, s.lng]);
           bounds.extend([s.lat, s.lng]);
@@ -106,7 +124,8 @@ export function RouteMap({
             .bindTooltip(`${s.seq}. ${s.title.replace(/</g, "&lt;")}`)
             .addTo(map);
         }
-        if (depot && !r.noLine) line.push([depot.lat, depot.lng]);
+        if (r.tail?.length) for (const p of r.tail) { place(p); if (!r.noLine) line.push([p.lat, p.lng]); }
+        else if (depot && !r.noLine) line.push([depot.lat, depot.lng]);
         if (line.length > 1 && !r.noLine) {
           // Primero una línea punteada; cuando llega el camino por calles, se reemplaza
           const pl = L.polyline(line, { color: r.color, weight: 3, opacity: 0.5, dashArray: "6 8" }).addTo(map);

@@ -2,11 +2,15 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   DEFAULT_DELIVERY_SETTINGS, ROUTE_COLORS, SIZES, formatDeliveryDate, formatTime, orderLoad, santiagoParts, santiagoToDate,
-  slotWindow, toSeconds, upcomingDeliveryDates, type DeliverySettings, type DeliverySlot, type Vehicle,
+  slotWindow, toSeconds, upcomingDeliveryDates, type DeliverySettings, type DeliverySlot, type RouteWaypoint, type Vehicle,
 } from "@/lib/delivery";
-import { optimizeRoutes, type OptStop, type OptVehicle } from "./optimizer";
+import { optimizeRoutes, type OptRoute, type OptStop, type OptVehicle } from "./optimizer";
 import { SANTIAGO_CENTER, geocode, travelMatrix, type Point } from "./geo";
 import { notifyOrder } from "./notify";
+import { NodeIndex, dropSiteFor, loadLogistics, suggestVehicle, type Logistics, type Site } from "./warehouses";
+
+/** Minutos para cargar o descargar en una bodega. */
+const LOAD_MINUTES = 10;
 
 type Db = ReturnType<typeof createAdminClient>;
 
@@ -60,7 +64,7 @@ type PlanOrder = {
   lng: number | null;
   buyer_name: string;
   checkout_id?: string | null;
-  products: { title: string; size: string | null; category_slug: string; weight_kg: number | null; volume_m3: number | null } | null;
+  products: { title: string; size: string | null; category_slug: string; weight_kg: number | null; volume_m3: number | null; warehouse_id?: string | null } | null;
   /** Retiro (lo que regalan los clientes) en vez de pedido. */
   pickup?: boolean;
 };
@@ -90,15 +94,18 @@ async function pickupsOfDay(db: Db, date: string, exclude: Set<string>) {
 }
 
 const ORDER_FIELDS = "id, user_id, product_id, quantity, address, comuna, delivery_slot, lat, lng, buyer_name, checkout_id, products(title, size, category_slug, weight_kg, volume_m3)";
+/** Con la bodega de cada producto (si ya se corrió la migración de bodegas). */
+const ORDER_FIELDS_WH = ORDER_FIELDS.replace("volume_m3)", "volume_m3, warehouse_id)");
 
 /**
  * Junta los pedidos de una misma compra del carrito: van a la misma dirección,
  * así que son UNA sola parada (una visita, una ventana, una firma).
+ * Si los productos están en bodegas distintas, es un despacho por bodega.
  */
-function groupByCheckout<T extends { id: string; checkout_id?: string | null }>(orders: T[]) {
+function groupByCheckout<T extends { id: string; checkout_id?: string | null }>(orders: T[], bodegaKey: (o: T) => string = () => "") {
   const groups = new Map<string, T[]>();
   for (const o of orders) {
-    const k = o.checkout_id && !(o as { pickup?: boolean }).pickup ? `c:${o.checkout_id}` : o.id;
+    const k = o.checkout_id && !(o as { pickup?: boolean }).pickup ? `c:${o.checkout_id}:${bodegaKey(o)}` : o.id;
     const g = groups.get(k);
     if (g) g.push(o);
     else groups.set(k, [o]);
@@ -187,13 +194,19 @@ export async function planDeliveryDay(date: string, sellerId: SellerScope = null
 
   let ordersQ = db
     .from("orders")
-    .select(ORDER_FIELDS)
+    .select(ORDER_FIELDS_WH)
     .eq("status", "paid")
     .eq("delivery", "despacho")
     .eq("delivery_date", date)
     .is("delivered_at", null);
   ordersQ = sellerId ? ordersQ.eq("seller_id", sellerId) : ordersQ.is("seller_id", null);
-  const { data: rows } = await ordersQ;
+  let { data: rows, error: rowsError } = (await ordersQ) as unknown as { data: unknown[] | null; error: unknown };
+  if (rowsError) {
+    // Sin la migración de bodegas: sin warehouse_id
+    let q2 = db.from("orders").select(ORDER_FIELDS).eq("status", "paid").eq("delivery", "despacho").eq("delivery_date", date).is("delivered_at", null);
+    q2 = sellerId ? q2.eq("seller_id", sellerId) : q2.is("seller_id", null);
+    ({ data: rows, error: rowsError } = await q2);
+  }
   const deliveries = ((rows ?? []) as unknown as PlanOrder[]).filter((o) => !lockedOrders.has(o.id));
   // Los retiros (lo que regalan los clientes) van en las rutas de MUVEO, mezclados si conviene
   const pickups = sellerId ? [] : await pickupsOfDay(db, date, lockedPickups);
@@ -247,10 +260,14 @@ export async function planPickupRoute(date: string, driverId: string, vehicleId?
 
   const busy = new Set((existing ?? []).filter((r) => !mineIds.has(r.id) && r.status === "en_curso").map((r) => r.vehicle_id));
   const free = vehicles.filter((v) => !busy.has(v.id));
+  // El que eligió el chofer, el suyo, o el sugerido (cerca, que le quepa todo y el más barato)
+  const depot = await depotPoint(db, settings, null);
+  const lg = await loadLogistics(db, null, depot, settings, free);
+  await locateOrders(db, pickups);
   const vehicle =
     free.find((v) => v.id === vehicleId) ??
     free.find((v) => v.driver_id === driverId) ??
-    [...free].sort((a, b) => Number(b.capacity_m3) - Number(a.capacity_m3))[0];
+    suggestVehicle(free, pickups.map((o) => ({ lat: o.lat!, lng: o.lng!, ...orderLoad(o.products ?? {}, o.quantity) })), lg)[0]?.vehicle;
   if (!vehicle) {
     return { ...empty, unassigned: pickups.map((o) => ({ orderId: o.id, title: o.products?.title ?? "Retiro", reason: "No hay vehículos disponibles" })) };
   }
@@ -263,10 +280,25 @@ export async function planPickupRoute(date: string, driverId: string, vehicleId?
     status: "publicada",
     driverFor: () => driverId,
     pickupsOnly: true,
+    logistics: lg,
   });
 }
 
-/** Ubica, optimiza y guarda las rutas (compartido por el plan del día y la ruta de retiros). */
+/** Recorrido fijo (parking y bodegas) de una ruta, para guardarlo con la ruta. */
+function routeWaypoints(r: OptRoute, siteOf: Map<number, Site>, date: string) {
+  return r.waypoints
+    .filter((w) => siteOf.has(w.node))
+    .map((w) => {
+      const site = siteOf.get(w.node)!;
+      return { kind: w.kind, name: site.name, lat: site.lat, lng: site.lng, eta: santiagoToDate(date, w.kind === "salida" ? w.departure : w.arrival).toISOString() };
+    });
+}
+
+/**
+ * Ubica, optimiza y guarda las rutas (compartido por el plan del día y la ruta de retiros).
+ * Cada vehículo sale de su parking, pasa a cargar a las bodegas de lo que lleva,
+ * entrega y retira, deja los retiros en una bodega y vuelve a su parking.
+ */
 async function optimizeAndSave(
   db: Db,
   p: {
@@ -280,26 +312,43 @@ async function optimizeAndSave(
     status: "borrador" | "publicada";
     driverFor: (v: Vehicle) => string | null;
     pickupsOnly: boolean;
+    logistics?: Logistics;
   },
 ): Promise<PlanSummary & { routeId?: string }> {
   const { date, sellerId, settings, fleet, orders } = p;
   await locateOrders(db, orders);
   const depot = await depotPoint(db, settings, sellerId);
-  // Una parada por dirección de compra (los productos de un mismo carrito llegan juntos)
-  const groups = groupByCheckout(orders);
-  const points: Point[] = [depot, ...groups.map((g) => ({ lat: g[0].lat!, lng: g[0].lng! }))];
+  const lg = p.logistics ?? (await loadLogistics(db, sellerId, depot, settings, fleet));
+
+  // Puntos fijos: parking de cada vehículo, bodegas de carga y de descarga
+  const idx = new NodeIndex();
+  const siteOf = new Map<number, Site>();
+  const addSite = (site: Site) => {
+    const n = idx.add(site.key, site);
+    siteOf.set(n, site);
+    return n;
+  };
+  const parkNode = new Map(fleet.map((v) => [v.id, addSite(lg.parkingOf(v))]));
+  const dropNode = new Map(fleet.map((v) => [v.id, addSite(dropSiteFor(lg, v))]));
+
+  // Una parada por dirección de compra y bodega (los productos de un mismo carrito llegan juntos)
+  const bodegaOf = (o: PlanOrder) => lg.bodegaOf(o.products?.warehouse_id);
+  const groups = groupByCheckout(orders, (o) => bodegaOf(o).key);
+  const originNode = groups.map((g) => (g[0].pickup ? undefined : addSite(bodegaOf(g[0]))));
+  const stopNode = groups.map((g, i) => idx.add(`s:${i}`, { lat: g[0].lat!, lng: g[0].lng! }));
   const startSec = toSeconds(settings.start_time);
   const endSec = toSeconds(settings.end_time);
-  const matrix = await travelMatrix(points, santiagoToDate(date, startSec), startSec);
+  const matrix = await travelMatrix(idx.points, santiagoToDate(date, startSec), startSec);
 
   const stops: OptStop[] = groups.map((g, i) => {
     const o = g[0];
     const load = stopLoad(g);
     const tw = slotWindow((o.delivery_slot ?? "cualquiera") as DeliverySlot, settings);
     return {
-      id: o.id, node: i + 1, kg: load.kg, m3: load.m3, sizeRank: load.rank,
+      id: o.id, node: stopNode[i], kg: load.kg, m3: load.m3, sizeRank: load.rank,
       service: (settings.service_minutes + load.serviceMin) * 60, twStart: tw[0], twEnd: tw[1],
       pickup: Boolean(o.pickup),
+      originNode: originNode[i],
     };
   });
   const optVehicles: OptVehicle[] = fleet.map((v) => ({
@@ -310,8 +359,11 @@ async function optimizeAndSave(
     costPerKm: v.cost_per_km,
     start: startSec,
     end: endSec,
-    startNode: 0,
-    endNode: 0,
+    // Sale de su parking y vuelve a su parking (si el parking es la bodega, ese tramo es cero)
+    startNode: parkNode.get(v.id)!,
+    endNode: parkNode.get(v.id)!,
+    dropNode: dropNode.get(v.id)!,
+    loadService: lg.migrated ? LOAD_MINUTES * 60 : 0,
     // Usar un vehículo más tiene un costo fijo: prefiere juntar pedidos si alcanza
     fixedCost: p.fixedCost(v),
   }));
@@ -339,6 +391,7 @@ async function optimizeAndSave(
         status: p.status,
         ...(p.status === "publicada" ? { published_at: new Date().toISOString() } : {}),
         ...(p.pickupsOnly ? { pickups_only: true } : {}),
+        ...(lg.migrated ? { waypoints: routeWaypoints(r, siteOf, date) } : {}),
         color: ROUTE_COLORS[((p.pickupsOnly ? 3 : 0) + i) % ROUTE_COLORS.length],
         planned_start: santiagoToDate(date, r.departure).toISOString(),
         planned_end: santiagoToDate(date, r.end).toISOString(),
@@ -463,7 +516,15 @@ export async function reoptimizeRoute(routeId: string, from: Point | null) {
   await locateOrders(db, pending.map((s) => s.orders));
   const lastDone = [...done].reverse().find((s) => s.delivered_lat != null);
   const depot = await depotPoint(db, settings, sellerId);
-  const start: Point = from ?? (lastDone ? { lat: lastDone.delivered_lat!, lng: lastDone.delivered_lng! } : depot);
+  const v = route.vehicles as Vehicle | null;
+  const lg = await loadLogistics(db, sellerId, depot, settings, v ? [v] : []);
+  // Vuelve a su parking; si lleva retiros, antes los deja en la bodega
+  const parking = v ? lg.parkingOf(v) : lg.main;
+  const drop = v ? dropSiteFor(lg, v) : lg.main;
+  const oldWaypoints = (Array.isArray(route.waypoints) ? route.waypoints : []) as RouteWaypoint[];
+  // Si aún no sale, parte desde la última bodega donde carga (o su parking)
+  const lastLoad = [...oldWaypoints].reverse().find((w) => w.kind === "carga");
+  const start: Point = from ?? (lastDone ? { lat: lastDone.delivered_lat!, lng: lastDone.delivered_lng! } : lastLoad ?? parking);
 
   const date = route.delivery_date as string;
   const now = santiagoParts(new Date());
@@ -471,9 +532,9 @@ export async function reoptimizeRoute(routeId: string, from: Point | null) {
   // Paradas con varios productos de una misma compra se mueven juntas
   const groups = [...pending.reduce((m, s) => m.set(s.seq, [...(m.get(s.seq) ?? []), s]), new Map<number, StopRow[]>()).values()];
   const groupOf = new Map(groups.map((g) => [g[0].id, g]));
-  const points: Point[] = [depot, start, ...groups.map((g) => ({ lat: g[0].orders.lat!, lng: g[0].orders.lng! }))];
+  const points: Point[] = [parking, start, ...groups.map((g) => ({ lat: g[0].orders.lat!, lng: g[0].orders.lng! })), drop];
+  const dropIdx = points.length - 1;
   const matrix = await travelMatrix(points, now.date === date ? new Date() : santiagoToDate(date, startSec), startSec);
-  const v = route.vehicles as Vehicle | null;
 
   const stops: OptStop[] = groups.map((g, i) => {
     const s = g[0];
@@ -489,6 +550,7 @@ export async function reoptimizeRoute(routeId: string, from: Point | null) {
     [{
       id: routeId, capKg: 1e9, capM3: 1e9, maxSizeRank: 3, costPerKm: v?.cost_per_km ?? 250,
       start: startSec, end: Math.max(toSeconds(settings.end_time), startSec + 3600), startNode: 1, endNode: 0,
+      dropNode: drop.key === parking.key ? 0 : dropIdx, loadService: lg.migrated ? LOAD_MINUTES * 60 : 0,
     }],
     matrix,
     { timeLimitMs: Math.min(4000, 800 + groups.length * 150), hardLimits: false, seed: Date.now() % 100000 },
@@ -524,10 +586,14 @@ export async function reoptimizeRoute(routeId: string, from: Point | null) {
       await db.from("route_stops").update({ ...rest, leg_distance_m: 0 }).in("id", group.slice(1).map((x) => x.id));
     }
   }
+  // Recorrido fijo: se mantiene la salida y la carga; la descarga y la vuelta al parking se recalculan
+  const siteOf = new Map<number, Site>([[0, parking], [dropIdx, drop]]);
+  const waypoints = [...oldWaypoints.filter((w) => w.kind === "salida" || w.kind === "carga"), ...routeWaypoints(r, siteOf, date).filter((w) => w.kind === "descarga" || w.kind === "llegada")];
   await db.from("delivery_routes").update({
     planned_end: santiagoToDate(date, r.end).toISOString(),
     planned_distance_m: Math.round(r.distance),
     traffic_source: matrix.source,
+    ...(lg.migrated ? { waypoints } : {}),
   }).eq("id", routeId);
   return { changed };
 }
