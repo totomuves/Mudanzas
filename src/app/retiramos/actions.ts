@@ -1,6 +1,7 @@
 "use server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getUser } from "@/lib/supabase/server";
 import { COMUNAS } from "@/lib/comunas";
 
 export type RequestState = { error?: string; ok?: boolean };
@@ -76,6 +77,14 @@ export async function requestPickup(_prev: RequestState, f: FormData): Promise<R
   if (error) {
     console.error("[retiramos]", error);
     return { error: "No pudimos enviar tu solicitud. Intenta en unos minutos." };
+  }
+  // Para "posibles mudanzas": pedir un retiro suma puntos (si falta la migración, no pasa nada)
+  const { user } = await getUser();
+  if (user) {
+    await db
+      .from("moving_signals")
+      .upsert({ user_id: user.id, kind: "solicitud_retiro" }, { onConflict: "user_id,kind,day", ignoreDuplicates: true })
+      .then(({ error: e }) => e && console.warn("[retiramos] señal", e.message));
   }
   return { ok: true };
 }

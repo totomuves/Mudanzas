@@ -7,6 +7,7 @@ import { Footer } from "@/components/Footer";
 import { RegisterSW } from "@/components/RegisterSW";
 import { Analytics } from "@/components/marketing/Analytics";
 import { CookieBanner } from "@/components/marketing/CookieBanner";
+import { MovingPrompt } from "@/components/MovingPrompt";
 import { JsonLd } from "@/components/marketing/JsonLd";
 import { siteUrl } from "@/lib/env";
 import { getCookieConsentRequired } from "@/lib/site-settings";
@@ -60,6 +61,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <RegisterSW />
         <Analytics consentRequired={cookieConsentRequired} />
         <CookieBanner required={cookieConsentRequired} />
+        <MovingPrompt cookieConsentRequired={cookieConsentRequired} />
         <JsonLd
           data={[
             {
