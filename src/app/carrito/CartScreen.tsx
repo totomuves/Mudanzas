@@ -10,7 +10,8 @@ import { useCart } from "@/components/cart/useCart";
 import { trackEvent } from "@/lib/marketing/track";
 import { useShippingQuote } from "@/components/checkout/useShippingQuote";
 import type { ShippingConfig } from "@/lib/data";
-import { loadCart, startCartCheckout, type CartCheckoutState, type CartView } from "./actions";
+import { checkCreditCode, loadCart, startCartCheckout, type CartCheckoutState, type CartView, type CreditCheck } from "./actions";
+import { formatCreditCode, formatCredits } from "@/lib/credits";
 
 const noop = () => () => {};
 
@@ -25,6 +26,10 @@ export function CartScreen({ shipping: config }: { shipping: ShippingConfig }) {
   const [comuna, setComuna] = useState("");
   const [address, setAddress] = useState("");
   const [slot, setSlot] = useState("cualquiera");
+  const [codeInput, setCodeInput] = useState("");
+  const [credit, setCredit] = useState<Extract<CreditCheck, { ok: true }> | null>(null);
+  const [creditError, setCreditError] = useState<string | null>(null);
+  const [checkingCredit, startCheckingCredit] = useTransition();
   // El carrito vive en el navegador: en el servidor se muestra "cargando"
   const hydrated = useSyncExternalStore(noop, () => true, () => false);
 
@@ -63,7 +68,30 @@ export function CartScreen({ shipping: config }: { shipping: ShippingConfig }) {
   const rate = shippingPrice != null;
   const subtotal = ready.reduce((a, l) => a + l.unitPrice * l.qty, 0);
   const shipping = delivery === "despacho" && shippingPrice != null ? shippingPrice : 0;
-  const total = subtotal + shipping;
+  // Créditos: pagan productos de la tienda, nunca el despacho
+  // (mismo cálculo y orden que la base de datos: por id de producto)
+  const storeLines = ready.filter((l) => l.store && l.creditPrice).sort((a, b) => (a.id < b.id ? -1 : 1));
+  const storeSubtotal = storeLines.reduce((a, l) => a + l.unitPrice * l.qty, 0);
+  let discount = 0;
+  let creditsSpent = 0;
+  if (credit && delivery === "despacho") {
+    let left = credit.balance;
+    for (const l of storeLines) {
+      if (left <= 0) break;
+      const cost = l.creditPrice! * l.qty;
+      const amount = l.unitPrice * l.qty;
+      if (left >= cost) {
+        discount += amount;
+        creditsSpent += cost;
+        left -= cost;
+      } else {
+        discount += Math.floor((amount * left) / cost);
+        creditsSpent += left;
+        left = 0;
+      }
+    }
+  }
+  const total = subtotal + shipping - discount;
   const count = ready.reduce((a, l) => a + l.qty, 0);
   const minShipping = config.minPrice;
   const dates = (view?.deliveries ?? []).filter((d) => groups.includes(d.group));
@@ -117,6 +145,7 @@ export function CartScreen({ shipping: config }: { shipping: ShippingConfig }) {
                   <p className="font-black">
                     {formatCLP(l.unitPrice * l.qty)}
                     {l.qty > 1 && <span className="ml-1 text-xs font-semibold text-muted">({formatCLP(l.unitPrice)} c/u)</span>}
+                    {l.creditPrice ? <span className="block text-xs font-extrabold text-brand">o {formatCredits(l.creditPrice * l.qty)}</span> : null}
                   </p>
                 )}
                 <div className="flex items-center gap-3 pt-1">
@@ -242,6 +271,61 @@ export function CartScreen({ shipping: config }: { shipping: ShippingConfig }) {
             </>
           )}
 
+          <section className="space-y-2 rounded-2xl border border-border bg-card p-4">
+            <p className="flex items-center gap-2 font-bold">
+              <Icon name="gift" className="h-5 w-5 text-brand" />
+              ¿Tienes créditos?
+            </p>
+            {credit ? (
+              <div className="space-y-1 text-sm">
+                <input type="hidden" name="credit_code" value={credit.code} />
+                <p>
+                  Código <b className="font-mono">{formatCreditCode(credit.code)}</b>: tienes <b>{formatCredits(credit.balance)}</b>, vigentes hasta el {credit.expires}.
+                </p>
+                {delivery !== "despacho" ? (
+                  <p className="font-bold text-pass">Para usar tus créditos elige despacho. El despacho se paga aparte.</p>
+                ) : storeSubtotal === 0 ? (
+                  <p className="font-bold text-pass">Tus créditos sirven para productos de la tienda, y tu carrito no tiene ninguno.</p>
+                ) : (
+                  <p className="text-muted">Pagan productos de la tienda según su precio en créditos. El despacho se paga aparte, en pesos.</p>
+                )}
+                <button type="button" onClick={() => setCredit(null)} className="font-semibold text-muted underline-offset-4 hover:underline">Quitar código</button>
+              </div>
+            ) : (
+              <>
+                <div className="flex gap-2">
+                  <input
+                    value={codeInput}
+                    onChange={(e) => setCodeInput(e.target.value)}
+                    placeholder="ABCDE-FGHJK"
+                    autoCapitalize="characters"
+                    autoComplete="off"
+                    aria-label="Código de créditos"
+                    className="min-w-0 flex-1 rounded-xl border border-border bg-background px-4 py-3 font-mono uppercase"
+                  />
+                  <button
+                    type="button"
+                    disabled={checkingCredit || !codeInput.trim()}
+                    onClick={() =>
+                      startCheckingCredit(async () => {
+                        setCreditError(null);
+                        const r = await checkCreditCode(codeInput);
+                        if (r.ok) {
+                          setCredit(r);
+                          setDelivery("despacho");
+                        } else setCreditError(r.error);
+                      })
+                    }
+                    className="rounded-xl border-2 border-foreground px-4 font-extrabold disabled:opacity-50"
+                  >
+                    {checkingCredit ? "…" : "Usar"}
+                  </button>
+                </div>
+                {creditError && <p className="text-sm font-bold text-pass">{creditError}</p>}
+              </>
+            )}
+          </section>
+
           <dl className="space-y-1 rounded-2xl border border-border bg-card p-4 text-sm">
             <div className="flex justify-between">
               <dt className="text-muted">Productos ({count})</dt>
@@ -261,6 +345,12 @@ export function CartScreen({ shipping: config }: { shipping: ShippingConfig }) {
                         : "Elige tu comuna"}
               </dd>
             </div>
+            {discount > 0 && (
+              <div className="flex justify-between">
+                <dt className="text-muted">Pagado con {formatCredits(creditsSpent)}</dt>
+                <dd className="font-semibold text-accent">−{formatCLP(discount)}</dd>
+              </div>
+            )}
             <div className="flex justify-between border-t border-border pt-2 text-base">
               <dt className="font-black">Total</dt>
               <dd className="font-black">{formatCLP(total)}</dd>
@@ -273,7 +363,7 @@ export function CartScreen({ shipping: config }: { shipping: ShippingConfig }) {
           {state.error && <p className="rounded-xl bg-pass/10 p-3 text-sm font-bold text-pass">{state.error}</p>}
 
           <button
-            disabled={pending || loading || (delivery === "despacho" && !rate)}
+            disabled={pending || loading || (delivery === "despacho" && !rate) || (credit != null && (delivery !== "despacho" || storeSubtotal === 0))}
             className="w-full rounded-full bg-[#009ee3] py-4 text-lg font-extrabold text-white shadow-lg disabled:opacity-60"
           >
             {pending ? "Conectando con Mercado Pago…" : `Pagar ${formatCLP(total)} con Mercado Pago`}

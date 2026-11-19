@@ -118,6 +118,10 @@ export type Checkout = {
   mp_payment_id: string | null;
   created_at: string;
   paid_at: string | null;
+  /** Descontado con créditos (falta si no se corrió la migración de créditos) */
+  credit_amount?: number;
+  /** Créditos usados (unidades) */
+  credits_used?: number;
 };
 
 export type SellerStatus = "pending" | "approved" | "rejected" | "suspended";

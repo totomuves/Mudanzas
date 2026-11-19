@@ -292,8 +292,17 @@ export async function completeStop(
 }
 
 /** Texto que firma quien regala los productos. */
-export function donationTerms(items: string, brandName: string) {
-  return `Entrego sin costo a ${brandName} lo siguiente: ${items}. Lo hago voluntariamente, es mío o tengo permiso para entregarlo, está en buen estado y funcionando, y acepto que ${brandName} pase a ser su dueño y lo pueda usar, vender o regalar, sin pagarme nada a cambio.`;
+export function donationTerms(items: string, brandName: string, credits?: number | null) {
+  const base = `Entrego sin costo a ${brandName} lo siguiente: ${items}. Lo hago voluntariamente, es mío o tengo permiso para entregarlo, está en buen estado y funcionando, y acepto que ${brandName} pase a ser su dueño y lo pueda usar, vender o regalar`;
+  return credits && credits > 0
+    ? `${base}, sin pagarme dinero. A cambio recibo ${credits} ${credits === 1 ? "crédito" : "créditos"} para comprar en la tienda de ${brandName}, que no se pueden cambiar por dinero, no pagan el despacho y vencen según sus condiciones.`
+    : `${base}, sin pagarme nada a cambio.`;
+}
+
+/** Créditos asignados a un retiro (null si no tiene o si falta la migración). */
+export async function pickupCredits(db: ReturnType<typeof createAdminClient>, pickupId: string) {
+  const { data, error } = await db.from("store_credits").select("amount").eq("pickup_id", pickupId).neq("status", "anulado").maybeSingle();
+  return error || !data ? null : (data.amount as number);
 }
 
 const MAX_PICKUP_PHOTOS = 4;
@@ -338,7 +347,7 @@ export async function completePickup(
     delivered_accuracy_m: input.accuracy != null ? Math.round(input.accuracy) : null,
     failure_reason: null,
   }).eq("id", stop.id);
-  await db.from("pickups").update({ status: "retirado", picked_at: now, photo_paths: paths, donation_terms: donationTerms(stop.pickup.items, brand.name) }).eq("id", stop.pickup.id);
+  await db.from("pickups").update({ status: "retirado", picked_at: now, photo_paths: paths, donation_terms: donationTerms(stop.pickup.items, brand.name, await pickupCredits(db, stop.pickup.id)) }).eq("id", stop.pickup.id);
 
   const here = input.lat != null && input.lng != null ? { lat: input.lat, lng: input.lng } : null;
   if (stop.delivery_routes.status !== "terminada") await advanceRoute(db, stop.route_id, here);
